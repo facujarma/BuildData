@@ -5,6 +5,8 @@ import {
   crearPedidoDeCompra,
   registrarRetraso,
   actualizarStock,
+  getCatalogo,
+  crearMaterialDesdeBot,
 } from "../controllers/botController.js";
 import { registrarObrero, getUserByPhone } from "../controllers/obrerosController.js";
 import { crearTareaDesdeBot } from "../controllers/tareasController.js";
@@ -18,6 +20,10 @@ router.use(botAuthMiddleware);
 
 // Recepción del mensaje crudo
 router.post("/mensaje", recibirMensaje);
+
+// Catálogo para resolver nombres → IDs (GET) y auto-crear materiales
+router.get("/catalogo", getCatalogo);
+router.post("/materiales", crearMaterialDesdeBot);
 
 // Endpoints específicos que Facu llama según lo que detectó en el mensaje
 router.post("/pedidoDeCompra", crearPedidoDeCompra);

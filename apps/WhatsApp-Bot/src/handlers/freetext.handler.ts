@@ -1,14 +1,21 @@
 import { Message } from "whatsapp-web.js";
 import { textToOperation } from "../services/llm.service";
-import { clearPending, hasPending, ApiCall } from "./pendingQuery.store";
+import {
+  clearPending,
+  hasPending,
+  clearEntityPending,
+  hasEntityPending,
+  ApiCall,
+} from "./pendingQuery.store";
 import { validateApiCall } from "../services/endpointSchema";
 import { sendObraConfirmationText } from "../services/pollConfirmation.service";
 import { MSG, MSG_LLM_ERROR } from "../shared/responses";
 
 export async function handleFreeText(phone: string, message: Message): Promise<void> {
   try {
-    if (hasPending(phone)) {
+    if (hasPending(phone) || hasEntityPending(phone)) {
       clearPending(phone);
+      clearEntityPending(phone);
       await message.reply(MSG.ERROR_PENDING_CANCELLED);
     }
 
@@ -65,6 +72,8 @@ export async function handleFreeText(phone: string, message: Message): Promise<v
     await sendObraConfirmationText(phone, message.from, {
       type: "operation",
       operation: validCalls,
+      contenido: message.body.trim(),
+      tipo_mensaje: "texto",
     });
 
     if (invalidDetails.length > 0) {

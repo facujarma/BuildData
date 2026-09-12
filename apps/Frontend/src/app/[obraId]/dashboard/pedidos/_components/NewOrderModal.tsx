@@ -73,12 +73,12 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
         items: [
           {
             material_nombre: mat.trim(),
-            categoria: currentCat,
             unidad: unit,
             cantidad: qty,
             precio_unitario: total / (qty || 1),
           },
         ],
+        categoria: currentCat,
         urgente: urgent,
         nota: note.trim(),
         fecha_llegada_estimada: date || null,

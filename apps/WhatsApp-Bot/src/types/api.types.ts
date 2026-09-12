@@ -1,5 +1,5 @@
 export interface Obra {
-  obra_id: number;
+  obra_id: string;
   obra_nombre: string;
   rol?: string;
   joined_at?: string;

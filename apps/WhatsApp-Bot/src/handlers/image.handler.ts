@@ -5,7 +5,12 @@ import {
   FacturaData,
 } from "../services/vision.service";
 
-import { clearPending, hasPending } from "./pendingQuery.store";
+import {
+  clearPending,
+  hasPending,
+  clearEntityPending,
+  hasEntityPending,
+} from "./pendingQuery.store";
 import { sendObraConfirmationText } from "../services/pollConfirmation.service";
 import { MSG } from "../shared/responses";
 
@@ -13,8 +18,9 @@ export async function handleImage(
   phone: string,
   message: Message,
 ): Promise<void> {
-  if (hasPending(phone)) {
+  if (hasPending(phone) || hasEntityPending(phone)) {
     clearPending(phone);
+    clearEntityPending(phone);
     await message.reply(MSG.ERROR_PENDING_CANCELLED);
   }
 
@@ -33,6 +39,8 @@ export async function handleImage(
       await sendObraConfirmationText(phone, message.from, {
         type: "comprobante",
         data: result.data as ComprobanteData,
+        contenido: formatComprobante(result.data as ComprobanteData),
+        tipo_mensaje: "imagen",
       });
       break;
 
@@ -41,6 +49,8 @@ export async function handleImage(
       await sendObraConfirmationText(phone, message.from, {
         type: "factura",
         data: result.data as FacturaData,
+        contenido: formatFactura(result.data as FacturaData),
+        tipo_mensaje: "imagen",
       });
       break;
 

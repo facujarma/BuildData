@@ -14,6 +14,7 @@ export async function getPedidos(req, res) {
          pm.fecha_llegada_estimada,
          pm.urgente,
          pm.nota,
+         pm.categoria,
          pr.nombre AS proveedor_nombre,
          sp.nombre AS solicitado_por_nombre,
          ap.nombre AS aprobado_por_nombre,
@@ -21,7 +22,6 @@ export async function getPedidos(req, res) {
            SELECT json_agg(
              json_build_object(
                'material', m.nombre,
-               'categoria', m.categoria,
                'unidad', m.unidad,
                'cantidad', i.cantidad,
                'precio_unitario', i.precio_unitario
@@ -66,14 +66,15 @@ async function resolverProveedor(client, nombre) {
 // POST /pedidos — crear pedido desde la web (usuario autenticado)
 // Body: {
 //   obra_id, proveedor_nombre,
-//   items: [{ material_nombre, categoria?, unidad?, cantidad, precio_unitario }],
-//   urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
+//   items: [{ material_nombre, unidad?, cantidad, precio_unitario }],
+//   categoria?, urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
 // }
 export async function crearPedidoWeb(req, res) {
   const {
     obra_id,
     proveedor_nombre,
     items,
+    categoria,
     urgente,
     nota,
     fecha_llegada_estimada,
@@ -113,10 +114,10 @@ export async function crearPedidoWeb(req, res) {
           materialId = existente.rows[0].id;
         } else {
           const creado = await client.query(
-            `INSERT INTO materiales (obra_id, nombre, categoria, unidad, costo_unitario)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO materiales (obra_id, nombre, unidad, costo_unitario)
+             VALUES ($1, $2, $3, $4)
              RETURNING id`,
-            [obra_id, nombre, item.categoria || null, item.unidad || null, Number(item.precio_unitario) || null]
+            [obra_id, nombre, item.unidad || null, Number(item.precio_unitario) || null]
           );
           materialId = creado.rows[0].id;
         }
@@ -132,10 +133,10 @@ export async function crearPedidoWeb(req, res) {
 
     const pedido = await client.query(
       `INSERT INTO pedidos_materiales
-         (obra_id, proveedor_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por)
-       VALUES ($1, $2, 'pendiente', false, $3, $4, $5, $6)
+         (obra_id, proveedor_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por, categoria)
+       VALUES ($1, $2, 'pendiente', false, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [obra_id, proveedor_id, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor]
+      [obra_id, proveedor_id, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor, categoria || null]
     );
     const pedido_id = pedido.rows[0].id;
 

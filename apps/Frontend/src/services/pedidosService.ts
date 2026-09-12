@@ -5,11 +5,11 @@ export interface NewPedidoPayload {
   proveedor_nombre: string;
   items: {
     material_nombre: string;
-    categoria: string;
     unidad: string;
     cantidad: number;
     precio_unitario: number;
   }[];
+  categoria: string;
   urgente: boolean;
   nota: string;
   fecha_llegada_estimada: string | null;
@@ -23,7 +23,6 @@ export interface ObreroLite {
 
 interface RawPedidoItem {
   material: string | null;
-  categoria: string | null;
   unidad: string | null;
   cantidad: number | null;
   precio_unitario: number | null;
@@ -37,6 +36,7 @@ interface RawPedido {
   fecha_llegada_estimada: string | null;
   urgente: boolean;
   nota: string | null;
+  categoria: string | null;
   proveedor_nombre: string | null;
   solicitado_por_nombre: string | null;
   aprobado_por_nombre: string | null;
@@ -80,7 +80,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
       ? `${Number(first.cantidad).toLocaleString("es-AR")} ${first.unidad || ""}`.trim()
       : "",
     prov: row.proveedor_nombre || "",
-    cat: first?.categoria || "",
+    cat: row.categoria || "",
     date: shortFecha(row.fecha_llegada_estimada),
     ordered: shortFecha(row.fecha),
     state: ESTADO_DB_UI[row.estado] || row.estado || "draft",

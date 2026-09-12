@@ -48,7 +48,7 @@ export const ENDPOINTS: EndpointSchema[] = [
   },
 
   {
-    path: "/bot/pedidos",
+    path: "/bot/pedidoDeCompra",
     method: "POST",
     description:
       "Crear un pedido de compra de materiales para una obra. El pedido queda pendiente de aprobación.",
@@ -74,8 +74,16 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "items",
         type: "array",
         description:
-          "Material a pedir. Debe tener material_nombre y cantidad, y puede incluir categoria, unidad y precio_unitario.",
+          "Material a pedir. Debe tener material_nombre y cantidad, y puede incluir unidad y precio_unitario.",
         required: true,
+        source: "llm",
+      },
+      {
+        name: "categoria",
+        type: "string",
+        description:
+          "Categoría del pedido (ej: Herramientas, Hierros, Material eléctrico). Solo si el usuario la menciona.",
+        required: false,
         source: "llm",
       },
       {
@@ -98,7 +106,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "fecha_llegada_estimada",
         type: "string",
         description:
-          "Fecha estimada en la que se necesita recibir el pedido, si el usuario la especifica.",
+          "Fecha estimada en la que se necesita recibir el pedido, si el usuario la especifica. En formato YYYY-MM-DD (ISO), interpretando fechas relativas usando la fecha de hoy.",
         required: false,
         source: "llm",
       },
@@ -106,7 +114,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "solicitado_por",
         type: "string",
         description:
-          "ID de la persona que solicita el pedido. Si no se proporciona, el backend utiliza req.personaId.",
+          "Se completa automáticamente: el backend lo resuelve desde el teléfono del obrero que manda el mensaje.",
         required: false,
         source: "user_phone",
       },
@@ -357,6 +365,19 @@ export function validateApiCall(
     valid: missing.length === 0,
     missingRequired: missing,
   };
+}
+
+/**
+ * Nombres de los campos de un endpoint que el bot completa automáticamente
+ * con el teléfono del obrero (source "user_phone" + nombre que contenga "telefono").
+ * Ej: /bot/tareas → creada_por_telefono.
+ */
+export function getUserPhoneFields(endpoint: string): string[] {
+  const schema = getEndpointSchema(endpoint);
+  if (!schema) return [];
+  return schema.params
+    .filter((p) => p.source === "user_phone" && p.name.toLowerCase().includes("telefono"))
+    .map((p) => p.name);
 }
 
 export function buildEndpointDescription(): string {

@@ -53,9 +53,10 @@ export async function recibirMensaje(req, res) {
 // Facu detectó que se pidió material → crea el pedido. Si la obra tiene aprobacion_automatica
 // activada, el pedido queda aprobado y listo para comprar; si no (default), queda pendiente
 // para que el admin lo apruebe desde el panel (PATCH /pedidos/:id/aprobar|rechazar).
-// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad, precio_unitario}] }
+// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad, precio_unitario}], urgente?, nota?, fecha_llegada_estimada? }
+// solicitado_por se resuelve automáticamente desde telefono → persona que hizo el pedido.
 export async function crearPedidoDeCompra(req, res) {
-  const { obra_id, proveedor_id, telefono, mensaje_id, items } = req.body;
+  const { obra_id, proveedor_id, telefono, mensaje_id, items, urgente, nota, fecha_llegada_estimada, categoria } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
 
   const usuario_id = await resolvePersonaIdByTelefono(telefono);
@@ -68,12 +69,22 @@ export async function crearPedidoDeCompra(req, res) {
 
     await client.query("BEGIN");
 
-    // Crear el pedido
+    // Crear el pedido (solicitado_por = obrero que lo pidió, resuelto desde su teléfono)
     const pedido = await client.query(
-      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, estado, aprobado, fecha_aprobacion)
-       VALUES ($1, $2, $3, $4, CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END)
+      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por, categoria)
+       VALUES ($1, $2, $3, $4, CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [obra_id, proveedor_id, autoApprove ? "aprobado" : "pendiente", autoApprove]
+      [
+        obra_id,
+        proveedor_id,
+        autoApprove ? "aprobado" : "pendiente",
+        autoApprove,
+        urgente || false,
+        nota || null,
+        fecha_llegada_estimada || null,
+        usuario_id,
+        categoria || null,
+      ]
     );
     const pedido_id = pedido.rows[0].id;
 
@@ -180,6 +191,67 @@ export async function registrarRetraso(req, res) {
   }
 }
 
+
+// GET /bot/catalogo?obra_id=<uuid>
+// Facu lista el catálogo disponible (materiales, proveedores y rubros) para
+// que el LLM del bot pueda resolver nombres → IDs antes de ejecutar una operación.
+export async function getCatalogo(req, res) {
+  const { obra_id } = req.query;
+  try {
+    const [materiales, proveedores, rubros] = await Promise.all([
+      pool.query(
+        `SELECT id, nombre, unidad FROM materiales
+         WHERE obra_id = $1 OR obra_id IS NULL
+         ORDER BY nombre ASC`,
+        [obra_id]
+      ),
+      pool.query(`SELECT id, nombre FROM proveedores ORDER BY nombre ASC`),
+      pool.query(
+        `SELECT id, nombre FROM rubros WHERE obra_id = $1 ORDER BY nombre ASC`,
+        [obra_id]
+      ),
+    ]);
+    res.json({
+      materiales: materiales.rows,
+      proveedores: proveedores.rows,
+      rubros: rubros.rows,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error obteniendo catálogo" });
+  }
+}
+
+// POST /bot/materiales
+// Facu auto-crea un material que el usuario pidió y no está en el catálogo.
+// Body esperado: { obra_id, nombre, unidad? }
+export async function crearMaterialDesdeBot(req, res) {
+  const { obra_id, nombre, unidad } = req.body;
+  if (!obra_id || !nombre) return res.status(400).json({ error: "obra_id y nombre son requeridos" });
+
+  try {
+    const existing = await pool.query(
+      `SELECT id, nombre, unidad FROM materiales
+       WHERE obra_id = $1 AND LOWER(nombre) = LOWER($2)
+       LIMIT 1`,
+      [obra_id, nombre]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(201).json(existing.rows[0]);
+    }
+
+    const result = await pool.query(
+      `INSERT INTO materiales (obra_id, nombre, unidad)
+       VALUES ($1, $2, $3)
+       RETURNING id, nombre, unidad`,
+      [obra_id, nombre, unidad || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error creando material" });
+  }
+}
 
 // POST /bot/stock
 // Facu detectó uso de materiales → descuenta del stock y registra movimiento.

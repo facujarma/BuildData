@@ -68,3 +68,47 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     throw error;
   }
 }
+
+// ──────────────────────────────────────────
+// Catálogo (resolución nombres → IDs)
+// ──────────────────────────────────────────
+
+export interface CatalogoMaterial {
+  id: string;
+  nombre: string;
+  unidad?: string | null;
+}
+export interface CatalogoProveedor {
+  id: string;
+  nombre: string;
+}
+export interface CatalogoRubro {
+  id: string;
+  nombre: string;
+}
+export interface Catalogo {
+  materiales: CatalogoMaterial[];
+  proveedores: CatalogoProveedor[];
+  rubros: CatalogoRubro[];
+}
+
+export async function getCatalogo(obraId: string): Promise<Catalogo> {
+  return apiRequest<Catalogo>("GET", `/bot/catalogo?obra_id=${encodeURIComponent(obraId)}`);
+}
+
+export async function crearMaterial(payload: {
+  obra_id: string;
+  nombre: string;
+  unidad?: string;
+}): Promise<CatalogoMaterial> {
+  return apiRequest<CatalogoMaterial>("POST", "/bot/materiales", payload);
+}
+
+export async function registrarMensaje(payload: {
+  obra_id: string;
+  telefono: string;
+  tipo: string;
+  contenido: string;
+}): Promise<{ id: string }> {
+  return apiRequest<{ id: string }>("POST", "/bot/mensaje", payload);
+}
