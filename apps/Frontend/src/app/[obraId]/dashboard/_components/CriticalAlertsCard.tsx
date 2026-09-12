@@ -29,7 +29,7 @@ function CriticalAlertsCard({ alerts, onItemClick, onViewAll }: Props) {
             <span className="text-[11px]">Todo en orden por ahora</span>
           </div>
         ) : (
-          alerts.map((a, i) => (
+          alerts.slice(0, 3).map((a, i) => (
             <button
               key={i}
               onClick={() => onItemClick?.(a)}
