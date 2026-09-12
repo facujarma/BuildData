@@ -14,33 +14,64 @@ export async function handleFreeText(phone: string, message: Message): Promise<v
 
     const raw = await textToOperation(message.body.trim());
 
-    let parsed: ApiCall;
+    let parsed: ApiCall[];
     try {
-      parsed = JSON.parse(raw) as ApiCall;
+      parsed = JSON.parse(raw) as ApiCall[];
     } catch {
       await message.reply(MSG.ERROR_PARSE_FAILED);
       return;
     }
 
-    if (parsed.error) {
-      await message.reply(MSG_LLM_ERROR(parsed.error));
+    if (!Array.isArray(parsed)) {
+      await message.reply(MSG.ERROR_PARSE_FAILED);
       return;
     }
 
-    if (!parsed.endpoint || !parsed.data) {
-      await message.reply(MSG.ERROR_OPERATION_INCOMPLETE);
+    const validCalls: ApiCall[] = [];
+    const invalidDetails: string[] = [];
+
+    for (const call of parsed) {
+      if (call.error) {
+        invalidDetails.push(MSG_LLM_ERROR(call.error));
+        continue;
+      }
+
+      if (!call.endpoint || !call.data) {
+        invalidDetails.push(MSG.ERROR_OPERATION_INCOMPLETE);
+        continue;
+      }
+
+      const validation = validateApiCall(call.endpoint, call.data);
+      if (!validation.valid) {
+        invalidDetails.push(`❌ Me falta información: ${validation.missingRequired.join(", ")}. ¿Podés darme más detalles?`);
+        continue;
+      }
+
+      validCalls.push(call);
+    }
+
+    if (validCalls.length === 0) {
+      for (const detail of invalidDetails) {
+        await message.reply(detail);
+      }
       return;
     }
 
-    const validation = validateApiCall(parsed.endpoint, parsed.data);
-    if (!validation.valid) {
-      const missingList = validation.missingRequired.join(", ");
-      await message.reply(`❌ Me falta información: ${missingList}. ¿Podés darme más detalles?`);
-      return;
-    }
+    const primaryComment = validCalls[0].comment || "Estoy procesando tu solicitud...";
+    const extra =
+      validCalls.length > 1 ? ` Voy a hacer ${validCalls.length} pedidos en total.` : "";
+    await message.reply(`Ok! ${primaryComment}${extra}`);
 
-    await message.reply("Ok! " + (parsed.comment || "Estoy procesando tu solicitud..."));
-    await sendObraConfirmationText(phone, message.from, { type: "operation", operation: parsed });
+    await sendObraConfirmationText(phone, message.from, {
+      type: "operation",
+      operation: validCalls,
+    });
+
+    if (invalidDetails.length > 0) {
+      await message.reply(
+        `⚠️ Estas acciones quedaron pendientes porque les falta información:\n\n${invalidDetails.join("\n")}`,
+      );
+    }
 
   } catch (error) {
     console.error("Error al procesar texto:", error);

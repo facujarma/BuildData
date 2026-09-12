@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { CircleCheck, Car, Clock, TriangleExclamation, Ban, Plus, ArrowUp, Check, ArrowRight } from "@gravity-ui/icons";
+import { useState, useEffect, useCallback } from "react";
+import { Car, Clock, TriangleExclamation, Plus, ArrowUp } from "@gravity-ui/icons";
 import { DCard } from "@/components/ui/DCard";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
-import { getPedidos } from "@/services/mock/pedidosService";
+import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
+import { getPedidos, createPedido, aprobarPedido, rechazarPedido, getObreros } from "@/services/pedidosService";
+import { getRubrosDeObra } from "@/services/cronogramaService";
+import type { NewPedidoPayload, ObreroLite } from "@/services/pedidosService";
 import type { PedidoItem } from "../data";
 import { STATE_MAP, FILTERS, fmtCurrency } from "../data";
 import { OrderDrawer } from "./OrderDrawer";
@@ -15,18 +18,30 @@ import { NewOrderModal } from "./NewOrderModal";
 import { DeliveryModal } from "./DeliveryModal";
 
 export function ScreenPedidos() {
+  const { obraId } = useDashboardData();
   const [orders, setOrders] = useState<PedidoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("Todos");
   const [selected, setSelected] = useState<PedidoItem | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [deliverFor, setDeliverFor] = useState<PedidoItem | null>(null);
+  const [members, setMembers] = useState<ObreroLite[]>([]);
+  const [rubros, setRubros] = useState<string[]>([]);
   const [toast, flash] = useToast();
 
+  const load = useCallback(() => {
+    return getPedidos(obraId).then(setOrders);
+  }, [obraId]);
+
   useEffect(() => {
-    setLoading(true);
-    getPedidos().then((d) => { setOrders(d.orders); setLoading(false); });
-  }, []);
+    load()
+      .then(() => setLoading(false))
+      .catch(() => { setLoading(false); flash("No se pudieron cargar los pedidos"); });
+    getObreros(obraId).then(setMembers).catch(() => {});
+    getRubrosDeObra(obraId)
+      .then((r) => setRubros(r.map((x) => x.nombre)))
+      .catch(() => {});
+  }, [load, obraId, flash]);
 
   const filtered = orders.filter((o) => {
     if (filter === "Todos") return true;
@@ -41,18 +56,28 @@ export function ScreenPedidos() {
     .filter((o) => o.state === "delivered" || o.state === "approved" || o.state === "transit" || o.state === "pending" || o.state === "late")
     .reduce((s, o) => s + (o.total || 0), 0);
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!selected) return;
-    setOrders((prev) => prev.map((o) => o.id === selected.id ? { ...o, state: "approved" } : o));
-    setSelected((prev) => prev ? { ...prev, state: "approved" } : null);
-    flash("Pedido aprobado");
+    try {
+      await aprobarPedido(selected.id);
+      await load();
+      setSelected(null);
+      flash("Pedido aprobado");
+    } catch {
+      flash("No se pudo aprobar el pedido");
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!selected) return;
-    setOrders((prev) => prev.map((o) => o.id === selected.id ? { ...o, state: "cancelled" } : o));
-    setSelected((prev) => prev ? { ...prev, state: "cancelled" } : null);
-    flash("Pedido cancelado");
+    try {
+      await rechazarPedido(selected.id);
+      await load();
+      setSelected(null);
+      flash("Pedido cancelado");
+    } catch {
+      flash("No se pudo cancelar el pedido");
+    }
   };
 
   const handleDeliverSave = (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
@@ -64,9 +89,10 @@ export function ScreenPedidos() {
     flash("Entrega registrada");
   };
 
-  const handleNewSave = (order: PedidoItem) => {
-    setOrders((prev) => [order, ...prev]);
+  const handleNewSave = async (payload: NewPedidoPayload) => {
+    await createPedido(obraId, payload);
     setShowNew(false);
+    await load();
     flash("Pedido creado");
   };
 
@@ -155,9 +181,10 @@ export function ScreenPedidos() {
 
       {showNew && (
         <NewOrderModal
-          count={orders.length}
           onClose={() => setShowNew(false)}
-          onSave={handleNewSave}
+          onSubmit={handleNewSave}
+          members={members}
+          rubros={rubros}
         />
       )}
 

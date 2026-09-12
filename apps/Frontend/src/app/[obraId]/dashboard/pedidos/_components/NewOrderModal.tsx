@@ -1,28 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Xmark, Plus } from "@gravity-ui/icons";
 import DButton from "@/components/ui/Button";
-import { CATEGORIES, UNITS, PEOPLE } from "../data";
-import type { PedidoItem } from "../data";
+import { UNITS } from "../data";
+import type { NewPedidoPayload } from "@/services/pedidosService";
+import type { ObreroLite } from "@/services/pedidosService";
 
 interface Props {
   onClose: () => void;
-  onSave: (order: PedidoItem) => void;
-  count: number;
+  onSubmit: (payload: NewPedidoPayload) => Promise<void>;
+  members: ObreroLite[];
+  rubros: string[];
 }
 
-export function NewOrderModal({ onClose, onSave, count }: Props) {
-  const [cats, setCats] = useState([...CATEGORIES]);
+export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
+  const [customCats, setCustomCats] = useState<string[]>([]);
   const [units, setUnits] = useState([...UNITS]);
   const [mat, setMat] = useState("");
   const [prov, setProv] = useState("");
-  const [cat, setCat] = useState(cats[0]);
+  const [cat, setCat] = useState("");
   const [qty, setQty] = useState<number>(1);
   const [unit, setUnit] = useState(units[0]);
   const [total, setTotal] = useState<number>(0);
   const [date, setDate] = useState("");
-  const [who, setWho] = useState(PEOPLE[0]);
+  const [who, setWho] = useState("");
   const [urgent, setUrgent] = useState(false);
   const [note, setNote] = useState("");
 
@@ -30,13 +32,21 @@ export function NewOrderModal({ onClose, onSave, count }: Props) {
   const [newUnit, setNewUnit] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [showNewUnit, setShowNewUnit] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const cats = useMemo(
+    () => Array.from(new Set([...rubros, ...customCats])),
+    [rubros, customCats]
+  );
+  const currentCat = cat || cats[0] || "";
 
   const canSave = mat.trim() && prov.trim();
 
   const addCategory = () => {
     const val = newCat.trim();
     if (val && !cats.includes(val)) {
-      setCats([...cats, val]);
+      setCustomCats((prev) => [...prev, val]);
       setCat(val);
     }
     setNewCat("");
@@ -53,25 +63,31 @@ export function NewOrderModal({ onClose, onSave, count }: Props) {
     setShowNewUnit(false);
   };
 
-  const submit = () => {
-    if (!canSave) return;
-    const pad = String(count + 1).padStart(4, "0");
-    const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-    onSave({
-      id: `PED-${pad}`,
-      mat: mat.trim(),
-      qty: String(qty) + ' ' + unit,
-      prov: prov.trim(),
-      cat,
-      date,
-      ordered: today,
-      state: 'draft',
-      total,
-      unit: 'AR$ ' + (total / (qty || 1)).toLocaleString('es-AR') + '/' + unit,
-      who,
-      urgent,
-      note: note.trim(),
-    });
+  const submit = async () => {
+    if (!canSave || saving) return;
+    setError("");
+    setSaving(true);
+    try {
+      await onSubmit({
+        proveedor_nombre: prov.trim(),
+        items: [
+          {
+            material_nombre: mat.trim(),
+            categoria: currentCat,
+            unidad: unit,
+            cantidad: qty,
+            precio_unitario: total / (qty || 1),
+          },
+        ],
+        urgente: urgent,
+        nota: note.trim(),
+        fecha_llegada_estimada: date || null,
+        solicitado_por: who || null,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo crear el pedido");
+      setSaving(false);
+    }
   };
 
   return (
@@ -120,7 +136,7 @@ export function NewOrderModal({ onClose, onSave, count }: Props) {
                 <DButton size="sm" onClick={addCategory} disabled={!newCat.trim()}>Agregar</DButton>
               </div>
             ) : (
-              <select value={cat} onChange={(e) => setCat(e.target.value)}
+              <select value={currentCat} onChange={(e) => setCat(e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
                 {cats.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -173,7 +189,7 @@ export function NewOrderModal({ onClose, onSave, count }: Props) {
               <span className="text-[11px] font-bold text-slate-700">Solicitó</span>
               <select value={who} onChange={(e) => setWho(e.target.value)}
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                {PEOPLE.map((p) => <option key={p} value={p}>{p}</option>)}
+                {members.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2 pt-5">
@@ -190,11 +206,13 @@ export function NewOrderModal({ onClose, onSave, count }: Props) {
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Observaciones adicionales…"
               className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-none" />
           </label>
+
+          {error && <div className="text-[12px] font-semibold text-critical">⚠️ {error}</div>}
         </div>
 
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
-          <DButton variant="ghost" onClick={onClose}>Cancelar</DButton>
-          <DButton onClick={submit} disabled={!canSave}>Crear pedido</DButton>
+          <DButton variant="ghost" onClick={onClose} disabled={saving}>Cancelar</DButton>
+          <DButton onClick={submit} disabled={!canSave || saving}>{saving ? "Creando…" : "Crear pedido"}</DButton>
         </div>
       </div>
     </div>

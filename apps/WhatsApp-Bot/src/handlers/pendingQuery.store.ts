@@ -9,7 +9,7 @@ export interface ApiCall {
 }
 
 export type PendingQuery =
-  | { type: "operation"; operation: ApiCall; obra_id?: number }
+  | { type: "operation"; operation: ApiCall[]; obra_id?: number }
   | { type: "comprobante"; data: ComprobanteData; obra_id?: number }
   | { type: "factura"; data: FacturaData; obra_id?: number };
 

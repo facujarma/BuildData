@@ -21,19 +21,21 @@ async function executePending(pending: PendingQuery, obraNombre: string, phone: 
   const tag = `obra "${obraNombre}"`;
   switch (pending.type) {
     case "operation": {
-      const { endpoint, method, data } = pending.operation;
-      const payload = {
-        ...data,
-        obra_id: pending.obra_id,
-      };
-      console.log(`[executePending] → ${method} ${endpoint} para ${tag}`);
-      console.log(`[executePending] payload: ${JSON.stringify(payload)}`);
-      try {
-        //const result = await callEndpoint(method, endpoint, payload);
-        //console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-      } catch (error) {
-        console.error(`[executePending] error llamando ${endpoint}:`, error);
-        throw error;
+      for (const op of pending.operation) {
+        const { endpoint, method, data } = op;
+        const payload = {
+          ...data,
+          obra_id: pending.obra_id,
+        };
+        console.log(`[executePending] → ${method} ${endpoint} para ${tag}`);
+        console.log(`[executePending] payload: ${JSON.stringify(payload)}`);
+        try {
+          //const result = await callEndpoint(method, endpoint, payload);
+          //console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
+        } catch (error) {
+          console.error(`[executePending] error llamando ${endpoint}:`, error);
+          throw error;
+        }
       }
       break;
     }

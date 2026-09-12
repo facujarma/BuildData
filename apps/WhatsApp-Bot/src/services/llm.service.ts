@@ -20,6 +20,7 @@ Formato:
   "comment": "explicación en español de lo que vas a hacer"
 }
 
+Tenes que darme un array obligatoriamente, es posible que solo uses un endpoint pero igualmente es necesario que devuelvas un array. Por este mismo motivo tambien podes llamar a mas de un endpoint en la misma respuesta, si es necesario.  
 Endpoints disponibles:
 
 ${ENDPOINTS_DESC}
@@ -34,7 +35,7 @@ Reglas:
 
 export async function textToOperation(userMessage: string): Promise<string> {
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-120b",
     temperature: 0,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },

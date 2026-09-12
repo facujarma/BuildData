@@ -38,8 +38,6 @@ export const FILTERS = ['Todos', 'Por aprobar', 'En camino', 'Demorados', 'Entre
 
 export const PEOPLE = ['L. Benítez', 'C. Ríos', 'P. Salas', 'M. Ortiz'];
 
-export const CATEGORIES = ['Áridos y cementos', 'Hierros', 'Mampostería', 'Eléctrico', 'Sanitario', 'Terminaciones'];
-
 export const UNITS = ['bolsas', 'u', 'm³', 'm', 'm²', 'kg', 't', 'L', 'barras', 'cajas', 'rollos', 'global'];
 
 export function fmtCurrency(n: number) {
