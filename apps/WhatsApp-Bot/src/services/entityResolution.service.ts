@@ -105,6 +105,8 @@ async function resolveSlot(
   const candidates = catalogList(catalogo, slot.kind);
   const resolved = await resolveEntity(rawValue, slot.kind, candidates);
 
+  console.log(`[entityResolution] slot "${slot.key}" con valor "${rawValue}" → match_id=${resolved.match_id}, confianza=${resolved.confianza}, candidatos=${resolved.candidatos.map((c) => c.id).join(",")}`);
+
   const apply = (id: string): void => {
     if (slot.key !== slot.targetKey) delete container[slot.key];
     container[slot.targetKey] = id;
@@ -112,6 +114,18 @@ async function resolveSlot(
   const drop = (): void => {
     delete container[slot.key];
   };
+
+  if(resolved.candidatos.length > 0){
+    return {
+      entity: rawValue,
+      kind: slot.kind,
+      opIndex,
+      dataKey,
+      itemIndex,
+      slotKey: slot.key,
+      options: resolved.candidatos,
+    };
+  }
 
   if (resolved.match_id && resolved.confianza === "alta") {
     apply(resolved.match_id);

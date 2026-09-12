@@ -100,14 +100,14 @@ export async function crearPedidoDeCompra(req, res) {
     // Alerta: informativa si se aprobó solo, de acción si necesita que alguien decida
     if (autoApprove) {
       await client.query(
-        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id)
-         VALUES ($1, 'pedido_aprobado_automaticamente', 'Pedido de compra creado y aprobado automáticamente', 'media', $2)`,
+        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
+         VALUES ($1, 'pedido_aprobado_automaticamente', 'Pedido de compra creado y aprobado automáticamente', 'media', $2, 'Pedido aprobado automáticamente', 'El pedido de compra se generó y quedó aprobado', 'attention')`,
         [obra_id, usuario_id]
       );
     } else {
       await client.query(
-        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id)
-         VALUES ($1, 'pedido_pendiente', 'Nuevo pedido de compra requiere aprobación', 'alta', $2)`,
+        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
+         VALUES ($1, 'pedido_pendiente', 'Nuevo pedido de compra requiere aprobación', 'alta', $2, 'Nuevo pedido de compra', 'Requiere aprobación para ejecutar la compra', 'attention')`,
         [obra_id, usuario_id]
       );
     }
@@ -161,8 +161,8 @@ export async function registrarRetraso(req, res) {
     }
 
     await pool.query(
-      `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id)
-       VALUES ($1, 'retraso', $2, 'alta', $3)`,
+      `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
+       VALUES ($1, 'retraso', $2, 'alta', $3, 'Retraso en tarea', $2, 'attention')`,
       [
         obra_id,
         `El rubro "${rubro.rows[0].nombre}" se atrasó ${dias_retraso} días`,
@@ -289,9 +289,9 @@ export async function actualizarStock(req, res) {
       const m = material.rows[0];
       if (m.stock_actual <= m.stock_minimo) {
         await client.query(
-          `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad)
-           VALUES ($1, 'stock_bajo', $2, 'media')`,
-          [obra_id, `Stock bajo de ${m.nombre}: quedan ${m.stock_actual} unidades`]
+          `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, titulo, subtitulo, severity)
+           VALUES ($1, 'stock_bajo', $2, 'media', $3, $4, 'attention')`,
+          [obra_id, `Stock bajo de ${m.nombre}: quedan ${m.stock_actual} unidades`, `Stock bajo de ${m.nombre}`, `Quedan ${m.stock_actual} unidades`]
         );
       }
     }

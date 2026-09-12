@@ -149,8 +149,8 @@ export async function crearPedidoWeb(req, res) {
     }
 
     await client.query(
-      `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id)
-       VALUES ($1, 'pedido_pendiente', 'Nuevo pedido de compra requiere aprobación', 'alta', $2)`,
+      `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
+       VALUES ($1, 'pedido_pendiente', 'Nuevo pedido de compra requiere aprobación', 'alta', $2, 'Nuevo pedido de compra', 'Requiere aprobación para ejecutar la compra', 'attention')`,
       [obra_id, solicitadoPor]
     );
 

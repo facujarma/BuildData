@@ -29,9 +29,9 @@ export async function verificarInactividad() {
       if (yaAlertada.rows.length > 0) continue;
 
       await pool.query(
-        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad)
-         VALUES ($1, 'inactividad', $2, 'media')`,
-        [obra.id, `La obra "${obra.nombre}" no tiene actividad del bot hace más de ${DIAS_INACTIVIDAD} días`]
+        `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, titulo, subtitulo, severity)
+         VALUES ($1, 'inactividad', $2, 'media', 'Obra sin actividad', $3, 'attention')`,
+        [obra.id, `La obra "${obra.nombre}" no tiene actividad del bot hace más de ${DIAS_INACTIVIDAD} días`, `Sin mensajes del bot hace más de ${DIAS_INACTIVIDAD} días`]
       );
     }
   } catch (error) {
