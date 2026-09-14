@@ -7,6 +7,7 @@ import { DashboardDataProvider, useDashboardData } from "@/app/[obraId]/dashboar
 import { QuickAddProvider } from "@/app/[obraId]/dashboard/_components/QuickAddContext";
 import { QuickAddModal } from "@/app/[obraId]/dashboard/_components/QuickAddModal";
 import { NuevaTareaModal } from "@/app/[obraId]/dashboard/cronograma/_components/NuevaTareaModal";
+import { NewOrderQuickModal } from "@/app/[obraId]/dashboard/pedidos/_components/NewOrderQuickModal";
 import { useToast, DashToast } from "@/app/[obraId]/dashboard/_components/useToast";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
@@ -59,6 +60,12 @@ function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string
           obraId={obraId}
           onClose={() => setQuickAdd(null)}
           onCreate={() => { setQuickAdd(null); refreshDashboard().catch(() => {}); }}
+        />
+      ) : quickAdd === "pedido" ? (
+        <NewOrderQuickModal
+          obraId={obraId}
+          onClose={() => setQuickAdd(null)}
+          onDone={flash}
         />
       ) : (
         <QuickAddModal kind={quickAdd} obraId={obraId} onClose={() => setQuickAdd(null)} onDone={flash} />

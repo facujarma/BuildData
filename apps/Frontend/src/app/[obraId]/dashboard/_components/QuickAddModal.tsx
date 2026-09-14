@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import {
   Calendar,
   CircleExclamation,
-  Box,
   ChartBar,
   Persons,
   Check,
@@ -56,16 +55,6 @@ const QUICK_FORMS: Record<string, FormConfig> = {
       { id: "titulo", label: "Título del problema", type: "text", placeholder: "Ej: Falla en Grúa Torre 2", required: true },
       { id: "nivel",  label: "Nivel", type: "select", options: ["Crítico", "Importante", "Moderado"] },
       { id: "desc",   label: "Descripción", type: "textarea", placeholder: "Detalle de lo que pasó…" },
-    ],
-  },
-  pedido: {
-    title: "Nuevo pedido", icon: Box, accent: "#F59E0B",
-    done: (d) => `Pedido de "${d.material}" creado`,
-    fields: [
-      { id: "material", label: "Material", type: "text", placeholder: "Ej: Cemento Portland 50 kg", required: true },
-      { id: "cantidad", label: "Cantidad", type: "text", placeholder: "Ej: 120 bolsas" },
-      { id: "prov",     label: "Proveedor", type: "text", placeholder: "Ej: Cementos del Plata" },
-      { id: "fecha",    label: "Fecha de llegada", type: "date" },
     ],
   },
   reporte: {
