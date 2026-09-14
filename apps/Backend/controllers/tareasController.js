@@ -384,7 +384,7 @@ export async function completarTarea(req, res) {
 // contra la obra de la tarea puntual. Soporta revertir con completada=false.
 export async function completarTareaDesdeBot(req, res) {
   const { id } = req.params;
-  const { telefono, completada, porcentaje_avance } = req.body;
+  const { telefono, completada, porcentaje_avance, mensaje_id } = req.body;
 
   if (!telefono) {
     return res.status(400).json({ error: "telefono es requerido" });
@@ -439,6 +439,12 @@ export async function completarTareaDesdeBot(req, res) {
          WHERE id = $2
          RETURNING *`,
         [pct, id]
+      );
+    }
+    if (mensaje_id) {
+      await pool.query(
+        `UPDATE mensajes SET estado_procesamiento = 'procesado' WHERE id = $1`,
+        [mensaje_id]
       );
     }
     res.json(result.rows[0]);

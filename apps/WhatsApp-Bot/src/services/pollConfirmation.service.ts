@@ -21,6 +21,7 @@ import {
   neededCatalogTipos,
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
+import { interpolatePathParams } from "./pathParams.service";
 
 // Los montos de vision.service.ts llegan en formato argentino ("$1.234,56") — hay que
 // convertirlos a number antes de mandarlos a /bot/gastos, que espera monto: number.
@@ -116,28 +117,6 @@ function entityKindPlural(kind: EntityKind): string {
     case "tarea":
       return "tareas";
   }
-}
-
-// Interpola los params de path (ej: :id) con valores resueltos del payload
-// (ej: tarea_id) y los quita del body para que no viajen en el JSON.
-function interpolatePathParams(
-  endpoint: string,
-  payload: Record<string, unknown>,
-): { path: string; body: Record<string, unknown> } {
-  let path = endpoint;
-  for (const token of endpoint.match(/:[a-z_]+/gi) ?? []) {
-    const name = token.slice(1);
-    const value =
-      payload[name] ??
-      payload[`${name}_id`] ??
-      (name === "id" ? payload.tarea_id : undefined);
-    if (typeof value === "string" && value) {
-      path = path.replace(token, value);
-    }
-    delete payload[name];
-    if (name === "id") delete payload.tarea_id;
-  }
-  return { path, body: payload };
 }
 
 async function sendEntityQuestion(chatId: string, question: EntityQuestion): Promise<void> {
