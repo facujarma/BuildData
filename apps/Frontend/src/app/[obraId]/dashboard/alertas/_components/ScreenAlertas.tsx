@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useParams } from "next/navigation";
 import { CircleExclamation, Check, Plus } from "@gravity-ui/icons";
-import { getAlertas } from "@/services/mock/alertasService";
+import { getAlertas } from "@/services/alertasService";
 import type { AlertaItem } from "@/app/[obraId]/dashboard/alertas/data";
 import { TABS, TONES } from "@/app/[obraId]/dashboard/alertas/data";
 import { DCard } from "@/components/ui/DCard";
@@ -18,16 +19,27 @@ const TAB_TO_LVL: Record<string, string | undefined> = {
 };
 
 export function ScreenAlertas() {
+  const { obraId } = useParams<{ obraId: string }>();
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState<AlertaItem[]>([]);
   const [activeTab, setActiveTab] = useState("todas");
 
   useEffect(() => {
-    getAlertas().then((data) => {
-      setAlerts(data.alerts);
-      setLoading(false);
-    });
-  }, []);
+    let cancelled = false;
+    getAlertas(obraId)
+      .then((data) => {
+        if (!cancelled) {
+          setAlerts(data.alerts);
+        }
+      })
+      .catch((error) => {
+        console.error("Error cargando alertas:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [obraId]);
 
   const tabCounts = useMemo(() => ({
     todas: alerts.length,

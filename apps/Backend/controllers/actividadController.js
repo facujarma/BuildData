@@ -22,9 +22,9 @@ export async function getActividad(req, res) {
         a.created_at,
         a.entidad_tipo,
         a.entidad_id,
-        p.nombre AS usuario_nombre
+        COALESCE(p.nombre, 'Sistema') AS usuario_nombre
       FROM actividad a
-      JOIN personas p ON p.id = a.usuario_id
+      LEFT JOIN personas p ON p.id = a.usuario_id
       WHERE a.obra_id = $1
       ORDER BY a.created_at DESC`,
       [obra_id]

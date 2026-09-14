@@ -209,12 +209,19 @@ export const ENDPOINTS: EndpointSchema[] = [
       "Marcar una tarea como terminada, o revertir esa marca, a partir de un mensaje de un obrero (ej: 'terminé de pintar la pared')",
     params: [
       {
-        name: "id",
+        name: "obra_id",
+        type: "string",
+        description: "ID o nombre de la obra",
+        required: true,
+        source: "obra_poll",
+      },
+      {
+        name: "tarea_nombre",
         type: "string",
         description:
-          "UUID de la tarea, resuelto por el pipeline de match de entidades (match_tareas), no lo genera el LLM",
+          "Nombre de la tarea que el obrero dice haber terminado (se resuelve contra las tareas de la obra a través del pipeline de entidades)",
         required: true,
-        source: "entity_resolution",
+        source: "llm",
       },
       {
         name: "completada",
@@ -225,18 +232,10 @@ export const ENDPOINTS: EndpointSchema[] = [
         source: "llm",
       },
       {
-        name: "completada_por_telefono",
-        type: "string",
-        description:
-          "Teléfono del obrero que completó el trabajo (requerido si completada=true)",
-        required: false,
-        source: "user_phone",
-      },
-      {
         name: "porcentaje_avance",
         type: "number",
         description:
-          "Porcentaje de avance (opcional; default 100 si completada=true, sin cambio si completada=false)",
+          "Porcentaje de avance (opcional; default 100 si completada=true, 0 si completada=false)",
         required: false,
         source: "llm",
       },

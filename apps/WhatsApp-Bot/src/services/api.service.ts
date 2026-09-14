@@ -39,7 +39,7 @@ async function apiRequest<T>(
 }
 
 export async function callEndpoint(
-  method: "POST" | "GET",
+  method: "POST" | "GET" | "PATCH",
   path: string,
   body?: Record<string, unknown>,
 ): Promise<unknown> {
@@ -86,14 +86,23 @@ export interface CatalogoRubro {
   id: string;
   nombre: string;
 }
+export interface CatalogoTarea {
+  id: string;
+  nombre: string;
+}
 export interface Catalogo {
-  materiales: CatalogoMaterial[];
-  proveedores: CatalogoProveedor[];
-  rubros: CatalogoRubro[];
+  materiales?: CatalogoMaterial[];
+  proveedores?: CatalogoProveedor[];
+  rubros?: CatalogoRubro[];
+  tareas?: CatalogoTarea[];
 }
 
-export async function getCatalogo(obraId: string): Promise<Catalogo> {
-  return apiRequest<Catalogo>("GET", `/bot/catalogo?obra_id=${encodeURIComponent(obraId)}`);
+// `tipos` filtra qué secciones trae el backend (materiales/proveedores/rubros/tareas).
+// Si no se pasa, el backend devuelve todas.
+export async function getCatalogo(obraId: string, tipos?: string[]): Promise<Catalogo> {
+  const query = new URLSearchParams({ obra_id: obraId });
+  if (tipos && tipos.length > 0) query.set("tipos", tipos.join(","));
+  return apiRequest<Catalogo>("GET", `/bot/catalogo?${query.toString()}`);
 }
 
 export async function crearMaterial(payload: {

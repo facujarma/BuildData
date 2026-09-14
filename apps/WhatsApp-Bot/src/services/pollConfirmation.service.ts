@@ -18,6 +18,7 @@ import {
   EntityQuestion,
   applyQuestionAnswer,
   EntityKind,
+  neededCatalogTipos,
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
 
@@ -43,10 +44,11 @@ async function executePending(pending: PendingQuery, obraNombre: string, phone: 
         for (const userPhoneField of getUserPhoneFields(endpoint)) {
           if (payload[userPhoneField] == null) payload[userPhoneField] = phone;
         }
-        console.log(`[executePending] → ${method} ${endpoint} para ${tag}`);
-        console.log(`[executePending] payload: ${JSON.stringify(payload)}`);
+        const { path, body } = interpolatePathParams(endpoint, payload);
+        console.log(`[executePending] → ${method} ${path} para ${tag}`);
+        console.log(`[executePending] payload: ${JSON.stringify(body)}`);
         try {
-          const result = await callEndpoint(method, endpoint, payload);
+          const result = await callEndpoint(method, path, body);
           console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
         } catch (error) {
           console.error(`[executePending] error llamando ${endpoint}:`, error);
@@ -98,7 +100,44 @@ function entityKindLabel(kind: EntityKind): string {
       return "proveedor";
     case "rubro":
       return "rubro";
+    case "tarea":
+      return "tarea";
   }
+}
+
+function entityKindPlural(kind: EntityKind): string {
+  switch (kind) {
+    case "material":
+      return "materiales";
+    case "proveedor":
+      return "proveedores";
+    case "rubro":
+      return "rubros";
+    case "tarea":
+      return "tareas";
+  }
+}
+
+// Interpola los params de path (ej: :id) con valores resueltos del payload
+// (ej: tarea_id) y los quita del body para que no viajen en el JSON.
+function interpolatePathParams(
+  endpoint: string,
+  payload: Record<string, unknown>,
+): { path: string; body: Record<string, unknown> } {
+  let path = endpoint;
+  for (const token of endpoint.match(/:[a-z_]+/gi) ?? []) {
+    const name = token.slice(1);
+    const value =
+      payload[name] ??
+      payload[`${name}_id`] ??
+      (name === "id" ? payload.tarea_id : undefined);
+    if (typeof value === "string" && value) {
+      path = path.replace(token, value);
+    }
+    delete payload[name];
+    if (name === "id") delete payload.tarea_id;
+  }
+  return { path, body: payload };
 }
 
 async function sendEntityQuestion(chatId: string, question: EntityQuestion): Promise<void> {
@@ -108,7 +147,7 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
     await client.sendMessage(
       chatId,
       [
-        `🤔 No encontré "*${question.entity}*" entre los *${entityKindLabel(question.kind)}s* cargados en la obra.`,
+        `🤔 No encontré "*${question.entity}*" entre los *${entityKindPlural(question.kind)}* cargados en la obra.`,
         "",
         `Respondé *0* para cancelar la operación.`,
       ].join("\n"),
@@ -162,13 +201,24 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
 
   if (pending.type === "operation") {
     try {
-      const catalogo = await getCatalogo(obra.obra_id);
-      for (let i = 0; i < pending.operation.length; i++) {
-        const question = await resolveOperationEntities(pending.operation[i], catalogo, obra.obra_id, i);
-        if (question) {
-          setEntityPending(phone, { pending, obra, chatId, question });
-          await sendEntityQuestion(chatId, question);
-          return;
+      // Se pide el catálogo solo de las entidades que resuelven los endpoints de esta
+      // operación (pedidos → materiales/proveedores, tareas → tareas/rubros, etc).
+      // Endpoint sin mapear (todavía sin pulir) → catálogo completo, como antes.
+      const tipos = neededCatalogTipos(pending.operation);
+      const catalogo =
+        tipos === null
+          ? await getCatalogo(obra.obra_id)
+          : tipos.length > 0
+            ? await getCatalogo(obra.obra_id, tipos)
+            : null;
+      if (catalogo) {
+        for (let i = 0; i < pending.operation.length; i++) {
+          const question = await resolveOperationEntities(pending.operation[i], catalogo, obra.obra_id, i);
+          if (question) {
+            setEntityPending(phone, { pending, obra, chatId, question });
+            await sendEntityQuestion(chatId, question);
+            return;
+          }
         }
       }
     } catch (error) {
@@ -217,6 +267,14 @@ export async function handleEntityTextReply(phone: string, raw: string, chatId: 
   const option = selectedIndex <= n ? question.options[selectedIndex - 1] : null;
 
   clearEntityPending(phone);
+
+  // Para tareas, "Ninguno de estos" cancela la operación: sin tarea válida no hay nada que completar.
+  if (option === null && question.kind === "tarea") {
+    clearPending(phone);
+    await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
+    return true;
+  }
+
   await applyQuestionAnswer(pending, question, option, obra.obra_id);
   await prepareAndExecute(pending, obra, phone, chatId);
   return true;

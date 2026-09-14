@@ -381,13 +381,21 @@ export async function completarTarea(req, res) {
 
 // POST /bot/tareas/:id/completar — completar desde el bot de WhatsApp.
 // Recibe teléfono (nunca uuid), se resuelve a persona y luego a miembro_obra
-// contra la obra de la tarea puntual.
+// contra la obra de la tarea puntual. Soporta revertir con completada=false.
 export async function completarTareaDesdeBot(req, res) {
   const { id } = req.params;
-  const { telefono } = req.body;
+  const { telefono, completada, porcentaje_avance } = req.body;
 
   if (!telefono) {
     return res.status(400).json({ error: "telefono es requerido" });
+  }
+
+  let pct = null;
+  if (porcentaje_avance !== undefined && porcentaje_avance !== null) {
+    pct = Number(porcentaje_avance);
+    if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
+      return res.status(400).json({ error: "porcentaje_avance debe ser un entero entre 0 y 100" });
+    }
   }
 
   try {
@@ -406,16 +414,33 @@ export async function completarTareaDesdeBot(req, res) {
       return res.status(403).json({ error: "El obrero no es miembro de la obra de esta tarea" });
     }
 
-    const result = await pool.query(
-      `UPDATE tareas
-       SET estado = 'completada',
-           completada_por = $1,
-           fecha_completada = CURRENT_TIMESTAMP,
-           porcentaje_avance = 100
-       WHERE id = $2
-       RETURNING *`,
-      [miembroObraId, id]
-    );
+    // completada=false → revertir la marca anterior (reabrir); default → completar.
+    const completar = completada !== false;
+
+    let result;
+    if (completar) {
+      result = await pool.query(
+        `UPDATE tareas
+         SET estado = 'completada',
+             completada_por = $1,
+             fecha_completada = CURRENT_TIMESTAMP,
+             porcentaje_avance = COALESCE($2, 100)
+         WHERE id = $3
+         RETURNING *`,
+        [miembroObraId, pct, id]
+      );
+    } else {
+      result = await pool.query(
+        `UPDATE tareas
+         SET estado = 'pendiente',
+             completada_por = NULL,
+             fecha_completada = NULL,
+             porcentaje_avance = COALESCE($1, 0)
+         WHERE id = $2
+         RETURNING *`,
+        [pct, id]
+      );
+    }
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);

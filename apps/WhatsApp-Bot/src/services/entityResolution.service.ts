@@ -2,7 +2,7 @@ import { ApiCall } from "../handlers/pendingQuery.store";
 import { resolveEntity, EntidadCandidata } from "./llm.service";
 import { Catalogo, crearMaterial } from "./api.service";
 
-export type EntityKind = "material" | "proveedor" | "rubro";
+export type EntityKind = "material" | "proveedor" | "rubro" | "tarea";
 
 export interface EntityQuestion {
   entity: string;
@@ -25,8 +25,9 @@ const SLOTS: SlotDef[] = [
   { key: "material_nombre", targetKey: "material_id", kind: "material" },
   { key: "nombre", targetKey: "material_id", kind: "material" }, // movimientos del stock
   { key: "proveedor_nombre", targetKey: "proveedor_id", kind: "proveedor" },
-  { key: "tarea", targetKey: "tarea_id", kind: "rubro" },
+  { key: "tarea", targetKey: "tarea_id", kind: "rubro" }, // /bot/retraso → identifica rubros
   { key: "rubro_id", targetKey: "rubro_id", kind: "rubro" },
+  { key: "tarea_nombre", targetKey: "tarea_id", kind: "tarea" }, // /bot/tareas/:id/completar → identifica tareas reales
 ];
 
 // Claves que solo tienen sentido dentro de un array de items (no en el data raíz).
@@ -178,12 +179,45 @@ async function resolveSlot(
 function catalogList(catalogo: Catalogo, kind: EntityKind): EntidadCandidata[] {
   switch (kind) {
     case "material":
-      return catalogo.materiales;
+      return catalogo.materiales ?? [];
     case "proveedor":
-      return catalogo.proveedores;
+      return catalogo.proveedores ?? [];
     case "rubro":
-      return catalogo.rubros;
+      return catalogo.rubros ?? [];
+    case "tarea":
+      return catalogo.tareas ?? [];
   }
+}
+
+// Qué secciones del catálogo necesita cada endpoint → el bot solo pide lo necesario.
+// Inicialmente solo cubre pedidos y tareas; el resto de endpoints se agregan acá
+// a medida que se pulen (endpoint desconocido → sin catálogo).
+const ENDPOINT_CATALOG_KINDS: Record<string, EntityKind[]> = {
+  "/bot/pedidoDeCompra": ["material", "proveedor"],
+  "/bot/tareas": ["rubro"], // crear tarea: rubro_id opcional
+  "/bot/tareas/:id/completar": ["tarea"],
+};
+
+const KIND_TO_CATALOG: Record<EntityKind, string> = {
+  material: "materiales",
+  proveedor: "proveedores",
+  rubro: "rubros",
+  tarea: "tareas",
+};
+
+// Unión de secciones de catálogo requeridas por todos los ops de la operación pendiente.
+// Devuelve null si hay algún endpoint no mapeado (entonces se trae el catálogo completo,
+// backward-compatible con los endpoints que todavía no están pulidos).
+export function neededCatalogTipos(ops: ApiCall[]): string[] | null {
+  const set = new Set<string>();
+  for (const op of ops) {
+    const kinds = ENDPOINT_CATALOG_KINDS[op.endpoint];
+    if (!kinds) return null;
+    for (const kind of kinds) {
+      set.add(KIND_TO_CATALOG[kind]);
+    }
+  }
+  return [...set];
 }
 
 /**

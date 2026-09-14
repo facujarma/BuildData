@@ -4,7 +4,7 @@ import type { EntityQuestion } from "../services/entityResolution.service";
 
 export interface ApiCall {
   endpoint: string;
-  method: "POST" | "GET";
+  method: "POST" | "GET" | "PATCH";
   data: Record<string, unknown>;
   comment?: string;
   error?: string;

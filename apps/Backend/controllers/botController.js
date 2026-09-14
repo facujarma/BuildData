@@ -7,6 +7,16 @@ import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 // Nunca escribe SQL directo — siempre pasa por acá.
 // ============================================================
 
+function mapMessageAccion(tipo) {
+  if (tipo === "imagen") return "subió una foto";
+  return "envió un mensaje";
+}
+
+function mapMessageTipo(tipo) {
+  if (tipo === "imagen") return "Foto";
+  return "Mensaje";
+}
+
 
 // POST /bot/mensaje
 // Facu manda el mensaje crudo. Nosotros lo guardamos con estado 'pendiente'.
@@ -24,6 +34,15 @@ export async function recibirMensaje(req, res) {
        VALUES ($1, $2, $3, $4, 'pendiente')
        RETURNING *`,
       [obra_id, usuario_id, tipo, contenido]
+    );
+
+    // Registramos el mensaje en el feed de actividad de la obra (y así también
+    // aparece en el dashboard). Las notas "subió una foto"/"envió un mensaje"
+    // se derivan del tipo del mensaje.
+    await pool.query(
+      `INSERT INTO actividad (obra_id, usuario_id, accion, tipo, texto)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [obra_id, usuario_id, mapMessageAccion(tipo), mapMessageTipo(tipo), contenido || null]
     );
 
     // Se llama en cada interacción del bot → es el punto único para trackear actividad
@@ -192,30 +211,47 @@ export async function registrarRetraso(req, res) {
 }
 
 
-// GET /bot/catalogo?obra_id=<uuid>
-// Facu lista el catálogo disponible (materiales, proveedores y rubros) para
+// GET /bot/catalogo?obra_id=<uuid>[&tipos=materiales,proveedores,rubros,tareas]
+// Facu lista el catálogo disponible (materiales, proveedores, rubros y tareas) para
 // que el LLM del bot pueda resolver nombres → IDs antes de ejecutar una operación.
+// Si `tipos` no viene, devuelve todas las secciones; si viene, solo las pedidas.
 export async function getCatalogo(req, res) {
-  const { obra_id } = req.query;
-  try {
-    const [materiales, proveedores, rubros] = await Promise.all([
+  const { obra_id, tipos } = req.query;
+  const VALID_SECTIONS = { materiales: true, proveedores: true, rubros: true, tareas: true };
+  const requested =
+    typeof tipos === "string"
+      ? tipos.split(",").map((t) => t.trim()).filter((t) => VALID_SECTIONS[t])
+      : null;
+  const sections = requested ?? ["materiales", "proveedores", "rubros", "tareas"];
+
+  const QUERIES = {
+    materiales: () =>
       pool.query(
         `SELECT id, nombre, unidad FROM materiales
          WHERE obra_id = $1 OR obra_id IS NULL
          ORDER BY nombre ASC`,
         [obra_id]
       ),
-      pool.query(`SELECT id, nombre FROM proveedores ORDER BY nombre ASC`),
+    proveedores: () => pool.query(`SELECT id, nombre FROM proveedores ORDER BY nombre ASC`),
+    rubros: () =>
       pool.query(
         `SELECT id, nombre FROM rubros WHERE obra_id = $1 ORDER BY nombre ASC`,
         [obra_id]
       ),
-    ]);
-    res.json({
-      materiales: materiales.rows,
-      proveedores: proveedores.rows,
-      rubros: rubros.rows,
-    });
+    tareas: () =>
+      pool.query(
+        `SELECT id, titulo AS nombre FROM tareas
+         WHERE obra_id = $1
+         ORDER BY fecha_inicio ASC, created_at ASC`,
+        [obra_id]
+      ),
+  };
+
+  try {
+    const entries = await Promise.all(
+      sections.map(async (name) => [name, (await QUERIES[name]()).rows])
+    );
+    res.json(Object.fromEntries(entries));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error obteniendo catálogo" });

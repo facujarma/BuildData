@@ -133,14 +133,14 @@ const pedidosConItems = await Promise.all(
     // Activity feed
     const actividadResult = await pool.query(
        `SELECT
-        UPPER(LEFT(p.nombre, 1) || LEFT(SPLIT_PART(p.nombre, ' ', 2), 1)) AS initials,
-        p.nombre AS name,
+        UPPER(LEFT(COALESCE(p.nombre, 'Sistema'), 1) || LEFT(SPLIT_PART(COALESCE(p.nombre, 'Sistema'), ' ', 2), 1)) AS initials,
+        COALESCE(p.nombre, 'Sistema') AS name,
         a.accion AS action,
         a.tipo,
         a.texto,
         a.created_at AS timestamp
        FROM actividad a
-       JOIN personas p ON p.id = a.usuario_id
+       LEFT JOIN personas p ON p.id = a.usuario_id
        WHERE a.obra_id = $1
        ORDER BY a.created_at DESC
        LIMIT 5`,
