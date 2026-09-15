@@ -1,12 +1,6 @@
-"use client";
-import { Suspense } from "react";
-import { ScreenPedidos } from "./_components";
-import Loading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function PedidosPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <ScreenPedidos />
-    </Suspense>
-  );
+export default async function PedidosPage({ params }: { params: Promise<{ obraId: string }> }) {
+  const { obraId } = await params;
+  redirect(`/${obraId}/dashboard/materiales?v=pedidos`);
 }

@@ -1,12 +1,6 @@
-"use client";
-import { Suspense } from "react";
-import { ScreenPresupuesto } from "./_components";
-import Loading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function PresupuestoPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <ScreenPresupuesto />
-    </Suspense>
-  );
+export default async function PresupuestoPage({ params }: { params: Promise<{ obraId: string }> }) {
+  const { obraId } = await params;
+  redirect(`/${obraId}/dashboard/costos?v=presupuesto`);
 }

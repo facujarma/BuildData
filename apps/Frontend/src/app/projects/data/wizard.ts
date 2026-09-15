@@ -47,7 +47,4 @@ export const ROLES = [
   { id: "capataz", label: "Capataz", sub: "Reporta desde obra." },
 ];
 
-export const PERSON_MAP = [...PEOPLE, ...MORE_PEOPLE].reduce((acc, p) => {
-  acc[p.id] = p;
-  return acc;
-}, {} as Record<string, (typeof PEOPLE)[0]>);
+export const PERSON_MAP: Record<string, { name: string; role: string }> = {};

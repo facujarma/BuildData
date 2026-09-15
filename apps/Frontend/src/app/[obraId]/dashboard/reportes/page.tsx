@@ -1,12 +1,6 @@
-"use client";
-import { Suspense } from "react";
-import { ScreenReportes } from "./_components";
-import Loading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function ReportesPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <ScreenReportes />
-    </Suspense>
-  );
+export default async function ReportesPage({ params }: { params: Promise<{ obraId: string }> }) {
+  const { obraId } = await params;
+  redirect(`/${obraId}/dashboard/registro?v=reportes`);
 }

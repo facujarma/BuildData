@@ -1,0 +1,85 @@
+He terminado el análisis completo. Encontré que el frontend actual ya está considerablemente alineado con el diseño de Claude (tokens, landing, dashboard principal, obras, wizard, planes). Ahora identifiqué las brechas reales. Antes de cerrar el plan, necesito definir 3 decisiones estructurales.
+Hallazgos clave — brechas vs. diseño de Claude
+Falta completamente (hoy caen en "En construcción" o no existen):
+1. Página de Configuración (settings-page.jsx: 7 secciones — Obra, Roles y permisos, Rubros, Integraciones, Notificaciones, Plan, Seguridad)
+2. Página de Perfil (profile-page.jsx: hero, stats, datos personales, rol/permisos, actividad, preferencias)
+3. Bandeja WhatsApp / Inbox (ScreenInbox) y Galería de fotos (ScreenGallery) — pantallas del diseño sin ruta
+4. Admin de Rubros (ScreenRubros)
+5. NotificationsPanel (dropdown de campana con 6 notificaciones)
+6. ProductTour (onboarding de 9 pasos; el botón "Ver tour" del empty existe pero no hace nada)
+7. ChatBubble existe pero no está renderizado en el layout del dashboard
+8. Empty states de onboarding por pantalla (Cronograma/Alertas/Pedidos/Reportes/Equipo)
+Diferente del diseño:
+- Sidebar del dashboard: hoy 10 ítems planos; el diseño final usa 8 agrupados (Materiales = Pedidos+Stock, Costos = Presupuesto+Recibos, Registro = Actividad+Galería+Reportes) + Bandeja, con conmutador de sub-tabs. Además falta el footer de usuario (avatar+nombre+rol).
+- Menu de usuario en topbar: hoy solo "Cerrar sesión"; el diseño tiene Perfil/Configuración/Mis obras/Cerrar sesión.
+- Navbar landing: el diseño tiene nav fija que cambia al scrollear + links Problema/Cómo funciona/Funcionalidades/Dashboard/IA.
+- ObrasHome: faltan tabs Archivos, Archivadas, Papelera (con sus vistas), "Archivos recientes", y el footer de usuario en el WorkspaceSidebar.
+- Wizard nueva obra: faltan el paso Roles (matriz de permisos), y PEOPLE/MORE_PEOPLE/DEFAULT_RUBROS están vacíos en wizard.ts (el paso Equipo hoy no muestra contactos).
+- Dashboard principal: falta la sección "Requiere tu atención".
+- Micro diferencias: chip ⌘K en búsqueda, chip #PED-0142 · Cemento en Hero, bugs de ctaHref con doble ? en planes.
+# Questions
+¿Qué alcance querés para este rediseño? Todo es bastante. ¿Hacemos todo el gap en una sola pasada o priorizamos?
+quiero que cambies el dashboard, y el sidebar por lo que tambien vas a tener que rediselar las seccion que ahora estan agrupadas
+El diseño final de Claude agrupa la navegación (8 ítems con sub-tabs dentro de cada grupo, p. ej. Pedidos+Stock bajo 'Materiales'). ¿Adopto esa navegación agrupada en el dashboard?
+Sí, navegación agrupada (Recomendado)
+Para las pantallas nuevas (Configuración, Perfil, Bandeja, Galería, Notificaciones) el backend no expone endpoints todavía. ¿Cómo lleno los datos?
+Servicios mock nuevos (Recomendado)
+
+Plan: Dashboard + Sidebar agrupado + secciones rediseñadas
+Decisión de arquitectura — rutas nuevas
+Adopto la navegación SCREENS del diseño (8 ítems, grupo interno con chips) y mantengo las URLs viejas como redirecciones para no romper los ~50 links internos existentes (drawers, QuickAdd, cards).
+[obraId]/dashboard/
+├── page.tsx            Overview (Dashboard)
+├── inbox/              ★ NUEVO Bandeja de WhatsApp
+├── cronograma/         (sin cambios)
+├── materiales/         ★ Grupo: ?v=pedidos|stock
+├── costos/             ★ Grupo: ?v=presupuesto|recibos
+├── alertas/            (sin cambios)
+├── registro/           ★ Grupo: ?v=actividad|galeria|reportes
+├── equipo/             (sin cambios)
+├── configuracion/      ★ NUEVO Settings (7 secciones)
+├── perfil/             ★ NUEVO Perfil
+├── pedidos|stock|presupuesto|recibos|actividad|reportes/
+│                        → page.tsx con redirect() al grupo (?v=…)
+- Conmutador de grupos: componente compartido GroupTabs (chips bg-slate100 p-[3px], activo bg-white shadow-card text-primary, badge en primary-50) replicando makeGroupScreen del TMP. Estado subido a searchParams.v (deep-linkable, idem ROUTE_ALIASES).
+- CRUMB_MAP se actualiza (ej. materiales → "Obra / Materiales > Pedidos").
+Fase 0 — Servicios mock nuevos (patrón existente)
+Cada uno con data/index.ts colocated + XxxData + delay 200–300ms + clonado, como stockService:
+Mock	Dato	Origen TMP
+mock/inboxService.ts	INBOX_SEED (7 msgs: in/out, kind, conf, state, parse/mapped/loose)	ScreenInbox 5194
+mock/galeriaService.ts	PHOTO_SEED (12 fotos, rubro/tarea/who/date/tone)	ScreenGallery 5770
+mock/notificacionesService.ts	NOTIF_SEED (6, unread 3, invites)	NotificationsPanel 6506
+mock/configuracionService.ts	obra info, integraciones, notifs prefs, seguridad	settings-page
+mock/perfilService.ts	stats, actividad, preferencias	profile-page
+mock/rubrosService.ts	RUBROS_SEED (4) + categorías	RubroStore 907
+Fase 1 — Sidebar agrupado + rutas de grupo
+DashSidebar.tsx reescrito:
+- 8 ítems con iconos @gravity-ui/icons: Dashboard, Bandeja (+badge), Cronograma, Materiales (grupo, badge), Costos (grupo), Alertas (+badge), Registro (grupo), Equipo. Badges rojos (bg-critical) para alertas, blancos para inbox/materiales, tomados de conteos mock + useDashboardData().stats.
+- Footer de usuario (border-t): DAvatar 30 + nombre + rol (desde AuthContext.profile; default "Director de obra").
+- Card "Obra activa": usar obraName + obraProgress real (hoy hardcodeado "0%").
+- Configuración → /configuracion (deja de apuntar a /construction).
+- Activo por pathname; grupo activo si pathname.startsWith(grupo).
+Rutas grupo (materiales|costos|registro/page.tsx): leen searchParams.v, renderizan GroupTabs + <Screen…> correspondiente. Redirects en las 6 URLs viejas. links internos que usaban cards "Nuevo reporte"/"Ver todas las alertas" pasan a /registro?v=reportes y /alertas.
+Fase 2 — Topbar: ⌘K, campana funcional, menú de usuario
+- DashTopBar: chip ⌘K en el buscador (visual, como el diseño); Bell abre NotificationsPanel (absoluto w-[360px], header con contador, 6 notifs, invites Aceptar/Rechazar, "Marcar todo leído", "Ver todas").
+- AvatarMenu → rico: Mi perfil /perfil, Configuración /configuracion, Mis obras /projects, Cerrar sesión (rojo separado).
+Fase 3 — Pantallas nuevas
+- Bandeja ScreenInbox (adaptación TS): 4 DStatTile (por confirmar / confirmados hoy / recibidos / precisión IA), banner verde WhatsApp, tabs Por confirmar/Confirmados/Descartados/Enviados, cards de mensaje con HighlightedRaw, interpretación IA + confianza, acciones Confirmar/Corregir/Descartar, InboxCorrectModal (select tipo, campos editables, entrenamiento). Estado vacío por tab.
+- Galería ScreenGaleria: grid Por fecha/Por tarea, filtro rubros, PhotoThumb sintético, lightbox con navegación ←/→ + panel de datos.
+- Rubros ScreenRubros (componente compartido, usado en Configuración › taxonomía): tabs Rubros/Categorías, grilla 2-col con línea de color/avance/over, drawer detalle, modal crear/editar (paleta colores), borrado con confirmación.
+- Configuración SettingsPage: sub-nav sticky grid-cols-[220px_1fr] con 7 secciones (Obra, Roles y permisos, Rubros y categorías, Integraciones, Notificaciones, Plan y facturación, Seguridad), primitivas Field/Input/Select/Textarea/Toggle/SettingsCard. Roles: matriz 8 áreas × Ver/Editar + toggles. Seguridad: 2FA, sesiones, zona peligrosa.
+- Perfil ScreenPerfil: hero, stats, datos personales, rol y permisos, actividad, preferencias.
+Fase 4 — Dashboard overview alineado
+- Renombrar/alinear secciones a TMP ("Críticos activos" ↔ "Requiere tu atención"), revisar stats/tiles, conectar links de cards a rutas reales, reemplazar pedidosMock hardcodeado del drawer por conteo real, quitar console.log de BudgetCard.
+Fase 5 — Alinear las 6 secciones agrupadas al diseño
+Auditar cada una contra su contraparte TMP (headers DPageHeader, stats, banners, tabs/filtros, cards, empties) y ajustar diferencias: Pedidos (estados PED-xxx, aprobar/rechazar), Stock, Presupuesto (donas/divisa), Recibos, Actividad, Reportes.
+Fase 6 — Onboarding + pulido
+- Empty states por pantalla según dashboard-empty.jsx (Cronograma con 3 plantillas + ghost gantt, Alertas niveles, Pedidos tiles-0, Reportes, Equipo roles sugeridos).
+- ProductTour (9 pasos con data-tour), conectado al botón "Ver tour" de EmptyDashboardContent.
+- Renderizar ChatBubble en layout.tsx del dashboard (con fallback si window.claude no existe).
+Fase 7 — Fixes menores
+- QuickAddContext muerto → consumir useQuickAdd() en el layout o eliminar proveedor.
+- Union status en types/projects.ts ("en-progreso" → "en-curso").
+- (Opcional) bug ctaHref doble ? en planes.
+Verificación
+bun run lint (Frontend) + tsc --noEmit (esperar solo los 2 errores pre-existentes) + bun run dev y revisión manual de las 8 rutas, grupos con ?v=, y redirecciones

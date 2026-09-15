@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ArrowRightFromSquare } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, Person, Gear, House } from "@gravity-ui/icons";
 import { DAvatar } from "@/components/ui/DAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 export function AvatarMenu() {
   const [open, setOpen] = useState(false);
@@ -12,6 +12,8 @@ export function AvatarMenu() {
   const ref = useRef<HTMLDivElement>(null);
   const { profile, logout } = useAuth();
   const router = useRouter();
+  const params = useParams<{ obraId?: string }>();
+  const dBase = params?.obraId ? `/${params.obraId}/dashboard` : null;
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -50,6 +52,38 @@ export function AvatarMenu() {
               {profile?.email as string || profile?.telefono as string || ""}
             </span>
           </div>
+          {dBase && (
+            <>
+              <button
+                onClick={() => { router.push(`${dBase}/perfil`); setOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-[10px] hover:bg-slate-50 text-left transition-colors"
+              >
+                <span className="w-8 h-8 rounded-md flex items-center justify-center bg-primary-50 text-primary">
+                  <Person width={15} height={15} />
+                </span>
+                <span className="text-[13px] font-medium text-slate-700">Mi perfil</span>
+              </button>
+              <button
+                onClick={() => { router.push(`${dBase}/configuracion`); setOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-[10px] hover:bg-slate-50 text-left transition-colors"
+              >
+                <span className="w-8 h-8 rounded-md flex items-center justify-center bg-slate-100 text-slate-600">
+                  <Gear width={15} height={15} />
+                </span>
+                <span className="text-[13px] font-medium text-slate-700">Configuración</span>
+              </button>
+              <button
+                onClick={() => { router.push("/projects"); setOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-[10px] hover:bg-slate-50 text-left transition-colors"
+              >
+                <span className="w-8 h-8 rounded-md flex items-center justify-center bg-info-50 text-info">
+                  <House width={15} height={15} />
+                </span>
+                <span className="text-[13px] font-medium text-slate-700">Mis obras</span>
+              </button>
+              <div className="border-t border-slate-100 my-1" />
+            </>
+          )}
           <button
             onClick={handleLogout}
             disabled={loggingOut}

@@ -91,7 +91,7 @@ export function ObrasHome({
 
   const recientes = obras.filter((o) => o.status !== "finalizada").slice(0, 4);
   const totals = {
-    activas: obras.filter((o) => o.status === "en-progreso").length,
+    activas: obras.filter((o) => o.status === "en-curso").length,
     alertas: obras.reduce((s, o) => s + o.alerts, 0),
     pedidos: obras.reduce((s, o) => s + o.pedidos, 0),
   };

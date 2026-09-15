@@ -13,7 +13,6 @@ import {
 import { DPageHeader } from "./DPageHeader";
 import { DStatTile } from "./DStatTile";
 import { DPill } from "@/components/ui/DPill";
-import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
 import ProgressByTradeCards from "./ProgressByTradeCards";
 import CriticalAlertsCard from "./CriticalAlertsCard";
@@ -72,6 +71,25 @@ export function DashboardContent({ data, onNavigate }: Props) {
   } = data;
 
   const { setLookupData } = useDashboardData();
+  const { obraId } = useDashboardData();
+
+  const NAV_MAP: Record<string, string> = {
+    cronograma: `/cronograma`,
+    alertas: `/alertas`,
+    equipo: `/equipo`,
+    actividades: `/registro?v=actividad`,
+    actividad: `/registro?v=actividad`,
+    galeria: `/registro?v=galeria`,
+    reportes: `/registro?v=reportes`,
+    pedidos: `/materiales?v=pedidos`,
+    stock: `/materiales?v=stock`,
+    recibos: `/costos?v=recibos`,
+    presupuesto: `/costos?v=presupuesto`,
+    bandeja: `/inbox`,
+    rubros: `/rubros`,
+    configuracion: `/configuracion`,
+    perfil: `/perfil`,
+  };
 
   useEffect(() => {
     const rubros = tradeProgress.map((t) => ({ id: t.id, name: t.name }));
@@ -85,6 +103,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
 
   useEffect(() => {
     if (categories.length === 0 && tasks.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategories([
         {
           id: "cat-todas",
@@ -111,7 +130,8 @@ export function DashboardContent({ data, onNavigate }: Props) {
     if (onNavigate) {
       onNavigate(section);
     } else {
-      router.push(`/construction?section=${section}`);
+      const target = NAV_MAP[section.toLowerCase()];
+      router.push(target ? `/${obraId}/dashboard${target}` : `/construction?section=${section}`);
     }
   };
 

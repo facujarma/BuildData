@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Xmark, Check, ArrowRight, ArrowLeft, Smartphone, Envelope } from "@gravity-ui/icons";
-import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
 import { DPill } from "@/components/ui/DPill";
 import { ROLES } from "../data";
@@ -91,7 +90,7 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
 
           {mode === null && (
             <div className="p-5 space-y-3">
-              <DCard className="cursor-pointer hover:border-primary hover:shadow-card2 transition-all" onClick={() => setMode("miembro")}>
+              <button className="text-left w-full bg-white border border-slate-200 rounded-lg shadow-card p-5 cursor-pointer hover:border-primary hover:shadow-card2 transition-all" onClick={() => setMode("miembro")}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary flex items-center justify-center flex-none">
                     <Envelope width={18} height={18} />
@@ -102,8 +101,8 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
                   </div>
                   <ArrowRight width={14} height={14} className="text-slate-300 mt-2 flex-none ml-auto" />
                 </div>
-              </DCard>
-              <DCard className="cursor-pointer hover:border-primary hover:shadow-card2 transition-all" onClick={() => setMode("obrero")}>
+              </button>
+              <button className="text-left w-full bg-white border border-slate-200 rounded-lg shadow-card p-5 cursor-pointer hover:border-primary hover:shadow-card2 transition-all" onClick={() => setMode("obrero")}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-success-50 text-success flex items-center justify-center flex-none">
                     <Smartphone width={18} height={18} />
@@ -114,7 +113,7 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
                   </div>
                   <ArrowRight width={14} height={14} className="text-slate-300 mt-2 flex-none ml-auto" />
                 </div>
-              </DCard>
+              </button>
             </div>
           )}
 

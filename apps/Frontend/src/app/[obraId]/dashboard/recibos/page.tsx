@@ -1,12 +1,6 @@
-"use client";
-import { Suspense } from "react";
-import { ScreenRecibos } from "./_components";
-import Loading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function RecibosPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <ScreenRecibos />
-    </Suspense>
-  );
+export default async function RecibosPage({ params }: { params: Promise<{ obraId: string }> }) {
+  const { obraId } = await params;
+  redirect(`/${obraId}/dashboard/costos?v=recibos`);
 }

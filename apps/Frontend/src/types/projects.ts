@@ -4,7 +4,7 @@ export interface Obra {
   code: string;
   address: string;
   type: string;
-  status: "en-progreso" | "planificacion" | "pausada" | "finalizada";
+  status: "en-curso" | "planificacion" | "pausada" | "finalizada";
   progress: number;
   alerts: number;
   pedidos: number;

@@ -1,12 +1,6 @@
-"use client";
-import { Suspense } from "react";
-import { ScreenStock } from "./_components";
-import Loading from "./loading";
+import { redirect } from "next/navigation";
 
-export default function StockPage() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <ScreenStock />
-    </Suspense>
-  );
+export default async function StockPage({ params }: { params: Promise<{ obraId: string }> }) {
+  const { obraId } = await params;
+  redirect(`/${obraId}/dashboard/materiales?v=stock`);
 }

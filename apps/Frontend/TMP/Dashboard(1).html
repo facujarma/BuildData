@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BuildData — Dashboard</title>
+<link rel="icon" href="assets/logo-mark.svg" />
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#131B2E"/>
+    <rect x="14" y="20" width="22" height="60" rx="3" fill="#0F4395"/>
+    <rect x="42" y="20" width="44" height="14" rx="2" fill="#FFFFFF"/>
+    <rect x="42" y="40" width="20" height="40" rx="2" fill="#FFFFFF" fill-opacity="0.9"/>
+    <rect x="66" y="40" width="20" height="22" rx="2" fill="#F59E0B"/>
+    <rect x="66" y="66" width="20" height="14" rx="2" fill="#FFFFFF" fill-opacity="0.9"/>
+  </svg>
+</template>
+<link rel="stylesheet" href="colors_and_type.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary:   { DEFAULT: '#0F4395', 700: '#0B3275', 50: '#EFF4FC' },
+          accent:    { DEFAULT: '#F59E0B', 700: '#B45309', 50: '#FFFBEB' },
+          ink:       { DEFAULT: '#131B2E', deep: '#131B2E', 2: '#1A2238' },
+          paper:     '#FCF8FA',
+          slate950:  '#0F172A', slate800:  '#1E293B', slate700:  '#334155',
+          slate600:  '#475569', slate500:  '#64748B', slate400:  '#94A3B8',
+          slate300:  '#CBD5E1', slate200:  '#E2E8F0', slate100:  '#F1F5F9',
+          slate50:   '#F8FAFC',
+          critical:  '#EF4444', critical50:'#FEF2F2',
+          attention: '#FACC15', attention50:'#FFFBEB',
+          success:   '#22C55E', success50: '#F0FDF4',
+          info:      '#3B82F6', info50:    '#EFF6FF',
+        },
+        fontFamily: { sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        boxShadow: {
+          'card':  '0 1px 2px 0 rgba(0,0,0,0.05)',
+          'card2': '0 4px 12px 0 rgba(15,23,42,0.06)',
+          'pop':   '0 12px 32px -8px rgba(15,23,42,0.18)',
+          'big':   '0 30px 80px -20px rgba(15,23,42,0.4)',
+        },
+      }
+    }
+  };
+</script>
+
+<style>
+  html, body { background: #F1F5F9; height: 100%; }
+  body {
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    color: #0F172A; margin: 0; overflow: hidden;
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .display-tight { letter-spacing: -0.025em; }
+
+  /* Blueprint background used by the AI insight banner */
+  .blueprint-bg {
+    background-color: #131B2E;
+    background-image:
+      linear-gradient(rgba(19,27,46,0) 0%, rgba(19,27,46,0.85) 100%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, transparent 1px 32px);
+  }
+
+  button:focus-visible, a:focus-visible { outline: 2px solid #F59E0B; outline-offset: 2px; }
+
+  .back-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    color: rgba(255,255,255,.7); text-decoration: none;
+    padding: 6px 10px; border-radius: 6px;
+    background: rgba(255,255,255,.06);
+    transition: background .15s, color .15s;
+    margin: 0 16px 12px;
+  }
+  .back-chip:hover { background: rgba(255,255,255,.12); color: #fff; }
+
+  /* Chatbot animations */
+  @keyframes chat-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-chat-in { animation: chat-in .26s cubic-bezier(.16,1,.3,1); transform-origin: bottom right; }
+
+  @keyframes dotPulse {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.35; }
+    40%           { transform: scale(1);   opacity: 1; }
+  }
+  .dot-pulse { animation: dotPulse 1.2s infinite ease-in-out; display: inline-block; }
+
+  /* Task detail drawer animations */
+  @keyframes fade-task { from { opacity: 0; } to { opacity: 1; } }
+  .animate-fade-task { animation: fade-task .18s ease-out; }
+  @keyframes slide-task {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+  }
+  .animate-slide-task { animation: slide-task .28s cubic-bezier(.16,1,.3,1); }
+
+  @keyframes modal-pop-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-modal-pop { animation: modal-pop-in .26s cubic-bezier(.16,1,.3,1); }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .animate-toast-in { animation: toast-in .22s cubic-bezier(.16,1,.3,1); }
+
+  /* Small mode chip in the topbar so it's obvious which state you're in */
+  .mode-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    flex: none; white-space: nowrap;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px;
+  }
+  .mode-chip.loaded { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+  .mode-chip.empty  { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+  .mode-chip .dot { width: 6px; height: 6px; border-radius: 999px; }
+  .mode-chip.loaded .dot { background: #22C55E; }
+  .mode-chip.empty  .dot { background: #F59E0B; }
+</style>
+</head>
+<body>
+<div id="root" style="height:100vh;"></div>
+
+<!-- React + Babel (pinned) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Components: icons, loaded dashboard, empty dashboard, tweaks panel, chatbot, i18n -->
+<script type="text/babel" src="src/icons.jsx"></script>
+<script type="text/babel" src="src/phone-input.jsx"></script>
+<script type="text/babel" src="src/live-dashboard.jsx"></script>
+<script type="text/babel" src="src/dashboard-empty.jsx"></script>
+<script type="text/babel" src="src/tweaks-panel.jsx"></script>
+<script type="text/babel" src="src/chat-bubble.jsx"></script>
+<script type="text/babel" src="src/product-tour.jsx"></script>
+<script type="text/babel" src="src/i18n.jsx"></script>
+
+<!-- Full-viewport mount + state toggle -->
+<script type="text/babel" data-screen-label="Dashboard">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "nav": "grouped",
+    "state": "loaded",
+    "lang": "es",
+    "mood": "focused",
+    "cover": "blueprint"
+  }/*EDITMODE-END*/;
+
+  const DashboardPage = () => {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const [viewportH, setViewportH] = React.useState(window.innerHeight);
+    React.useEffect(() => {
+      const onR = () => setViewportH(window.innerHeight);
+      window.addEventListener('resize', onR);
+      return () => window.removeEventListener('resize', onR);
+    }, []);
+
+    const isEmpty = t.state === 'empty';
+    const screens = isEmpty ? EMPTY_SCREENS : undefined;
+    const projectLabel = isEmpty ? 'Mi primera obra' : 'Edificio Belgrano';
+    const projectSub   = isEmpty ? 'Configuración pendiente' : '68% completa';
+
+    // Outer container patches: strip embedded-mockup chrome, add back link,
+    // inject a "mode" indicator chip into the topbar, and remember the panel.
+    const containerRef = React.useRef(null);
+    React.useEffect(() => {
+      if (!containerRef.current) return;
+      const outer = containerRef.current.querySelector(':scope > div');
+      if (outer) {
+        outer.style.borderRadius = '0';
+        outer.style.border = '0';
+        outer.style.boxShadow = 'none';
+      }
+      const aside = containerRef.current.querySelector('aside');
+      if (aside && !aside.querySelector('.back-chip')) {
+        const link = document.createElement('a');
+        link.href = 'Obras.html';
+        link.className = 'back-chip';
+        link.innerHTML = '<span style="font-size:14px;line-height:1;">←</span> Mis obras';
+        const nav = aside.querySelector('nav');
+        if (nav) aside.insertBefore(link, nav);
+      }
+      // Update mode chip in topbar
+      const header = containerRef.current.querySelector('header');
+      if (header) {
+        let chip = header.querySelector('.mode-chip');
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'mode-chip';
+          // insert after the breadcrumb (first child)
+          const crumb = header.querySelector(':scope > div');
+          if (crumb) crumb.after(chip);
+        }
+        chip.className = 'mode-chip ' + (isEmpty ? 'empty' : 'loaded');
+        chip.innerHTML = '<span class="dot"></span>' + (isEmpty ? 'Obra vacía · onboarding' : 'Obra cargada · datos reales');
+      }
+    });
+
+    // Apply language whenever it changes.
+    React.useEffect(() => {
+      if (window.setLanguage) window.setLanguage(t.lang);
+    }, [t.lang]);
+
+    // Key forces full re-mount of LiveDashboard when state changes so its
+    // internal route + scroll position reset cleanly.
+    return (
+      <div ref={containerRef} data-screen-label="Dashboard" style={{ height: '100vh', overflow: 'hidden' }}>
+        <LiveDashboard
+          key={t.state + '-' + t.nav}
+          height={viewportH}
+          screens={screens}
+          projectLabel={projectLabel}
+          projectSub={projectSub}
+          userInitials={isEmpty ? 'TU' : 'JM'}
+          userName={isEmpty ? 'Vos' : 'J. Méndez'}
+          userRole={isEmpty ? 'Administrador' : 'Director de obra'}
+          onComplete={() => setTweak('state', 'loaded')}
+          navVariant={t.nav}
+        />
+
+        <TweaksPanel title="Estado del Dashboard">
+          <TweakSection label="Navegación">
+            <TweakRadio
+              label="Sidebar"
+              value={t.nav}
+              options={[
+                { value: 'flat',    label: '13 ítems' },
+                { value: 'grouped', label: '8 agrupados' },
+              ]}
+              onChange={(v) => setTweak('nav', v)}
+            />
+            <div style={{ padding: '8px 12px', fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>
+              <b style={{ color: '#0F172A' }}>13 ítems:</b> versión previa, una sección por pantalla.<br/>
+              <b style={{ color: '#0F172A' }}>8 agrupados:</b> Materiales (Pedidos+Stock), Costos (Presupuesto+Comprobantes) y Registro (Actividad+Galería+Reportes) con conmutador arriba; Rubros pasa a Configuración.
+            </div>
+          </TweakSection>
+          <TweakSection label="Idioma">
+            <TweakRadio
+              label="Language"
+              value={t.lang}
+              options={[
+                { value: 'es', label: 'Español' },
+                { value: 'en', label: 'English' },
+              ]}
+              onChange={(v) => setTweak('lang', v)}
+            />
+          </TweakSection>
+          <TweakSection label="Versión">
+            <TweakRadio
+              label="Estado de la obra"
+              value={t.state}
+              options={[
+                { value: 'empty',  label: 'Vacía' },
+                { value: 'loaded', label: 'Cargada' },
+              ]}
+              onChange={(v) => setTweak('state', v)}
+            />
+            <div style={{ padding: '8px 12px', fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>
+              <b style={{ color: '#0F172A' }}>Vacía:</b> primera vez, sin datos cargados — muestra onboarding y plantillas en cada pantalla.<br/>
+              <b style={{ color: '#0F172A' }}>Cargada:</b> obra en curso con equipo, alertas, pedidos y reportes reales.
+            </div>
+          </TweakSection>
+        </TweaksPanel>
+
+        {/* AI Chatbot — only on loaded state, otherwise nothing to ask about */}
+        {!isEmpty && <ChatBubble />}
+      </div>
+    );
+  };
+
+  const rootEl = ReactDOM.createRoot(document.getElementById('root'));
+  rootEl.render(<DashboardPage />);
+</script>
+</body>
+</html>

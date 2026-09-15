@@ -20,7 +20,7 @@ export interface ApiObra {
   code: string;                                               // ej: "OBR-2025-014"
   address: string;
   type: string;                                               // ej: "Edificio en altura"
-  status: "en-progreso" | "planificacion" | "pausada" | "finalizada";
+  status: "en-curso" | "planificacion" | "pausada" | "finalizada";
   progress: number;                                           // 0-100
   alerts: number;
   pedidos: number;
