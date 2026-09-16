@@ -1,0 +1,114 @@
+{
+  "nodes": [
+    {
+      "id": "apps_frontend_assets_logo_mark",
+      "label": "BuildData Logo Mark (SVG)",
+      "file_type": "image",
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "apps_frontend_assets_logo_mark_ascending_bars",
+      "label": "Ascending Bars Motif",
+      "file_type": "concept",
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "apps_frontend_assets_logo_mark_builddata_brand",
+      "label": "BuildData Brand Identity Asset",
+      "file_type": "concept",
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "apps_frontend_assets_logo_mark_color_palette",
+      "label": "Color Palette (Blue #0F4395, White, Amber #F59E0B)",
+      "file_type": "concept",
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "apps_frontend",
+      "label": "Frontend App (Next.js)",
+      "file_type": "concept",
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "apps_frontend_assets_logo_mark",
+      "target": "apps_frontend_assets_logo_mark_ascending_bars",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_frontend_assets_logo_mark",
+      "target": "apps_frontend_assets_logo_mark_builddata_brand",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_frontend_assets_logo_mark",
+      "target": "apps_frontend_assets_logo_mark_color_palette",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_frontend_assets_logo_mark",
+      "target": "apps_frontend",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_frontend_assets_logo_mark_builddata_brand",
+      "target": "apps_frontend_assets_logo_mark_ascending_bars",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/facuj/Documentos/Git repositories/BuildData/apps/Frontend/assets/logo-mark.svg",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 120,
+  "output_tokens": 350
+}
