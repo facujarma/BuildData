@@ -8,6 +8,8 @@ interface DonutProps {
   track?: string;
   label?: string;
   sub?: string;
+  labelColor?: string;
+  subColor?: string;
 }
 
 export function Donut({
@@ -18,6 +20,8 @@ export function Donut({
   track = "#E2E8F0",
   label,
   sub,
+  labelColor = "#0F172A",
+  subColor = "#64748B",
 }: DonutProps) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -54,12 +58,18 @@ export function Donut({
       {(label || sub) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           {label && (
-            <span className="text-[18px] font-extrabold display-tight tnum text-slate-950 leading-none">
+            <span
+              className="text-[26px] font-extrabold display-tight tnum leading-none"
+              style={{ color: labelColor }}
+            >
               {label}
             </span>
           )}
           {sub && (
-            <span className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500 mt-1">
+            <span
+              className="text-[10px] font-bold tracking-[0.04em] uppercase mt-1"
+              style={{ color: subColor }}
+            >
               {sub}
             </span>
           )}

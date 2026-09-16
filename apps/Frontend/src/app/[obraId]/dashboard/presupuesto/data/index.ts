@@ -19,6 +19,28 @@ export const CURRENCIES = {
   EUR: { sym: '€',   rate: 1 / 1140,   dec: 2 },
 };
 
+export type CurrencyKey = keyof typeof CURRENCIES;
+
+export function formatMoney(millonesArs: number, cur: CurrencyKey): string {
+  const c = CURRENCIES[cur];
+  if (cur === 'ARS') return `${c.sym} ${Math.round(millonesArs)} M`;
+  return `${c.sym} ${(millonesArs * c.rate).toLocaleString('es-AR', { maximumFractionDigits: 2 })} M`;
+}
+
+export const RUBRO_COLORS: Record<string, string> = {
+  'Hormigón armado':     '#0F4395',
+  'Mampostería':         '#F59E0B',
+  'Instalaciones':       '#22C55E',
+  'Terminaciones':       '#EF4444',
+  'Movimiento de suelos': '#3B82F6',
+};
+
+export const RUBRO_FALLBACK = ['#0F4395', '#F59E0B', '#22C55E', '#EF4444', '#3B82F6'];
+
+export function rubroColor(name: string, idx = 0): string {
+  return RUBRO_COLORS[name] ?? RUBRO_FALLBACK[idx % RUBRO_FALLBACK.length];
+}
+
 export const FORECAST_ITEMS = [
   { month: 'Jun', label: 'Este mes', items: ['Hormigón armado cierra compra de hierro'], amount: 14 },
   { month: 'Jul', label: 'Próximo', items: ['Pico de mampostería + inicio instalaciones'], amount: 22 },
