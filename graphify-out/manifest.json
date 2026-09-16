@@ -570,28 +570,28 @@
     "semantic_hash": "e85da4a8e5f2f74b383907244b2c7e1c"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/alertas/_components/ScreenAlertas.tsx": {
-    "mtime": 1789264895.9299784,
-    "seen": 1789515629.7269332,
-    "ast_hash": "7941f8955cc785700f1d2f63b20f0d5d",
-    "semantic_hash": "7941f8955cc785700f1d2f63b20f0d5d"
+    "mtime": 1789600323.480687,
+    "seen": 1789600433.7888472,
+    "ast_hash": "8fd7e3c3caa072f82c6c8935a0d3b475",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/alertas/_components/index.ts": {
-    "mtime": 1782331275.424781,
-    "seen": 1789515629.7269366,
-    "ast_hash": "a5ab3396af5a107140de81adc47c650d",
-    "semantic_hash": "a5ab3396af5a107140de81adc47c650d"
+    "mtime": 1789600328.049219,
+    "seen": 1789600433.788852,
+    "ast_hash": "9f53f3a13cc89557a298fc36fcf65c9c",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/alertas/data/index.ts": {
-    "mtime": 1789264860.1848838,
-    "seen": 1789515629.7269404,
-    "ast_hash": "2172bcc8ba82bf99b2eef8de156940af",
-    "semantic_hash": "2172bcc8ba82bf99b2eef8de156940af"
+    "mtime": 1789600298.118101,
+    "seen": 1789600433.7888565,
+    "ast_hash": "591585c484f4804fd83062784bce4ab7",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/alertas/loading.tsx": {
-    "mtime": 1782331275.424781,
-    "seen": 1789515629.726946,
-    "ast_hash": "3150938b802a8193e1e43f13f77f5be6",
-    "semantic_hash": "3150938b802a8193e1e43f13f77f5be6"
+    "mtime": 1789600327.8523455,
+    "seen": 1789600433.7888615,
+    "ast_hash": "5aa29b44fac368228988ac1b9f224ba6",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/alertas/page.tsx": {
     "mtime": 1782331275.424781,
@@ -1566,10 +1566,10 @@
     "semantic_hash": "1d5e6e1833c5e7ebc11cb76876c9616f"
   },
   "apps/Frontend/src/services/alertasService.ts": {
-    "mtime": 1789264850.4852242,
-    "seen": 1789515629.7275836,
-    "ast_hash": "423adc2fe130a46b2d93ff05631be005",
-    "semantic_hash": "423adc2fe130a46b2d93ff05631be005"
+    "mtime": 1789600303.682088,
+    "seen": 1789600433.8002667,
+    "ast_hash": "684b22eb92413453656a1e6bb2efd7ea",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/services/authService.ts": {
     "mtime": 1781037519.3722916,
@@ -1983,6 +1983,12 @@
     "mtime": 1789598611.8901541,
     "seen": 1789598822.6196923,
     "ast_hash": "108a38c75c6e5f7820f06bf47cd52682",
+    "semantic_hash": ""
+  },
+  "apps/Frontend/src/app/[obraId]/dashboard/alertas/_components/AlertaDrawer.tsx": {
+    "mtime": 1789600309.4919214,
+    "seen": 1789600433.7888424,
+    "ast_hash": "4e926efaac8d7df4dacfafb1c5f19ceb",
     "semantic_hash": ""
   }
 }

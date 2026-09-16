@@ -128,26 +128,26 @@
   "apps/Backend/outputs/migracion_categoria_pedido.sql": {
     "mtime": 1789250941.2311435,
     "seen": 1789515629.7266235,
-    "ast_hash": "9ade3be11515b09ac2e4db1af6940b8c",
-    "semantic_hash": "9ade3be11515b09ac2e4db1af6940b8c"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "apps/Backend/outputs/migracion_cronograma.sql": {
     "mtime": 1789079788.989615,
     "seen": 1789515629.7266285,
-    "ast_hash": "baa52b2ddc8f40becea357e49637182f",
-    "semantic_hash": "baa52b2ddc8f40becea357e49637182f"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "apps/Backend/outputs/migracion_final.sql": {
     "mtime": 1787257121.723961,
     "seen": 1789515629.726633,
-    "ast_hash": "9899b0050f4dbb350a5fd0332a7ec247",
-    "semantic_hash": "9899b0050f4dbb350a5fd0332a7ec247"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "apps/Backend/outputs/migracion_pedidos_web.sql": {
     "mtime": 1789230862.5485036,
     "seen": 1789515629.726636,
-    "ast_hash": "a60eab2487fccab78ccd82babd241692",
-    "semantic_hash": "a60eab2487fccab78ccd82babd241692"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "apps/Backend/routes/actividad.js": {
     "mtime": 1782331275.421234,
@@ -882,28 +882,28 @@
     "semantic_hash": "98b59e6c3981e04ada7d816fe2d61aef"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/_components/Donut.tsx": {
-    "mtime": 1782331275.4303336,
-    "seen": 1789515629.7271543,
-    "ast_hash": "997078c722153c3dc58c61ecc070fb1b",
-    "semantic_hash": "997078c722153c3dc58c61ecc070fb1b"
+    "mtime": 1789598574.675734,
+    "seen": 1789598822.6196973,
+    "ast_hash": "f2ab268df51613f95a55245836589c6e",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/_components/ScreenPresupuesto.tsx": {
-    "mtime": 1783875823.4043984,
-    "seen": 1789515629.7271583,
-    "ast_hash": "bf140be743ebc36fc07a7cd7dd9bfeed",
-    "semantic_hash": "bf140be743ebc36fc07a7cd7dd9bfeed"
+    "mtime": 1789598786.735676,
+    "seen": 1789598822.619702,
+    "ast_hash": "ab0917033035f25d457845c4c5fc4354",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/_components/index.ts": {
-    "mtime": 1782331275.4303887,
-    "seen": 1789515629.7271633,
-    "ast_hash": "08aa49cda371106ec43d239dd9d06b54",
-    "semantic_hash": "08aa49cda371106ec43d239dd9d06b54"
+    "mtime": 1789598578.1747751,
+    "seen": 1789598822.6197069,
+    "ast_hash": "ae2fccca6f98439bd0db91455c53209e",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/data/index.ts": {
-    "mtime": 1782331275.4303887,
-    "seen": 1789515629.727168,
-    "ast_hash": "93aec60a5a19b318883e63a1c58c7ade",
-    "semantic_hash": "93aec60a5a19b318883e63a1c58c7ade"
+    "mtime": 1789598490.744636,
+    "seen": 1789598822.6197112,
+    "ast_hash": "610c27117033b6275966d15de37ac18d",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/loading.tsx": {
     "mtime": 1782331275.4303887,
@@ -1978,5 +1978,11 @@
     "seen": 1789515629.7279186,
     "ast_hash": "a2760511c65806022ad20adf74370ff3",
     "semantic_hash": "a2760511c65806022ad20adf74370ff3"
+  },
+  "apps/Frontend/src/app/[obraId]/dashboard/presupuesto/_components/BudgetEditModal.tsx": {
+    "mtime": 1789598611.8901541,
+    "seen": 1789598822.6196923,
+    "ast_hash": "108a38c75c6e5f7820f06bf47cd52682",
+    "semantic_hash": ""
   }
 }

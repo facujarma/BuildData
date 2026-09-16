@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import type { AlertaItem } from "@/app/[obraId]/dashboard/alertas/data";
+import type { AlertaItem, AlertaLvl } from "@/app/[obraId]/dashboard/alertas/data";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -13,6 +13,7 @@ interface ApiAlerta {
   subtitulo: string | null;
   mensaje: string | null;
   severity: string | null;
+  tipo: string | null;
   resuelta: boolean;
   created_at: string;
   destinatario: string | null;
@@ -21,6 +22,17 @@ interface ApiAlerta {
 function mapNivelToSeverity(nivel: string): string {
   if (nivel === "Crítico") return "critical";
   return "attention";
+}
+
+function mapSeverityToLvl(severity: string | null): AlertaLvl {
+  if (severity === "critical") return "critical";
+  if (severity === "moderate") return "moderate";
+  return "attention";
+}
+
+function mapTipoToCat(tipo: string | null): string {
+  if (!tipo) return "General";
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 }
 
 function formatRelativeTime(iso: string): string {
@@ -36,19 +48,15 @@ function formatRelativeTime(iso: string): string {
 }
 
 function mapAlerta(row: ApiAlerta): AlertaItem {
-  const lvl = row.resuelta
-    ? "resolved"
-    : row.severity === "critical"
-      ? "critical"
-      : "attention";
   return {
     id: row.id,
-    lvl,
+    lvl: mapSeverityToLvl(row.severity),
+    state: row.resuelta ? "resolved" : "open",
+    cat: mapTipoToCat(row.tipo),
     title: row.titulo || row.mensaje || "Alerta",
     who: row.destinatario || "Sistema",
     time: formatRelativeTime(row.created_at),
     desc: row.subtitulo || row.mensaje || "",
-    actions: [],
   };
 }
 
@@ -73,6 +81,17 @@ export async function getAlertas(obraId: string): Promise<AlertasData> {
 
   const rows: ApiAlerta[] = await res.json();
   return { alerts: rows.map(mapAlerta) };
+}
+
+export async function resolverAlerta(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/alertas/${id}/resolver`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || `Request failed: ${res.status}`);
+  }
 }
 
 export async function createAlert(obraId: string, data: Record<string, string>) {
