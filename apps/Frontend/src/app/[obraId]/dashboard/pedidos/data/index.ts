@@ -1,3 +1,5 @@
+import type { PillTone } from "@/components/ui/DPill";
+
 export interface PedidoItem {
   id: string;
   mat: string;
@@ -24,7 +26,7 @@ export const ORDERS: PedidoItem[] = [
   { id: 'PED-0137', mat: 'Cable subterráneo 3×6 mm',  qty: '200 m',    prov: 'Eléctrica Plaza',      cat: 'Eléctrico',         date: '08 Jul', ordered: '07 Jun', state: 'draft',      total: 380000, unit: 'AR$ 1.900/m', who: 'M. Ortiz', urgent: false, note: 'Borrador — falta confirmar metraje final.' },
 ];
 
-export const STATE_MAP: Record<string, { tone: string; label: string; dot: string; icon: string; step: number }> = {
+export const STATE_MAP: Record<string, { tone: PillTone; label: string; dot: string; icon: string; step: number }> = {
   delivered: { tone: 'successSolid',   label: 'ENTREGADO',   dot: '#22C55E', icon: 'check',   step: 4 },
   transit:   { tone: 'info',           label: 'EN CAMINO',   dot: '#3B82F6', icon: 'truck',   step: 3 },
   approved:  { tone: 'primary',        label: 'APROBADO',    dot: '#0F4395', icon: 'check',   step: 2 },

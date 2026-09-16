@@ -1,44 +1,50 @@
 "use client";
 
-import { useEffect } from "react";
-import { Xmark, Clock, Check, Car, Pencil, TriangleExclamation } from "@gravity-ui/icons";
-import { DCard } from "@/components/ui/DCard";
+import { useEffect, type ReactNode } from "react";
+import {
+  Box,
+  Check,
+  Clock,
+  Persons,
+  Receipt,
+  TriangleExclamation,
+  Xmark,
+} from "@gravity-ui/icons";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
 import type { PedidoItem } from "../data";
-
-type STATE = Record<string, { tone: string; label: string; dot: string; icon: string; step: number }>;
+import { STATE_MAP, fmtCurrency } from "../data";
 
 interface Props {
   order: PedidoItem;
-  STATE: STATE;
-  fmt: (n: number) => string;
   onClose: () => void;
-  onApprove?: () => void;
-  onCancel?: () => void;
-  onDeliver?: () => void;
+  onApprove: (id: string) => void;
+  onCancel: (id: string) => void;
+  onDeliver: (id: string) => void;
+  onComprobante: () => void;
 }
 
-const STEP_ICONS: Record<number, typeof Check> = {
-  0: Pencil,
-  1: Clock,
-  2: Check,
-  3: Car,
-  4: Check,
-};
+const STEPS = [
+  { key: "draft", label: "Creado", n: 0 },
+  { key: "pending", label: "Por aprobar", n: 1 },
+  { key: "approved", label: "Aprobado", n: 2 },
+  { key: "transit", label: "En camino", n: 3 },
+  { key: "delivered", label: "Entregado", n: 4 },
+];
 
-const STEP_LABELS = ["Borrador", "Por aprobar", "Aprobado", "En camino", "Entregado"];
-
-export function OrderDrawer({ order, STATE, fmt, onClose, onApprove, onCancel, onDeliver }: Props) {
+export function OrderDrawer({ order, onClose, onApprove, onCancel, onDeliver, onComprobante }: Props) {
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
 
-  const st = STATE[order.state] || STATE.draft;
+  const st = STATE_MAP[order.state] || STATE_MAP.draft;
   const isDelivered = order.state === "delivered";
   const isCancelled = order.state === "cancelled";
+  const curStep = order.state === "late" ? 3 : st.step;
 
   return (
     <>
@@ -46,115 +52,156 @@ export function OrderDrawer({ order, STATE, fmt, onClose, onApprove, onCancel, o
       <aside className="fixed right-0 top-0 bottom-0 z-[60] w-[440px] max-w-[calc(100vw-32px)] bg-white border-l border-slate-200 shadow-big flex flex-col animate-slide-task overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3 flex-none">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full flex-none" style={{ background: st.dot }} />
-              <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-600">{order.id}</span>
-              {order.urgent && <DPill tone="criticalSolid">Urgente</DPill>}
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 tnum">{order.id.slice(0, 8)}</span>
+              {order.urgent && <DPill tone="criticalSolid">URGENTE</DPill>}
             </div>
-            <h3 className="text-[18px] font-extrabold display-tight text-slate-950 leading-tight">{order.mat}</h3>
+            <h3 className="text-[18px] font-extrabold display-tight text-slate-950 leading-tight">{order.mat || "Sin material"}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-950 flex items-center justify-center flex-none">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-950 flex items-center justify-center flex-none"
+          >
             <Xmark width={16} height={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          <div className="flex items-center gap-1">
-            {STEP_LABELS.map((label, i) => {
-              const active = i <= st.step;
-              const Icon = STEP_ICONS[i] || Check;
-              return (
-                <div key={i} className="flex items-center flex-1 last:flex-none">
-                  <div className={"w-7 h-7 rounded-full flex items-center justify-center flex-none " + (active ? "bg-primary text-white" : "bg-slate-100 text-slate-400")}>
-                    <Icon width={12} height={12} />
-                  </div>
-                  {i < STEP_LABELS.length - 1 && (
-                    <div className={"h-[2px] flex-1 mx-1 " + (active && i < st.step ? "bg-primary" : "bg-slate-200")} />
-                  )}
-                </div>
-              );
-            })}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <DPill tone={st.tone}>{st.label}</DPill>
+            <div className="text-right">
+              <div className="text-[20px] font-extrabold tnum text-slate-950 leading-none">{fmtCurrency(order.total)}</div>
+              <div className="text-[10px] text-slate-500 mt-[2px]">{order.unit || "—"}</div>
+            </div>
           </div>
-          <div className="flex justify-between px-1">
-            {STEP_LABELS.map((label, i) => (
-              <span key={i} className={"text-[9px] font-bold tracking-[0.04em] uppercase " + (i <= st.step ? "text-slate-950" : "text-slate-400")}
-                style={{ width: i === 0 || i === STEP_LABELS.length - 1 ? "auto" : undefined }}>
-                {label}
-              </span>
+
+          <div className="px-5 py-4 border-b border-slate-200">
+            <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-3">Estado del pedido</div>
+            <div className="space-y-0">
+              {STEPS.map((step, i) => {
+                const reached = step.n <= curStep;
+                const isLateHere = order.state === "late" && step.key === "transit";
+                return (
+                  <div key={step.key} className="flex items-center gap-3 relative">
+                    <div className="flex flex-col items-center">
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center flex-none text-[10px] font-bold ${
+                          isLateHere ? "bg-critical text-white" : reached ? "bg-success text-white" : "bg-slate-200 text-slate-500"
+                        }`}
+                      >
+                        {reached ? (
+                          isLateHere ? (
+                            <TriangleExclamation width={11} height={11} />
+                          ) : (
+                            <Check width={11} height={11} />
+                          )
+                        ) : (
+                          step.n + 1
+                        )}
+                      </span>
+                      {i < STEPS.length - 1 && <span className={`w-[2px] h-6 ${step.n < curStep ? "bg-success" : "bg-slate-200"}`} />}
+                    </div>
+                    <div className={`text-[12px] font-semibold pb-3 ${reached ? "text-slate-950" : "text-slate-400"}`}>
+                      {step.label}
+                      {isLateHere && <span className="text-[#B91C1C] font-bold"> · demorado</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="px-5 py-4 grid grid-cols-2 gap-4 border-b border-slate-200">
+            {(
+              [
+                ["Proveedor", order.prov],
+                ["Rubro", order.cat],
+                ["Cantidad", order.qty],
+                ["Precio unitario", order.unit],
+                ["Pedido el", order.ordered],
+                ["Llegada estimada", order.date],
+                ["Solicitado por", order.who],
+              ] as [string, string][]
+            ).map(([label, value]) => (
+              <div key={label}>
+                <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-1">{label}</div>
+                <div className="text-[12px] font-semibold text-slate-950">{value || "—"}</div>
+              </div>
             ))}
           </div>
 
-          <DCard padding="p-4">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
-              <InfoRow label="Proveedor" value={order.prov} />
-              <InfoRow label="Categoría" value={order.cat} />
-              <InfoRow label="Cantidad" value={order.qty} />
-              <InfoRow label="Precio unit." value={order.unit} />
-              <InfoRow label="Total" value={fmt(order.total)} bold />
-              <InfoRow label="Solicitó" value={order.who} />
-              <InfoRow label="Pedido" value={order.ordered} />
-              <InfoRow label="Llegada estimada" value={order.date} />
-            </div>
-          </DCard>
-
           {isDelivered && order.delivery && (
-            <DCard padding="p-4">
-              <div className="text-[11px] font-bold tracking-[0.06em] uppercase text-slate-500 mb-3">Registro de entrega</div>
-              <div className="space-y-2 text-[12px]">
-                <div className="flex justify-between"><span className="text-slate-600">Fecha</span><span className="font-semibold text-slate-950">{order.delivery.date}</span></div>
-                <div className="flex justify-between"><span className="text-slate-600">Lugar</span><span className="font-semibold text-slate-950">{order.delivery.loc}</span></div>
-                <div className="flex justify-between"><span className="text-slate-600">Recibió</span><span className="font-semibold text-slate-950">{order.delivery.receiver}</span></div>
-                <div className="flex justify-between"><span className="text-slate-600">Documento</span><span className="font-semibold text-slate-950">{order.delivery.doc}</span></div>
+            <div className="px-5 py-4 border-b border-slate-200">
+              <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-[#15803D] mb-2 flex items-center gap-1">
+                <Check width={12} height={12} /> Recepción confirmada
               </div>
-            </DCard>
+              <div className="bg-success-50 border border-[#BBF7D0] rounded-lg p-3 space-y-2">
+                {(
+                  [
+                    ["Fecha y hora", order.delivery.date, <Clock key="c" width={13} height={13} />],
+                    ["Lugar de entrega", order.delivery.loc, <Box key="b" width={13} height={13} />],
+                    ["Recibido por", order.delivery.receiver, <Persons key="p" width={13} height={13} />],
+                    ["Documento", order.delivery.doc, <Receipt key="r" width={13} height={13} />],
+                  ] as [string, string, ReactNode][]
+                ).map(([label, value, icon]) => (
+                  <div key={label} className="flex items-start gap-2">
+                    <span className="text-[#15803D] mt-[1px] flex-none">{icon}</span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] tracking-[0.04em] uppercase font-bold text-[#15803D]/70">{label}</div>
+                      <div className="text-[12px] font-semibold text-slate-900">{value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {order.note && (
-            <DCard padding="p-4">
-              <div className="text-[11px] font-bold tracking-[0.06em] uppercase text-slate-500 mb-2">Observaciones</div>
-              <p className="text-[12px] text-slate-700 leading-relaxed">{order.note}</p>
-            </DCard>
+            <div className="px-5 py-4">
+              <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-2">Observaciones</div>
+              <div
+                className={`text-[12px] leading-snug rounded-lg p-3 ${
+                  order.state === "late" || order.urgent ? "bg-critical-50 text-[#B91C1C]" : "bg-slate-50 text-slate-700"
+                }`}
+              >
+                {order.note}
+              </div>
+            </div>
           )}
         </div>
 
-        {!isDelivered && !isCancelled && (
-          <div className="border-t border-slate-200 p-3 flex items-center gap-2 flex-none">
-            {order.state === "pending" && (
-              <>
-                <DButton variant="primary" onClick={onApprove} className="flex-1">Aprobar</DButton>
-                <DButton variant="ghost" onClick={onCancel}>Cancelar</DButton>
-              </>
-            )}
-            {order.state === "approved" && (
-              <>
-                <DButton variant="primary" onClick={onDeliver} className="flex-1">Registrar entrega</DButton>
-                <DButton variant="ghost" onClick={onCancel}>Cancelar</DButton>
-              </>
-            )}
-            {order.state === "transit" && (
-              <DButton variant="primary" onClick={onDeliver} className="flex-1">Recibir</DButton>
-            )}
-            {order.state === "draft" && (
-              <DButton variant="secondary" onClick={onClose} className="flex-1">Cerrar</DButton>
-            )}
-            {order.state === "late" && (
-              <>
-                <DButton variant="primary" onClick={onDeliver} className="flex-1">Registrar entrega</DButton>
-                <DButton variant="ghost" onClick={onCancel}>Cancelar pedido</DButton>
-              </>
-            )}
-          </div>
-        )}
+        <div className="border-t border-slate-200 p-3 flex items-center gap-2 flex-none">
+          {order.state === "pending" ? (
+            <>
+              <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
+                Cancelar pedido
+              </DButton>
+              <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => onApprove(order.id)}>
+                Aprobar pedido
+              </DButton>
+            </>
+          ) : isCancelled || isDelivered ? (
+            <DButton variant="secondary" size="sm" className="flex-1 justify-center" onClick={onComprobante}>
+              Comprobante
+            </DButton>
+          ) : (
+            <>
+              <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
+                Cancelar
+              </DButton>
+              <DButton
+                variant="primary"
+                size="sm"
+                className="flex-1 justify-center"
+                icon={<Check width={13} height={13} />}
+                onClick={() => onDeliver(order.id)}
+              >
+                Registrar entrega
+              </DButton>
+            </>
+          )}
+        </div>
       </aside>
     </>
-  );
-}
-
-function InfoRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500 mb-[2px]">{label}</div>
-      <div className={"text-slate-950 " + (bold ? "font-extrabold" : "font-semibold")}>{value}</div>
-    </div>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Car, Clock, TriangleExclamation, Plus, ArrowUp } from "@gravity-ui/icons";
-import { DCard } from "@/components/ui/DCard";
+import { Car, CircleDollar, Clock, Plus, TriangleExclamation } from "@gravity-ui/icons";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
@@ -16,6 +15,15 @@ import { STATE_MAP, FILTERS, fmtCurrency } from "../data";
 import { OrderDrawer } from "./OrderDrawer";
 import { NewOrderModal } from "./NewOrderModal";
 import { DeliveryModal } from "./DeliveryModal";
+
+const FILTER_MATCH: Record<string, (o: PedidoItem) => boolean> = {
+  Todos: () => true,
+  "Por aprobar": (o) => o.state === "pending",
+  "En camino": (o) => o.state === "transit",
+  Demorados: (o) => o.state === "late",
+  Entregados: (o) => o.state === "delivered",
+  Cancelados: (o) => o.state === "cancelled",
+};
 
 export function ScreenPedidos() {
   const { obraId } = useDashboardData();
@@ -43,23 +51,16 @@ export function ScreenPedidos() {
       .catch(() => {});
   }, [load, obraId, flash]);
 
-  const filtered = orders.filter((o) => {
-    if (filter === "Todos") return true;
-    const map: Record<string, string> = { "Por aprobar": "pending", "En camino": "transit", Demorados: "late", Entregados: "delivered", Cancelados: "cancelled" };
-    return o.state === map[filter];
-  });
+  const filtered = orders.filter(FILTER_MATCH[filter] || FILTER_MATCH.Todos);
 
   const pendingCount = orders.filter((o) => o.state === "pending").length;
   const transitCount = orders.filter((o) => o.state === "transit").length;
   const lateCount = orders.filter((o) => o.state === "late").length;
-  const monthTotal = orders
-    .filter((o) => o.state === "delivered" || o.state === "approved" || o.state === "transit" || o.state === "pending" || o.state === "late")
-    .reduce((s, o) => s + (o.total || 0), 0);
+  const monthTotal = orders.reduce((s, o) => s + (o.total || 0), 0);
 
-  const handleApprove = async () => {
-    if (!selected) return;
+  const handleApprove = async (id: string) => {
     try {
-      await aprobarPedido(selected.id);
+      await aprobarPedido(id);
       await load();
       setSelected(null);
       flash("Pedido aprobado");
@@ -68,10 +69,9 @@ export function ScreenPedidos() {
     }
   };
 
-  const handleCancel = async () => {
-    if (!selected) return;
+  const handleCancel = async (id: string) => {
     try {
-      await rechazarPedido(selected.id);
+      await rechazarPedido(id);
       await load();
       setSelected(null);
       flash("Pedido cancelado");
@@ -82,9 +82,13 @@ export function ScreenPedidos() {
 
   const handleDeliverSave = (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
     if (!deliverFor) return;
-    const displayDate = `${delivery.date}${delivery.time ? ` · ${delivery.time}` : ""}`;
-    setOrders((prev) => prev.map((o) => o.id === deliverFor.id ? { ...o, state: "delivered", delivery: { date: displayDate, loc: delivery.loc, receiver: delivery.receiver, doc: delivery.doc } } : o));
-    setSelected((prev) => prev && prev.id === deliverFor.id ? { ...prev, state: "delivered", delivery: { date: displayDate, loc: delivery.loc, receiver: delivery.receiver, doc: delivery.doc } } : prev);
+    const dateLabel = delivery.date
+      ? new Date(`${delivery.date}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+      : "";
+    const displayDate = `${dateLabel}${delivery.time ? ` · ${delivery.time}` : ""}`;
+    const patch = { state: "delivered", delivery: { date: displayDate, loc: delivery.loc, receiver: delivery.receiver, doc: delivery.doc } };
+    setOrders((prev) => prev.map((o) => (o.id === deliverFor.id ? { ...o, ...patch } : o)));
+    setSelected((prev) => (prev && prev.id === deliverFor.id ? { ...prev, ...patch } : prev));
     setDeliverFor(null);
     flash("Entrega registrada");
   };
@@ -102,80 +106,143 @@ export function ScreenPedidos() {
 
   return (
     <div>
-      <DPageHeader title="Pedidos" subtitle="Materiales y órdenes de compra"
-        right={<DButton icon={<Plus width={14} height={14} />} onClick={() => setShowNew(true)}>Nuevo pedido</DButton>} />
+      <DPageHeader
+        title="Pedidos de materiales"
+        subtitle={`${orders.length} pedidos · ${pendingCount} esperan tu aprobación`}
+        right={<DButton icon={<Plus width={14} height={14} />} onClick={() => setShowNew(true)}>Nuevo pedido</DButton>}
+      />
 
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <DStatTile tone="attention" label="Por aprobar" value={String(pendingCount)} icon={<Clock width={16} height={16} />} />
-        <DStatTile tone="info" label="En tránsito" value={String(transitCount)} icon={<Car width={16} height={16} />} />
-        <DStatTile tone="critical" label="Demorados" value={String(lateCount)} icon={<TriangleExclamation width={16} height={16} />} />
-        <DStatTile tone="primary" label="Total del mes" value={fmtCurrency(monthTotal)} icon={<ArrowUp width={16} height={16} />} />
+        <DStatTile
+          tone="attention"
+          label="Por aprobar"
+          value={String(pendingCount)}
+          icon={<Clock width={16} height={16} />}
+          delta={pendingCount ? "Requieren acción" : "Al día"}
+          deltaTone={pendingCount ? "critical" : "success"}
+          onClick={() => setFilter("Por aprobar")}
+        />
+        <DStatTile
+          tone="info"
+          label="En tránsito"
+          value={String(transitCount)}
+          icon={<Car width={16} height={16} />}
+          onClick={() => setFilter("En camino")}
+        />
+        <DStatTile
+          tone="critical"
+          label="Demorados"
+          value={String(lateCount)}
+          icon={<TriangleExclamation width={16} height={16} />}
+          onClick={() => setFilter("Demorados")}
+        />
+        <DStatTile
+          tone="success"
+          label="Total del mes"
+          value={monthTotal.toLocaleString("es-AR")}
+          suffix="AR$"
+          icon={<CircleDollar width={16} height={16} />}
+        />
       </div>
 
-      <div className="flex gap-1 mb-4 flex-wrap">
-        {FILTERS.map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={"text-[12px] font-bold px-3 py-[6px] rounded-full border transition-colors " + (filter === f ? "bg-slate-950 text-white border-slate-950" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}>
-            {f}
-          </button>
-        ))}
+      <div className="flex gap-1 border-b border-slate-200 mb-4 flex-wrap">
+        {FILTERS.map((f) => {
+          const on = filter === f;
+          const n = orders.filter(FILTER_MATCH[f] || FILTER_MATCH.Todos).length;
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`flex items-center gap-2 text-[12px] font-bold px-[14px] py-3 -mb-[1px] border-b-2 transition-colors ${
+                on ? "text-primary border-primary" : "text-slate-500 border-transparent hover:text-slate-700"
+              }`}
+            >
+              {f}
+              <span className={`text-[10px] font-bold px-[6px] py-[2px] rounded-full ${on ? "bg-primary-50 text-primary" : "bg-slate-100 text-slate-700"}`}>
+                {n}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {filtered.map((order) => {
-          const st = STATE_MAP[order.state] || STATE_MAP.draft;
-          const isPending = order.state === "pending";
+        {filtered.map((o) => {
+          const st = STATE_MAP[o.state] || STATE_MAP.draft;
           return (
-            <DCard key={order.id} padding="p-0" className="overflow-hidden">
-              <div className="h-1" style={{ background: st.dot }} />
+            <div
+              key={o.id}
+              onClick={() => setSelected(o)}
+              className="text-left bg-white border border-slate-200 rounded-lg overflow-hidden hover:border-primary hover:shadow-card2 transition-all group flex flex-col self-start w-full cursor-pointer"
+            >
+              <div className="h-[3px] w-full" style={{ background: st.dot }} />
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-[2px]">
-                      <span className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500">{order.id}</span>
-                      {order.urgent && <DPill tone="criticalSolid">Urgente</DPill>}
+                    <div className="flex items-center gap-2 flex-wrap mb-[2px]">
+                      <span className="text-[10px] font-bold text-slate-400 tnum">{o.id.slice(0, 8)}</span>
+                      {o.urgent && <DPill tone="criticalSolid">URGENTE</DPill>}
                     </div>
-                    <h4 className="text-[14px] font-bold text-slate-950 leading-tight truncate">{order.mat}</h4>
+                    <div className="text-[15px] font-extrabold text-slate-950 leading-tight group-hover:text-primary transition-colors">
+                      {o.mat || "Sin material"}
+                    </div>
                   </div>
-                  <DPill tone={st.tone as any}>{st.label}</DPill>
+                  <span className="flex-none self-start">
+                    <DPill tone={st.tone}>{st.label}</DPill>
+                  </span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] mb-3">
-                  <div><span className="text-slate-500">Proveedor</span><span className="font-semibold text-slate-800 ml-1">{order.prov}</span></div>
-                  <div><span className="text-slate-500">Categoría</span><span className="font-semibold text-slate-800 ml-1">{order.cat}</span></div>
-                  <div><span className="text-slate-500">Cantidad</span><span className="font-semibold text-slate-800 ml-1">{order.qty}</span></div>
-                  <div><span className="text-slate-500">Total</span><span className="font-semibold text-slate-800 ml-1">{fmtCurrency(order.total)}</span></div>
+
+                <div className="flex items-center gap-2 text-[12px] text-slate-600 mb-3">
+                  <Car width={13} height={13} className="text-slate-400" />
+                  <span className="truncate">{o.prov || "Sin proveedor"}</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-500">{o.cat || "Sin rubro"}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <span>Llegada: <b className="text-slate-800">{order.date || "—"}</b></span>
+
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100">
+                  <div>
+                    <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-slate-400">Cantidad</div>
+                    <div className="text-[13px] font-bold text-slate-950 tnum">{o.qty || "—"}</div>
                   </div>
-                  <div className="flex gap-1">
-                    {isPending && (
-                      <>
-                        <DButton size="sm" variant="primary" onClick={() => { setSelected(order); handleApprove(); }}>Aprobar</DButton>
-                        <DButton size="sm" variant="outline" onClick={() => setSelected(order)}>Ver</DButton>
-                      </>
-                    )}
-                    {!isPending && (
-                      <DButton size="sm" variant="outline" onClick={() => setSelected(order)}>Ver</DButton>
-                    )}
+                  <div>
+                    <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-slate-400">Llegada</div>
+                    <div className="text-[13px] font-bold text-slate-950">{o.date || "—"}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-slate-400">Total</div>
+                    <div className="text-[13px] font-extrabold text-slate-950 tnum">{fmtCurrency(o.total)}</div>
                   </div>
                 </div>
+
+                {o.state === "pending" && (
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                    <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => handleApprove(o.id)}>
+                      Aprobar
+                    </DButton>
+                    <DButton variant="secondary" size="sm" onClick={() => setSelected(o)}>
+                      Ver
+                    </DButton>
+                  </div>
+                )}
               </div>
-            </DCard>
+            </div>
           );
         })}
+        {filtered.length === 0 && (
+          <div className="col-span-2 text-center text-slate-500 py-12 text-[13px] border border-dashed border-slate-200 rounded-lg">
+            No hay pedidos en este filtro.
+          </div>
+        )}
       </div>
 
       {selected && (
         <OrderDrawer
           order={selected}
-          STATE={STATE_MAP}
-          fmt={fmtCurrency}
           onClose={() => setSelected(null)}
           onApprove={handleApprove}
           onCancel={handleCancel}
-          onDeliver={() => { setDeliverFor(selected); setSelected(null); }}
+          onDeliver={(id) => { setDeliverFor(orders.find((o) => o.id === id) || selected); setSelected(null); }}
+          onComprobante={() => flash("Comprobante no disponible")}
         />
       )}
 

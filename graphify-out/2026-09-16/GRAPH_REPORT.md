@@ -1,7 +1,7 @@
 # Graph Report - BuildData  (2026-09-16)
 
 ## Corpus Check
-- 322 files · ~174,299 words
+- 322 files · ~174,333 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 2, .lock 2, .ico 1)
 

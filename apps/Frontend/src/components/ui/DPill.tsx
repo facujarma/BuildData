@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type PillTone =
+export type PillTone =
   | "critical" | "attention" | "success" | "info" | "primary" | "slate"
   | "inkSolid" | "criticalSolid" | "successSolid" | "attentionSolid";
 

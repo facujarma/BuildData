@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Xmark, Plus } from "@gravity-ui/icons";
-import DButton from "@/components/ui/Button";
+import { Check, Plus, TriangleExclamation, Xmark } from "@gravity-ui/icons";
 import { UNITS } from "../data";
 import type { NewPedidoPayload } from "@/services/pedidosService";
 import type { ObreroLite } from "@/services/pedidosService";
@@ -35,10 +34,7 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const cats = useMemo(
-    () => Array.from(new Set([...rubros, ...customCats])),
-    [rubros, customCats]
-  );
+  const cats = useMemo(() => Array.from(new Set([...rubros, ...customCats])), [rubros, customCats]);
   const currentCat = cat || cats[0] || "";
 
   const canSave = mat.trim() && prov.trim();
@@ -111,108 +107,135 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
         <div className="p-6 space-y-4 overflow-y-auto">
           <label className="flex flex-col gap-[6px]">
             <span className="text-[11px] font-bold text-slate-700">Material*</span>
-            <input value={mat} onChange={(e) => setMat(e.target.value)} placeholder="Ej: Cemento Portland 50 kg"
+            <input value={mat} onChange={(e) => setMat(e.target.value)} placeholder="Ej: Cemento Portland · 50 kg"
               className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
           </label>
-
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Proveedor*</span>
-            <input value={prov} onChange={(e) => setProv(e.target.value)} placeholder="Nombre del proveedor"
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-          </label>
-
-          <div>
-            <div className="flex items-center justify-between mb-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Categoría</span>
-              <button type="button" onClick={() => setShowNewCat(!showNewCat)}
-                className="text-[11px] font-bold text-primary hover:text-primary-700 flex items-center gap-1">
-                <Plus width={12} height={12} /> Nuevo
-              </button>
-            </div>
-            {showNewCat ? (
-              <div className="flex gap-2">
-                <input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Nueva categoría"
-                  className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-                <DButton size="sm" onClick={addCategory} disabled={!newCat.trim()}>Agregar</DButton>
-              </div>
-            ) : (
-              <select value={currentCat} onChange={(e) => setCat(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Cantidad</span>
-              <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))}
+              <span className="text-[11px] font-bold text-slate-700">Proveedor*</span>
+              <input value={prov} onChange={(e) => setProv(e.target.value)} placeholder="Ej: Cementos del Plata"
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
             </label>
-            <div>
-              <div className="flex items-center justify-between mb-[6px]">
-                <span className="text-[11px] font-bold text-slate-700">Unidad</span>
-                <button type="button" onClick={() => setShowNewUnit(!showNewUnit)}
-                  className="text-[11px] font-bold text-primary hover:text-primary-700 flex items-center gap-1">
-                  <Plus width={12} height={12} /> Nuevo
+
+            <div className="flex flex-col gap-[6px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700">Rubro</span>
+                <button type="button" onClick={() => setShowNewCat(true)}
+                  className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]">
+                  <Plus width={10} height={10} /> Nuevo rubro
                 </button>
               </div>
-              {showNewUnit ? (
-                <div className="flex gap-2">
-                  <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="Nueva unidad"
-                    className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-                  <DButton size="sm" onClick={addUnit} disabled={!newUnit.trim()}>Agregar</DButton>
+              {showNewCat ? (
+                <div className="flex gap-1">
+                  <input autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(); else if (e.key === "Escape") setShowNewCat(false); }}
+                    placeholder="Nuevo rubro"
+                    className="flex-1 min-w-0 bg-white border border-primary rounded-md px-3 py-[9px] text-[13px] focus:outline-none" />
+                  <button type="button" onClick={addCategory} className="px-3 rounded-md bg-primary text-white flex items-center justify-center">
+                    <Check width={14} height={14} />
+                  </button>
+                  <button type="button" onClick={() => setShowNewCat(false)} className="px-2 rounded-md border border-slate-200 text-slate-500 flex items-center justify-center">
+                    <Xmark width={14} height={14} />
+                  </button>
                 </div>
               ) : (
-                <select value={unit} onChange={(e) => setUnit(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                  {units.map((u) => <option key={u} value={u}>{u}</option>)}
+                <select value={currentCat} onChange={(e) => setCat(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                  {cats.length === 0 && <option value="">Sin rubros</option>}
+                  {cats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               )}
             </div>
-          </div>
 
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Total AR$</span>
-            <input type="number" min={0} value={total} onChange={(e) => setTotal(Number(e.target.value))}
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-          </label>
+            <div className="flex flex-col gap-[6px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700">Cantidad</span>
+                {!showNewUnit && (
+                  <button type="button" onClick={() => { setShowNewUnit(true); setNewUnit(""); }}
+                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]">
+                    <Plus width={10} height={10} /> Unidad
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input type="number" min={0} value={qty} onChange={(e) => setQty(Number(e.target.value))} placeholder="0"
+                  className="w-[90px] bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
+                {showNewUnit ? (
+                  <div className="flex gap-1 flex-1 min-w-0">
+                    <input autoFocus value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addUnit(); else if (e.key === "Escape") setShowNewUnit(false); }}
+                      placeholder="Nueva unidad"
+                      className="flex-1 min-w-0 bg-white border border-primary rounded-md px-2 py-[9px] text-[13px] focus:outline-none" />
+                    <button type="button" onClick={addUnit} className="px-2 rounded-md bg-primary text-white flex items-center justify-center">
+                      <Check width={14} height={14} />
+                    </button>
+                    <button type="button" onClick={() => setShowNewUnit(false)} className="px-2 rounded-md border border-slate-200 text-slate-500 flex items-center justify-center">
+                      <Xmark width={14} height={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <select value={unit} onChange={(e) => setUnit(e.target.value)}
+                    className="flex-1 min-w-0 bg-white border border-slate-200 rounded-md px-2 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                    {units.map((u) => <option key={u}>{u}</option>)}
+                  </select>
+                )}
+              </div>
+            </div>
 
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Llegada estimada</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-          </label>
+            <label className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate-700">Total (AR$)*</span>
+              <input type="number" min={0} value={total} onChange={(e) => setTotal(Number(e.target.value))} placeholder="0"
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
+            </label>
 
-          <div className="flex items-center gap-3">
-            <label className="flex flex-col gap-[6px] flex-1">
+            <label className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate-700">Llegada estimada</span>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
+            </label>
+
+            <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate-700">Solicitó</span>
               <select value={who} onChange={(e) => setWho(e.target.value)}
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">—</option>
                 {members.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
               </select>
-            </label>
-            <label className="flex items-center gap-2 pt-5">
-              <span className="text-[11px] font-bold text-slate-700">Urgente</span>
-              <button type="button" onClick={() => setUrgent(!urgent)}
-                className={"w-10 h-[22px] rounded-full transition-colors relative " + (urgent ? "bg-critical" : "bg-slate-300")}>
-                <span className={"absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-all " + (urgent ? "right-[2px]" : "left-[2px]")} />
-              </button>
             </label>
           </div>
 
           <label className="flex flex-col gap-[6px]">
             <span className="text-[11px] font-bold text-slate-700">Nota</span>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Observaciones adicionales…"
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-none" />
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[60px]" />
           </label>
 
-          {error && <div className="text-[12px] font-semibold text-critical">⚠️ {error}</div>}
+          <button type="button" onClick={() => setUrgent(!urgent)}
+            className={`w-full flex items-center gap-3 rounded-lg border px-3 py-[10px] transition-colors text-left ${
+              urgent ? "bg-critical-50 border-[#FECACA]" : "bg-white border-slate-200 hover:border-slate-300"
+            }`}>
+            <span className={`w-9 h-[22px] rounded-full p-[2px] flex-none transition-colors ${urgent ? "bg-critical" : "bg-slate-300"}`}>
+              <span className={`block w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${urgent ? "translate-x-[16px]" : "translate-x-0"}`} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className={`block text-[13px] font-bold ${urgent ? "text-[#B91C1C]" : "text-slate-950"}`}>Pedido urgente</span>
+              <span className="block text-[11px] text-slate-500">Se prioriza y notifica al director de obra.</span>
+            </span>
+            {urgent && <TriangleExclamation width={16} height={16} className="text-[#B91C1C]" />}
+          </button>
+
+          {error && <div className="text-[12px] font-semibold text-critical">{error}</div>}
         </div>
 
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
-          <DButton variant="ghost" onClick={onClose} disabled={saving}>Cancelar</DButton>
-          <DButton onClick={submit} disabled={!canSave || saving}>{saving ? "Creando…" : "Crear pedido"}</DButton>
+        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
+          <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
+          <button onClick={submit} disabled={!canSave || saving}
+            className={`inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors ${
+              canSave && !saving ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"
+            }`}>
+            {saving ? "Creando…" : "Crear pedido"} {!saving && <Check width={14} height={14} />}
+          </button>
         </div>
       </div>
     </div>
