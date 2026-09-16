@@ -17,7 +17,29 @@ export default function DashboardLoading() {
         </div>
       </div>
 
+      {/* Requires attention */}
+      <div className="mb-5">
+        <Skeleton className="h-3 w-40 rounded mb-2" />
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="border rounded-lg p-4 bg-white border-slate-200">
+              <div className="flex items-start gap-3">
+                <Skeleton className="w-9 h-9 rounded-lg flex-none" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32 rounded" />
+                  <Skeleton className="h-3 w-44 rounded" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <Skeleton className="h-3 w-16 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Stat tiles */}
+      <Skeleton className="h-3 w-28 rounded mb-2" />
       <div className="grid grid-cols-4 gap-3 mb-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div

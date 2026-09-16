@@ -12,6 +12,7 @@ import {
 } from "@gravity-ui/icons";
 import { DPageHeader } from "./DPageHeader";
 import { DStatTile } from "./DStatTile";
+import { DashboardAttention } from "./DashboardAttention";
 import { DPill } from "@/components/ui/DPill";
 import Button from "@/components/ui/Button";
 import ProgressByTradeCards from "./ProgressByTradeCards";
@@ -86,6 +87,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
     recibos: `/costos?v=recibos`,
     presupuesto: `/costos?v=presupuesto`,
     bandeja: `/inbox`,
+    inbox: `/inbox`,
     rubros: `/rubros`,
     configuracion: `/configuracion`,
     perfil: `/perfil`,
@@ -121,6 +123,10 @@ export function DashboardContent({ data, onNavigate }: Props) {
     demorados: 1,
     mesEnCurso: 14,
   };
+
+  // No hay endpoint de mensajes pendientes: se mantiene mock, consistente con el Inbox.
+  const mensajesPorConfirmar = 3;
+  const alertasCriticas = stats.alertasCriticas;
 
   const totalAvance = categories.length
     ? Math.round(categories.reduce((a, c) => a + catProgress(c, tasks), 0) / categories.length)
@@ -181,7 +187,16 @@ export function DashboardContent({ data, onNavigate }: Props) {
         }
       />
 
+      <DashboardAttention
+        mensajes={mensajesPorConfirmar}
+        pedidos={stats.pedidosPendientes}
+        alertas={alerts.length}
+        alertasCriticas={alertasCriticas}
+        onNavigate={handleNav}
+      />
+
       {/* Stat tiles */}
+      <div className="text-[11px] tracking-[0.08em] uppercase font-bold text-slate-600 mb-2">Estado general</div>
       <div className="grid grid-cols-4 gap-3 mb-4">
         <DStatTile
           tone="primary"

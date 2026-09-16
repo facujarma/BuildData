@@ -450,8 +450,8 @@
     "semantic_hash": "6d75e7216768580c0ebf4381bd4d6091"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashSidebar.tsx": {
-    "mtime": 1789427425.9857457,
-    "seen": 1789515629.726845,
+    "mtime": 1789601243.2615125,
+    "seen": 1789601298.9571824,
     "ast_hash": "49e7835d4f5c3ec9a2e61036afeecaec",
     "semantic_hash": "49e7835d4f5c3ec9a2e61036afeecaec"
   },
@@ -462,10 +462,10 @@
     "semantic_hash": "375ec8b435c59d47109751512b52be01"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashboardContent.tsx": {
-    "mtime": 1789428059.2787964,
-    "seen": 1789515629.7268543,
-    "ast_hash": "6b12d0f2a73bcf7e3c7b22a2bada5147",
-    "semantic_hash": "6b12d0f2a73bcf7e3c7b22a2bada5147"
+    "mtime": 1789601248.9305618,
+    "seen": 1789601298.9573238,
+    "ast_hash": "34efe7e5d92efc457c316e58ea378905",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashboardDataContext.tsx": {
     "mtime": 1782331275.4232337,
@@ -774,10 +774,10 @@
     "semantic_hash": "2cc28dc06beade41401671f02ba2ad1c"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/loading.tsx": {
-    "mtime": 1782331275.4292336,
-    "seen": 1789515629.7270818,
-    "ast_hash": "d685cb364bfc0108cb84eda92151a4e3",
-    "semantic_hash": "d685cb364bfc0108cb84eda92151a4e3"
+    "mtime": 1789600971.309632,
+    "seen": 1789601028.748987,
+    "ast_hash": "f285dcb68e7abc5518d762b2eaeb948d",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/materiales/_components/MaterialesView.tsx": {
     "mtime": 1789427164.3306577,
@@ -1614,8 +1614,8 @@
     "semantic_hash": "0bfa4654cf593985e9d47d12014f6ff0"
   },
   "apps/Frontend/src/services/mock/inboxService.ts": {
-    "mtime": 1789427095.8192854,
-    "seen": 1789515629.7276137,
+    "mtime": 1789601243.7945173,
+    "seen": 1789601298.9713237,
     "ast_hash": "308b1964be8f8ebf442d3c7459f6d07c",
     "semantic_hash": "308b1964be8f8ebf442d3c7459f6d07c"
   },
@@ -1989,6 +1989,12 @@
     "mtime": 1789600309.4919214,
     "seen": 1789600433.7888424,
     "ast_hash": "4e926efaac8d7df4dacfafb1c5f19ceb",
+    "semantic_hash": ""
+  },
+  "apps/Frontend/src/app/[obraId]/dashboard/_components/DashboardAttention.tsx": {
+    "mtime": 1789600957.2674496,
+    "seen": 1789601028.7439516,
+    "ast_hash": "74bda947a0cf3d4604e6746c0f427d93",
     "semantic_hash": ""
   }
 }
