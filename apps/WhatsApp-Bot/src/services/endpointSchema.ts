@@ -5,6 +5,9 @@ export interface EndpointParam {
   required: boolean;
   source: "obra_poll" | "user_phone" | "llm" | "auto" | "entity_resolution";
   isName?: boolean;
+  prompt?: string;
+  examples?: string[];
+  elementParams?: EndpointParam[];
 }
 
 export interface EndpointSchema {
@@ -43,6 +46,26 @@ export const ENDPOINTS: EndpointSchema[] = [
         required: true,
         source: "llm",
         isName: true,
+        prompt: "¿Qué materiales usaste y cuánto de cada uno?",
+        elementParams: [
+          {
+            name: "nombre",
+            type: "string",
+            description: "Nombre del material",
+            required: true,
+            source: "llm",
+            isName: true,
+            prompt: "¿Qué material usaste?",
+          },
+          {
+            name: "cantidad",
+            type: "number",
+            description: "Cantidad usada",
+            required: true,
+            source: "llm",
+            prompt: "¿Cuánto usaste?",
+          },
+        ],
       },
     ],
   },
@@ -77,14 +100,35 @@ export const ENDPOINTS: EndpointSchema[] = [
           "Material a pedir. Debe tener material_nombre y cantidad, y puede incluir unidad y precio_unitario.",
         required: true,
         source: "llm",
+        prompt: "¿Qué materiales querés pedir y cuántos?",
+        elementParams: [
+          {
+            name: "material_nombre",
+            type: "string",
+            description: "Nombre del material a pedir",
+            required: true,
+            source: "llm",
+            isName: true,
+            prompt: "¿Qué material querés pedir?",
+          },
+          {
+            name: "cantidad",
+            type: "number",
+            description: "Cantidad a pedir",
+            required: true,
+            source: "llm",
+            prompt: "¿Cuántos pedís?",
+          },
+        ],
       },
       {
         name: "categoria",
         type: "string",
         description:
           "Categoría del pedido (ej: Herramientas, Hierros, Material eléctrico). Solo si el usuario la menciona.",
-        required: false,
+        required: true,
         source: "llm",
+        prompt: "¿Para que rubro es este pedido?",
       },
       {
         name: "urgente",
@@ -147,6 +191,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         required: true,
         source: "llm",
         isName: true,
+        prompt: "¿Qué tarea se atrasó?",
       },
       {
         name: "dias_retraso",
@@ -154,6 +199,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         description: "Cantidad de días de retraso",
         required: true,
         source: "llm",
+        prompt: "¿Cuántos días de atraso?",
       },
     ],
   },
@@ -183,6 +229,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         description: "Título breve del reporte (máx 150 caracteres)",
         required: true,
         source: "llm",
+        prompt: "¿Qué querés reportar? Contame en una frase.",
       },
       {
         name: "descripcion",
@@ -222,6 +269,7 @@ export const ENDPOINTS: EndpointSchema[] = [
           "Nombre de la tarea que el obrero dice haber terminado (se resuelve contra las tareas de la obra a través del pipeline de entidades)",
         required: true,
         source: "llm",
+        prompt: "¿Qué tarea terminaste?",
       },
       {
         name: "completada",
@@ -230,6 +278,8 @@ export const ENDPOINTS: EndpointSchema[] = [
           "true si el obrero terminó el trabajo, false si hay que revertir una marca anterior",
         required: true,
         source: "llm",
+        prompt: "¿La terminaste o querés revertir una marca anterior?",
+        examples: ["Sí, la terminé", "No, quiero deshacer la marca"],
       },
       {
         name: "porcentaje_avance",
@@ -267,6 +317,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         description: "Monto del gasto",
         required: true,
         source: "llm",
+        prompt: "¿Cuánto gastaste?",
       },
       {
         name: "rubro_id",
@@ -327,10 +378,32 @@ export const ENDPOINTS: EndpointSchema[] = [
         description: "El mensaje tal cual lo escribió el usuario",
         required: true,
         source: "llm",
+        prompt: "¿Qué mensaje querés dejar asentado?",
       },
     ],
   },
 ];
+
+function assertRequiredPrompts(): void {
+  const check = (param: EndpointParam, where: string): void => {
+    if (param.required && param.source === "llm" && !param.prompt) {
+      throw new Error(
+        `${where}: el campo requerido "${param.name}" no tiene "prompt" de repregunta`,
+      );
+    }
+    for (const sub of param.elementParams ?? []) {
+      check(sub, `${where} → ${param.name}[]`);
+    }
+  };
+
+  for (const endpoint of ENDPOINTS) {
+    for (const param of endpoint.params) {
+      check(param, endpoint.path);
+    }
+  }
+}
+
+assertRequiredPrompts();
 
 export function getEndpointSchema(path: string): EndpointSchema | undefined {
   return ENDPOINTS.find((e) => e.path === path);
@@ -341,11 +414,105 @@ export interface ValidationResult {
   missingRequired: string[];
 }
 
+export interface MissingField {
+  opIndex: number;
+  path: string;
+  name: string;
+  prompt: string;
+  context?: string;
+  examples?: string[];
+  dataKey: string | null;
+  itemIndex: number;
+}
+
+function isMissingValue(
+  value: unknown,
+  type?: EndpointParam["type"],
+): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string" && value.trim() === "") return true;
+  if (typeof value === "number" && Number.isNaN(value)) return true;
+  if (type === "array") return !Array.isArray(value) || value.length === 0;
+  return false;
+}
+
+function elementLabel(
+  params: EndpointParam[],
+  item: Record<string, unknown>,
+): string | undefined {
+  for (const param of params) {
+    if (!param.isName) continue;
+    const value = item[param.name];
+    if (typeof value === "string" && value.trim() !== "") {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+export function collectMissingFields(
+  endpoint: string,
+  data: Record<string, unknown>,
+  opIndex = 0,
+): MissingField[] {
+  const schema = getEndpointSchema(endpoint);
+  if (!schema) return [];
+
+  const missing: MissingField[] = [];
+
+  for (const param of schema.params) {
+    if (!param.required || param.source !== "llm") continue;
+
+    const value = data[param.name];
+    if (isMissingValue(value, param.type)) {
+      missing.push({
+        opIndex,
+        path: param.name,
+        name: param.name,
+        prompt: param.prompt ?? `¿Me pasás el dato de "${param.name}"?`,
+        examples: param.examples,
+        dataKey: null,
+        itemIndex: 0,
+      });
+      continue;
+    }
+
+    if (!param.elementParams || !Array.isArray(value)) continue;
+
+    value.forEach((rawItem, itemIndex) => {
+      if (!rawItem || typeof rawItem !== "object") return;
+      const item = rawItem as Record<string, unknown>;
+      const context = elementLabel(param.elementParams!, item);
+
+      for (const sub of param.elementParams!) {
+        if (!sub.required || sub.source !== "llm") continue;
+        if (!isMissingValue(item[sub.name], sub.type)) continue;
+
+        missing.push({
+          opIndex,
+          path: `${param.name}[${itemIndex}].${sub.name}`,
+          name: sub.name,
+          prompt: sub.prompt ?? `¿Me pasás el dato de "${sub.name}"?`,
+          context,
+          examples: sub.examples,
+          dataKey: param.name,
+          itemIndex,
+        });
+      }
+    });
+  }
+
+  return missing;
+}
+
+export function formatMissingQuestion(field: MissingField): string {
+  return field.context ? `${field.prompt} (${field.context})` : field.prompt;
+}
+
 export function validateApiCall(
   endpoint: string,
   data: Record<string, unknown>,
 ): ValidationResult {
-  console.log(`Validando endpoint ${endpoint}:`, { data });
   const schema = getEndpointSchema(endpoint);
   if (!schema) {
     return {
@@ -354,15 +521,10 @@ export function validateApiCall(
     };
   }
 
-  const missing = schema.params
-    .filter((p) => p.required && p.source === "llm")
-    .filter((p) => data[p.name] === undefined || data[p.name] === null)
-    .map((p) => p.name);
-
-    console.log(`Validando endpoint ${endpoint}:`, { data, missing });
+  const missing = collectMissingFields(endpoint, data);
   return {
     valid: missing.length === 0,
-    missingRequired: missing,
+    missingRequired: missing.map((m) => m.path),
   };
 }
 

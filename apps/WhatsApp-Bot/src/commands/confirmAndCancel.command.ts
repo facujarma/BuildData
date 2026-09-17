@@ -1,5 +1,12 @@
 import { Command } from "./index";
-import { clearPending, hasPending } from "../handlers/pendingQuery.store";
+import {
+  clearPending,
+  hasPending,
+  clearEntityPending,
+  hasEntityPending,
+  clearClarification,
+  hasClarification,
+} from "../handlers/pendingQuery.store";
 import { MSG } from "../shared/responses";
 
 export const cancelCommand: Command = {
@@ -8,13 +15,17 @@ export const cancelCommand: Command = {
   execute: async (message) => {
     const phone = (await message.getContact()).number;
 
-    if (!hasPending(phone)) {
+    const hasAnything =
+      hasPending(phone) || hasEntityPending(phone) || hasClarification(phone);
+
+    if (!hasAnything) {
       await message.reply(MSG.ERROR_NO_PENDING);
       return;
     }
 
     clearPending(phone);
+    clearEntityPending(phone);
+    clearClarification(phone);
     await message.reply(MSG.SUCCESS_DATA_CANCELLED);
   },
 };
-

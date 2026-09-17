@@ -5,11 +5,19 @@ import {
   hasPending,
   clearEntityPending,
   hasEntityPending,
+  hasClarification,
+  setClarification,
   ApiCall,
+  Clarification,
 } from "./pendingQuery.store";
-import { validateApiCall } from "../services/endpointSchema";
+import {
+  collectMissingFields,
+  formatMissingQuestion,
+  MissingField,
+} from "../services/endpointSchema";
 import { clamp01 } from "../services/actionExecuted.service";
-import { sendObraConfirmationText } from "../services/pollConfirmation.service";
+import { sendOperationConfirmation } from "../services/pollConfirmation.service";
+import { handleClarificationReply } from "./clarification.handler";
 import { MSG, MSG_LLM_ERROR } from "../shared/responses";
 
 export async function handleFreeText(
@@ -18,6 +26,11 @@ export async function handleFreeText(
   tipoMensaje: string = "texto",
 ): Promise<void> {
   try {
+    if (hasClarification(phone)) {
+      await handleClarificationReply(phone, message.body, message.from);
+      return;
+    }
+
     if (hasPending(phone) || hasEntityPending(phone)) {
       clearPending(phone);
       clearEntityPending(phone);
@@ -39,7 +52,7 @@ export async function handleFreeText(
       return;
     }
 
-    const validCalls: ApiCall[] = [];
+    const calls: ApiCall[] = [];
     const invalidDetails: string[] = [];
 
     for (const call of parsed) {
@@ -53,43 +66,63 @@ export async function handleFreeText(
         continue;
       }
 
-      const validation = validateApiCall(call.endpoint, call.data);
-      if (!validation.valid) {
-        invalidDetails.push(`❌ Me falta información: ${validation.missingRequired.join(", ")}. ¿Podés darme más detalles?`);
-        continue;
-      }
-
       if (typeof call.confianza === "number") {
         call.confianza = clamp01(call.confianza);
       } else {
         delete call.confianza;
       }
 
-      validCalls.push(call);
+      calls.push(call);
     }
 
-    if (validCalls.length === 0) {
+    if (calls.length === 0) {
       for (const detail of invalidDetails) {
         await message.reply(detail);
       }
       return;
     }
 
-    const primaryComment = validCalls[0].comment || "Estoy procesando tu solicitud...";
-    const extra =
-      validCalls.length > 1 ? ` Voy a hacer ${validCalls.length} pedidos en total.` : "";
-    await message.reply(`Ok! ${primaryComment}${extra}`);
+    const missing: MissingField[] = [];
+    for (let i = 0; i < calls.length; i++) {
+      missing.push(...collectMissingFields(calls[i].endpoint, calls[i].data, i));
+    }
 
-    await sendObraConfirmationText(phone, message.from, {
-      type: "operation",
-      operation: validCalls,
-      contenido: message.body.trim(),
-      tipo_mensaje: tipoMensaje,
-    });
+    if (missing.length > 0) {
+      const question = formatMissingQuestion(missing[0]);
+      const state: Clarification = {
+        ops: calls,
+        originalText: message.body.trim(),
+        tipoMensaje,
+        missing,
+        history: [],
+        pendingQuestion: question,
+        attempts: 0,
+        createdAt: Date.now(),
+      };
+      setClarification(phone, state);
+
+      const comment = calls[0].comment ? `Ok! ${calls[0].comment}\n\n` : "";
+      await message.reply(
+        `${comment}${question}\n\n_Respondé *!cancel* para cancelar._`,
+      );
+
+      for (const detail of invalidDetails) {
+        await message.reply(detail);
+      }
+      return;
+    }
+
+    await sendOperationConfirmation(
+      phone,
+      message.from,
+      calls,
+      message.body.trim(),
+      tipoMensaje,
+    );
 
     if (invalidDetails.length > 0) {
       await message.reply(
-        `⚠️ Estas acciones quedaron pendientes porque les falta información:\n\n${invalidDetails.join("\n")}`,
+        `⚠️ Estas acciones no las pude procesar:\n\n${invalidDetails.join("\n")}`,
       );
     }
 

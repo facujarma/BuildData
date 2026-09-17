@@ -17,7 +17,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`
 - Express: bot en puerto 3000, Backend API en puerto 3001
 - Existe `bun.lock` y `package-lock.json` — usar `bun install`
-- **No hay tests todavía**: `bun test` no encuentra `*.test.ts` en WhatsApp-Bot
+- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (hoy: `endpointSchema.test.ts`, validación/repregunta). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`
 
 ## Arquitectura (lo que los nombres no dicen)
 
@@ -25,6 +25,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Pending store es union type**: `PendingQuery = operation \| comprobante \| factura`; `ApiCall.method = "POST" | "GET" | "PATCH"` (`pendingQuery.store.ts`)
 - **Confirmación es ENCUESTA TEXTUAL NUMERADA, no Poll nativo**: `freetext.handler` y `image.handler` llaman `sendObraConfirmationText()` (lista "¿En qué obra?", respondé con número). Existe `sendObraPoll()` (Poll nativo de WhatsApp) pero **no se llama desde ningún flujo**. `handlePollVote()` sigue conectado en `client.ts` por si se reactiva
 - **Ruteo de mensajes** (`message.handler.ts`): texto numérico → `handleEntityTextReply` primero, luego `handleObraTextReply` si hay pending → `!comando` → `handleFreeText`. Audio se transcribe (`voice.handler` setea `message.body`) y cae al MISMO `handleFreeText`. Imagen → comprobante/factura → `sendObraConfirmationText`
+- **Repregunta (clarification loop)**: si a una operación del LLM le faltan campos requeridos (`collectMissingFields` según el schema, incluye subcampos de `items`/`movimientos`), `freetext.handler` guarda una `Clarification` en el store y pregunta el `prompt` del primer campo faltante (definido por campo en `endpointSchema.ts`). `handleFreeText` delega a `clarification.handler` si hay repregunta pendiente (antes de cancelar pendings). `clarification.handler` mergea cada respuesta con `completeOperationFromReply` (LLM con memoria: mensaje original + ops parciales + historial Q&A, puede corregir/cambiar endpoint), revalida y repregunta; recién al completar sigue el flujo normal (`sendOperationConfirmation` → encuesta de obra → resolveEntity). `!cancel`, una imagen nueva o un comando desconocido con pending cortan el loop
 - **`executePending()` SÍ ejecuta la API real**: arma el payload (agrega `obra_id`, `telefono`, `mensaje_id`), **interpola params de path** (ej: `:id` → `tarea_id`) vía `services/pathParams.service.ts`, y llama `callEndpoint()` (`api.service.ts`, fetch a `API_URL` con service role key)
 - **Comandos registrados**: `!iniciar`, `!ayuda`, `!cancel`, `!obras` — **NO existe `!confirm`**
 - **Whitelist de comandos sin verificar obra**: `!iniciar` y `!ayuda` (saltan `getUserObras`)
@@ -54,15 +55,15 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 ## Fuentes de verdad del schema
 
-- `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso)
-- El `SYSTEM_PROMPT` de `llm.service.ts` **inyecta `buildEndpointDescription()`** (deriva de `ENDPOINTS`) → **cambiar el schema alcanza**, no hay prompt que duplicar. Solo cambia el schema si tocás campos, descripciones o endpoints
+- `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error
+- El `SYSTEM_PROMPT` de `llm.service.ts` **inyecta `buildEndpointDescription()`** (deriva de `ENDPOINTS`) → **cambiar el schema alcanza**, no hay prompt que duplicar. Solo cambia el schema si tocás campos, descripciones, prompts o endpoints
 - Para endpoints con entidades a resolver, además hay que tocar `ENDPOINT_CATALOG_KINDS` y los `SLOTS` de `entityResolution.service.ts`
 
 ## Servicios y modelos LLM
 
 | Servicio | Modelo | Notas |
 |----------|--------|-------|
-| `llm.service` | `openai/gpt-oss-120b` (Groq) | temperature=0, genera endpoint+JSON y resuelve entidades (`resolveEntity`) |
+| `llm.service` | `openai/gpt-oss-120b` (Groq) | temperature=0, genera endpoint+JSON, resuelve entidades (`resolveEntity`) y completa operaciones en la repregunta (`completeOperationFromReply`) |
 | `transcription.service` | `whisper-large-v3-turbo` | escribe tmp en `./tmp/`, limpia en `finally` |
 | `vision.service` | `meta-llama/llama-4-scout-17b-16e-instruct` | analiza comprobantes/facturas argentinas vía Groq |
 
@@ -109,7 +110,7 @@ Idioma bot:      español rioplatense, *negrita* WhatsApp, bloques ```, emojis �
 ### Agregar endpoint que resuelve entidades
 
 ```typescript
-// 1. definir endpoint en endpointSchema.ts (params con source "llm" para los nombres) → el LLM lo ve automáticamente
+// 1. definir endpoint en endpointSchema.ts (params con source "llm" para los nombres, con "prompt" de repregunta y "elementParams" si es un array) → el LLM y el loop de repregunta lo ven automáticamente
 // 2. agregar slot en SLOTS de entityResolution.service.ts (key nombre → targetKey _id, kind)
 // 3. agregar el endpoint a ENDPOINT_CATALOG_KINDS para que el bot pida el catálogo justo (y no todo)
 // 4. si el endpoint tiene params de path (ej: :id), el bot los interpola desde <resolved>_id vía pathParams.service.ts

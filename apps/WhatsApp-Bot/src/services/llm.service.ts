@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
 import { buildEndpointDescription } from "./endpointSchema";
+import type { ApiCall } from "../handlers/pendingQuery.store";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -31,7 +32,8 @@ Reglas:
 - Los campos que son nombres (materiales, tareas, proveedores) se pasan con el NOMBRE, no el ID
 - No incluyas obra_id ni telefono en el JSON, esos se agregan automáticamente después
 - Las fechas relativas (ej: "la semana que viene", "el lunes", "para dentro de 2 días") se convierten a formato YYYY-MM-DD usando la fecha de hoy que se te pasa
-- Si el usuario no da suficiente información para un campo requerido, responded: {"error": "explicación del motivo"}
+- Si falta información para un campo requerido, devolvé igualmente la llamada con los datos que tengas (nunca inventes valores): el sistema le repreguntará al usuario lo que falta
+- Solo usá {"error": "explicación del motivo"} si el mensaje no se entiende o no expresa ninguna acción concreta
 - El comment debe ser amigable y describir la acción, ej: "Voy a registrar el uso de 10 bolsas de cemento"
 - "confianza": número entre 0 y 1 que indica qué tan seguro estás de la interpretación (endpoint y datos). Usalo honestamente: 1 si el mensaje es claro, menos si es ambiguo.
 `;
@@ -139,5 +141,138 @@ export async function resolveEntity(
     return parsed;
   } catch {
     return { match_id: null, confianza: "ninguna", candidatos: [] };
+  }
+}
+
+// ──────────────────────────────────────────
+// Repregunta: completar una operación con la respuesta del usuario
+// ──────────────────────────────────────────
+
+export interface ClarificationTurn {
+  originalText: string;
+  tipoMensaje: string;
+  ops: ApiCall[];
+  missing: { opIndex: number; path: string; prompt: string }[];
+  history: { question: string; answer: string }[];
+  userReply: string;
+}
+
+export type CompleteOperationResult =
+  | { type: "ops"; ops: ApiCall[] }
+  | { type: "needs_clarification"; question: string };
+
+const CLARIFICATION_SYSTEM_PROMPT = `
+Sos un asistente que completa llamadas a una API REST conversando con un obrero de la construcción.
+Recibís operaciones ya interpretadas (pueden estar incompletas), los campos que faltan y el historial de repreguntas.
+Respondé ÚNICAMENTE con JSON, sin explicaciones, sin markdown, sin backticks.
+
+Formato (array obligatorio, aunque sea una sola operación):
+[
+  {
+    "endpoint": "/bot/...",
+    "method": "POST",
+    "data": { "campo": valor, ... },
+    "comment": "explicación en español de lo que vas a hacer",
+    "confianza": 0.95
+  }
+]
+
+Si la respuesta del obrero es ambigua, incoherente o no aporta el dato pedido, respondé:
+{ "needs_clarification": "pregunta corta y clara para volver a pedir el dato" }
+
+Endpoints disponibles:
+
+${ENDPOINTS_DESC}
+
+Reglas:
+- Partí de las operaciones actuales: mantené todo lo ya interpretado y agregá o corregí solo lo que aporta la nueva respuesta
+- Una sola respuesta puede completar varios campos
+- Si el obrero cambia de idea, podés cambiar el endpoint y/o los datos
+- Los campos que son nombres (materiales, tareas, proveedores, rubros) se pasan con el NOMBRE, no con el ID
+- No incluyas obra_id ni telefono, esos se agregan automáticamente después
+- Las fechas relativas se convierten a formato YYYY-MM-DD usando la fecha de hoy
+- Si sigue faltando un campo requerido, omitilo: el sistema volverá a preguntar. No inventes valores
+- Nunca respondas {"error"} por falta de datos
+`;
+
+const GENERIC_RETRY = "No te entendí, ¿me lo podés decir de otra forma?";
+
+function isApiCallLike(value: unknown): value is ApiCall {
+  if (!value || typeof value !== "object") return false;
+  const call = value as Record<string, unknown>;
+  return (
+    typeof call.endpoint === "string" &&
+    call.data !== null &&
+    typeof call.data === "object"
+  );
+}
+
+export async function completeOperationFromReply(
+  turn: ClarificationTurn,
+): Promise<CompleteOperationResult> {
+  const missingDesc =
+    turn.missing.length > 0
+      ? turn.missing
+          .map((m) => `- [op ${m.opIndex}] ${m.path}: ${m.prompt}`)
+          .join("\n")
+      : "- (ninguno)";
+  const historyDesc =
+    turn.history.length > 0
+      ? turn.history.map((h) => `P: ${h.question}\nR: ${h.answer}`).join("\n")
+      : "(sin preguntas previas)";
+
+  const response = await groq.chat.completions.create({
+    model: "openai/gpt-oss-120b",
+    temperature: 0,
+    messages: [
+      { role: "system", content: CLARIFICATION_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content:
+          `Hoy es ${hoyEnArgentina()}.\n` +
+          `Mensaje original del obrero (${turn.tipoMensaje}): "${turn.originalText}"\n\n` +
+          `Operaciones actuales:\n${JSON.stringify(turn.ops)}\n\n` +
+          `Campos faltantes:\n${missingDesc}\n\n` +
+          `Conversación:\n${historyDesc}\n\n` +
+          `Nuevo mensaje del obrero: "${turn.userReply}"`,
+      },
+    ],
+  });
+
+  const raw = response.choices[0].message.content?.trim() ?? "";
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (parsed && !Array.isArray(parsed) && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      if (typeof obj.needs_clarification === "string" && obj.needs_clarification.trim()) {
+        return { type: "needs_clarification", question: obj.needs_clarification.trim() };
+      }
+      if (typeof obj.error === "string" && obj.error.trim()) {
+        return {
+          type: "needs_clarification",
+          question: `No te entendí: ${obj.error.trim()}. ¿Me lo decís de otra forma?`,
+        };
+      }
+    }
+
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    const ops = list.filter(isApiCallLike);
+    if (ops.length === 0) {
+      return { type: "needs_clarification", question: GENERIC_RETRY };
+    }
+
+    for (const op of ops) {
+      if (typeof op.confianza === "number") {
+        op.confianza = Math.min(1, Math.max(0, op.confianza));
+      } else {
+        delete op.confianza;
+      }
+    }
+
+    return { type: "ops", ops };
+  } catch {
+    return { type: "needs_clarification", question: GENERIC_RETRY };
   }
 }

@@ -5,7 +5,12 @@ import { loginCommand } from "../commands/login.command";
 import { cancelCommand } from "../commands/confirmAndCancel.command";
 import { handleFreeText } from "./freetext.handler";
 import { handleAudio } from "./voice.handler";
-import { clearPending, hasPending } from "../handlers/pendingQuery.store";
+import {
+  clearPending,
+  hasPending,
+  clearClarification,
+  hasClarification,
+} from "../handlers/pendingQuery.store";
 import { handleImage } from "./image.handler";
 import { MSG } from "../shared/responses";
 import { getUserObras } from "../services/user.service";
@@ -25,18 +30,12 @@ const PREFIX = "!";
 
 const WHITELISTED_COMMANDS = ["!iniciar", "!ayuda"];
 
-function randomDelay(min: number, max: number): Promise<void> {
-  const ms = Math.floor(Math.random() * (max - min + 1)) + min;
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function isWhitelisted(text: string): boolean {
   return WHITELISTED_COMMANDS.some((cmd) => text.startsWith(cmd));
 }
 
 export async function handleMessage(message: Message): Promise<void> {
   const phone = await getPhoneNumber(message);
-  await randomDelay(1000, 10000);
 
   const skipObraCheck = message.type === MessageTypes.TEXT && isWhitelisted(message.body);
   if (!skipObraCheck) {
@@ -81,8 +80,9 @@ async function handleTextMessage(
     const command = getCommand(commandName);
 
     if (!command) {
-      if (hasPending(phone)) {
+      if (hasPending(phone) || hasClarification(phone)) {
         clearPending(phone);
+        clearClarification(phone);
         await message.reply(MSG.ERROR_CANCELLED_BAD_CMD);
         return;
       }

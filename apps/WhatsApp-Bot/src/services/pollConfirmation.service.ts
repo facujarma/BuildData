@@ -9,6 +9,7 @@ import {
   clearEntityPending,
   getEntityPending,
   PendingQuery,
+  ApiCall,
 } from "../handlers/pendingQuery.store";
 import { callEndpoint, getCatalogo, registrarMensaje, actualizarMensajeAcciones } from "./api.service";
 import {
@@ -392,6 +393,31 @@ export async function handlePollVote(
       }
     } catch {}
   }
+}
+
+/**
+ * Respuesta "Ok!" + encuesta de obra para una operación ya validada.
+ * Reutilizada por el flujo normal (freetext) y por el de repregunta.
+ */
+export async function sendOperationConfirmation(
+  phone: string,
+  chatId: string,
+  ops: ApiCall[],
+  contenido: string,
+  tipoMensaje: string,
+): Promise<void> {
+  const client = getClient();
+  const primaryComment = ops[0].comment || "Estoy procesando tu solicitud...";
+  const extra =
+    ops.length > 1 ? ` Voy a hacer ${ops.length} pedidos en total.` : "";
+  await client.sendMessage(chatId, `Ok! ${primaryComment}${extra}`);
+
+  await sendObraConfirmationText(phone, chatId, {
+    type: "operation",
+    operation: ops,
+    contenido,
+    tipo_mensaje: tipoMensaje,
+  });
 }
 
 export async function sendObraConfirmationText(

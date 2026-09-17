@@ -10,6 +10,8 @@ import {
   hasPending,
   clearEntityPending,
   hasEntityPending,
+  clearClarification,
+  hasClarification,
 } from "./pendingQuery.store";
 import { sendObraConfirmationText } from "../services/pollConfirmation.service";
 import { MSG } from "../shared/responses";
@@ -18,9 +20,10 @@ export async function handleImage(
   phone: string,
   message: Message,
 ): Promise<void> {
-  if (hasPending(phone) || hasEntityPending(phone)) {
+  if (hasPending(phone) || hasEntityPending(phone) || hasClarification(phone)) {
     clearPending(phone);
     clearEntityPending(phone);
+    clearClarification(phone);
     await message.reply(MSG.ERROR_PENDING_CANCELLED);
   }
 

@@ -1,6 +1,7 @@
 import { ComprobanteData, FacturaData } from "../services/vision.service";
 import { Obra } from "../types/api.types";
 import type { EntityQuestion } from "../services/entityResolution.service";
+import type { MissingField } from "../services/endpointSchema";
 
 export interface ApiCall {
   endpoint: string;
@@ -71,4 +72,37 @@ export function clearEntityPending(phone: string): void {
 
 export function hasEntityPending(phone: string): boolean {
   return entityPending.has(phone);
+}
+
+// ──────────────────────────────────────────
+// Estado de repregunta (datos faltantes)
+// ──────────────────────────────────────────
+
+export interface Clarification {
+  ops: ApiCall[];
+  originalText: string;
+  tipoMensaje: string;
+  missing: MissingField[];
+  history: { question: string; answer: string }[];
+  pendingQuestion: string;
+  attempts: number;
+  createdAt: number;
+}
+
+const clarifications = new Map<string, Clarification>();
+
+export function setClarification(phone: string, state: Clarification): void {
+  clarifications.set(phone, state);
+}
+
+export function getClarification(phone: string): Clarification | undefined {
+  return clarifications.get(phone);
+}
+
+export function clearClarification(phone: string): void {
+  clarifications.delete(phone);
+}
+
+export function hasClarification(phone: string): boolean {
+  return clarifications.has(phone);
 }
