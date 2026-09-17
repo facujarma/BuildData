@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { guardarEmbedding } from "../services/embeddings.service.js";
 
 function formatRubro(row) {
   return {
@@ -62,6 +63,7 @@ export async function crearRubro(req, res) {
       [rubro.rows[0].id, presupuesto]
     );
     await client.query("COMMIT");
+    await guardarEmbedding("rubro", rubro.rows[0].id, rubro.rows[0].nombre);
     res.status(201).json(formatRubro({ ...rubro.rows[0], cap: presupuesto, spent: 0, progress: 0, avance_tareas: 0 }));
   } catch (error) {
     await client.query("ROLLBACK");
@@ -110,6 +112,9 @@ export async function updateRubro(req, res) {
        FROM rubros r LEFT JOIN presupuesto_rubros pr ON pr.rubro_id = r.id
        WHERE r.id = $1`, [rubroId]
     );
+    if (nombre) {
+      await guardarEmbedding("rubro", rubroId, result.rows[0].nombre);
+    }
     res.json(formatRubro(result.rows[0]));
   } catch (error) {
     console.error(error);

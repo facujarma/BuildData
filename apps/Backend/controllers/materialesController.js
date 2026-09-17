@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { guardarEmbedding } from "../services/embeddings.service.js";
 
 // GET /materiales/:obra_id
 export async function getMateriales(req, res) {
@@ -25,6 +26,7 @@ export async function crearMaterial(req, res) {
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [obra_id, nombre, categoria, unidad, stock_actual, stock_minimo, costo_unitario]
     );
+    await guardarEmbedding("material", result.rows[0].id, result.rows[0].nombre);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);

@@ -1,5 +1,6 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
+import { guardarEmbedding } from "../services/embeddings.service.js";
 
 // ============================================================
 // CONTRATO DE API CON FACU (bot de WhatsApp)
@@ -317,6 +318,7 @@ export async function crearMaterialDesdeBot(req, res) {
        RETURNING id, nombre, unidad`,
       [obra_id, nombre, unidad || null]
     );
+    await guardarEmbedding("material", result.rows[0].id, result.rows[0].nombre);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);

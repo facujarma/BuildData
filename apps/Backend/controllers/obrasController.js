@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { guardarEmbeddings } from "../services/embeddings.service.js";
 
 // Helper: armar objeto Obra completo según el contrato
 async function buildObra(obra) {
@@ -95,6 +96,7 @@ export async function crearObra(req, res) {
   }
 
   const client = await pool.connect();
+  const rubrosCreados = [];
   try {
     await client.query("BEGIN");
 
@@ -158,9 +160,11 @@ export async function crearObra(req, res) {
         `INSERT INTO presupuesto_rubros (rubro_id, cap) VALUES ($1,$2)`,
         [rubroResult.rows[0].id, rubro.presupuesto || 0]
       );
+      rubrosCreados.push({ id: rubroResult.rows[0].id, nombre: rubro.nombre });
     }
 
     await client.query("COMMIT");
+    await guardarEmbeddings("rubro", rubrosCreados);
 
     // Devolver obra completa
     const full = await pool.query(

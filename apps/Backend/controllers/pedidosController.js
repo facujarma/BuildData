@@ -1,4 +1,8 @@
 import { pool } from "../db.js";
+import {
+  guardarEmbedding,
+  guardarEmbeddings,
+} from "../services/embeddings.service.js";
 
 // GET /pedidos/:obra_id — pedidos de una obra con proveedor, persona y ítems.
 // Devuelve datos crudos (snake_case, estados en español); el frontend hace el mapping de presentación.
@@ -52,7 +56,7 @@ async function resolverProveedor(client, nombre) {
     `SELECT * FROM proveedores WHERE lower(nombre) = lower($1) LIMIT 1`,
     [nombre]
   );
-  if (existente.rows[0]) return existente.rows[0];
+  if (existente.rows[0]) return { ...existente.rows[0], creado: false };
   // Requiere el índice único proveedores_nombre_unique (migración)
   const creado = await client.query(
     `INSERT INTO proveedores (nombre) VALUES ($1)
@@ -60,7 +64,7 @@ async function resolverProveedor(client, nombre) {
      RETURNING *`,
     [nombre]
   );
-  return creado.rows[0];
+  return { ...creado.rows[0], creado: true };
 }
 
 // POST /pedidos — crear pedido desde la web (usuario autenticado)
@@ -95,6 +99,7 @@ export async function crearPedidoWeb(req, res) {
   }
 
   const client = await pool.connect();
+  const materialesCreados = [];
   try {
     await client.query("BEGIN");
 
@@ -120,6 +125,7 @@ export async function crearPedidoWeb(req, res) {
             [obra_id, nombre, item.unidad || null, Number(item.precio_unitario) || null]
           );
           materialId = creado.rows[0].id;
+          materialesCreados.push({ id: materialId, nombre });
         }
       }
       itemsFinal.push({
@@ -155,6 +161,10 @@ export async function crearPedidoWeb(req, res) {
     );
 
     await client.query("COMMIT");
+    if (proveedor.creado) {
+      await guardarEmbedding("proveedor", proveedor.id, proveedor.nombre);
+    }
+    await guardarEmbeddings("material", materialesCreados);
     res.status(201).json(pedido.rows[0]);
   } catch (error) {
     await client.query("ROLLBACK");

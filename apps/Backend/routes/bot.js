@@ -13,6 +13,7 @@ import { registrarObrero, getUserByPhone } from "../controllers/obrerosControlle
 import { crearTareaDesdeBot } from "../controllers/tareasController.js";
 import { completarTareaDesdeBot } from "../controllers/tareasController.js";
 import { crearGastoDesdeBot } from "../controllers/gastosController.js";
+import { buscarEntidad } from "../controllers/entidadesController.js";
 
 const router = Router();
 
@@ -28,6 +29,9 @@ router.patch("/mensaje/:id", actualizarAccionesMensaje);
 // Catálogo para resolver nombres → IDs (GET) y auto-crear materiales
 router.get("/catalogo", getCatalogo);
 router.post("/materiales", crearMaterialDesdeBot);
+
+// Búsqueda de entidades por similitud (exacto → fuzzy → embeddings)
+router.get("/entidades/buscar", buscarEntidad);
 
 // Endpoints específicos que Facu llama según lo que detectó en el mensaje
 router.post("/pedidoDeCompra", crearPedidoDeCompra);

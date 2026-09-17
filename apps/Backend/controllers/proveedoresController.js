@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { guardarEmbedding } from "../services/embeddings.service.js";
 
 // GET /proveedores
 export async function getProveedores(req, res) {
@@ -20,6 +21,7 @@ export async function crearProveedor(req, res) {
       `INSERT INTO proveedores (nombre, telefono, email) VALUES ($1, $2, $3) RETURNING *`,
       [nombre, telefono, email]
     );
+    await guardarEmbedding("proveedor", result.rows[0].id, result.rows[0].nombre);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);

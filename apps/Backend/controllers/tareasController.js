@@ -1,5 +1,6 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
+import { guardarEmbedding } from "../services/embeddings.service.js";
 
 const ESTADOS_VALIDOS = ["pendiente", "en_progreso", "completada", "cancelada"];
 const PRIORIDADES_VALIDAS = ["baja", "media", "alta", "urgente"];
@@ -120,6 +121,7 @@ export async function crearTarea(req, res) {
         costo_estimado || null,
       ]
     );
+    await guardarEmbedding("tarea", result.rows[0].id, result.rows[0].titulo);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -195,6 +197,7 @@ export async function crearTareaDesdeBot(req, res) {
         miembroObraId,
       ]
     );
+    await guardarEmbedding("tarea", result.rows[0].id, result.rows[0].titulo);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -327,6 +330,9 @@ export async function actualizarTarea(req, res) {
       }
 
       await client.query("COMMIT");
+      if (titulo) {
+        await guardarEmbedding("tarea", id, result.rows[0].titulo);
+      }
       res.json(result.rows[0]);
     } catch (txError) {
       await client.query("ROLLBACK");
