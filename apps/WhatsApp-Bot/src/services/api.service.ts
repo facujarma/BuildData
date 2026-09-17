@@ -1,4 +1,5 @@
 import type { User } from "../types/api.types";
+import type { ResultadoBusquedaEntidades } from "./entityMatch.service";
 
 const API_URL = process.env.API_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -111,6 +112,24 @@ export async function crearMaterial(payload: {
   unidad?: string;
 }): Promise<CatalogoMaterial> {
   return apiRequest<CatalogoMaterial>("POST", "/bot/materiales", payload);
+}
+
+// ──────────────────────────────────────────
+// Búsqueda de entidades por similitud (sin LLM)
+// ──────────────────────────────────────────
+
+export async function buscarEntidades(
+  obraId: string,
+  tipo: string,
+  nombre: string,
+  limite = 5,
+): Promise<ResultadoBusquedaEntidades> {
+  const query = new URLSearchParams({ tipo, nombre, limite: String(limite) });
+  if (tipo !== "proveedor") query.set("obra_id", obraId);
+  return apiRequest<ResultadoBusquedaEntidades>(
+    "GET",
+    `/bot/entidades/buscar?${query.toString()}`,
+  );
 }
 
 export async function registrarMensaje(payload: {

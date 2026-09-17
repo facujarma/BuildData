@@ -2,6 +2,7 @@ import { ENTIDADES } from "../services/embeddings.service.js";
 import {
   LIMITE_DEFAULT,
   LIMITE_MAX,
+  UMBRAL_BAJA,
   buscarCandidatos,
 } from "../services/entitySearch.service.js";
 
@@ -33,7 +34,12 @@ export async function buscarEntidad(req, res) {
 
   try {
     const resultado = await buscarCandidatos(tipo, obraId, nombre, limite);
-    res.json(resultado);
+    // Solo los candidatos que superan el piso de confianza baja: evita ofrecer
+    // opciones irrelevantes en la encuesta del bot.
+    res.json({
+      confianza: resultado.confianza,
+      candidatos: resultado.candidatos.filter((c) => c.similitud >= UMBRAL_BAJA),
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error buscando entidad" });

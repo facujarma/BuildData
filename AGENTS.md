@@ -52,6 +52,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
   - `rubro_id` → `rubro_id` (rubro)
   - `tarea_nombre` → `tarea_id` (**tarea real**; endpoint completar)
 - **Resolución**: `resolveEntity()` (LLM) decide match `alta` (aplica directo), `baja`/`ninguna` (encuesta al usuario con opciones). En encuesta de **tarea**, "Ninguno de estos" **cancela la operación**; en materiales ya existentes se auto-crea
+- **Motor de resolución** (`ENTITY_RESOLVER`): `llm` (default) usa `resolveEntity` con catálogo; `embeddings` llama a `GET /bot/entidades/buscar` (sin tokens de LLM) y cae a LLM si la búsqueda falla. `entityMatch.service.ts` mapea alta → aplica, baja → encuesta (candidatos), ninguna → auto-crea material / descarta proveedor
 - **El LLM NO genera UUIDs**: los campos-nombre se mandan con NOMBRE (regla del `SYSTEM_PROMPT`), la resolución es pipeline del bot. **No existe** pipeline `match_tareas` (era una descripción obsoleta del schema)
 
 ## Embeddings de entidades (pgvector + OpenAI)
@@ -78,7 +79,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 ## Variables de entorno
 
-- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`
+- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`, `ENTITY_RESOLVER` (opcional, default `llm`; `embeddings` = resolver por similitud sin LLM)
 - **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`)
 - NUNCA comitear `.env`
 

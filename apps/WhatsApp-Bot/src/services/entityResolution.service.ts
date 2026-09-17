@@ -1,9 +1,47 @@
 import { ApiCall } from "../handlers/pendingQuery.store";
 import { resolveEntity, EntidadCandidata, EntidadResuelta } from "./llm.service";
-import { Catalogo, crearMaterial } from "./api.service";
+import { Catalogo, crearMaterial, buscarEntidades } from "./api.service";
+import { mapearResultadoBusqueda } from "./entityMatch.service";
 import { displayPath } from "./actionExecuted.service";
 
 export type EntityKind = "material" | "proveedor" | "rubro" | "tarea";
+
+export type MotorResolucion = "llm" | "embeddings";
+
+// Motor de resolución de nombres → IDs: `llm` (default) o `embeddings`
+// (Backend /bot/entidades/buscar, con fallback a LLM si la búsqueda falla).
+export function motorResolucion(): MotorResolucion {
+  return process.env.ENTITY_RESOLVER === "embeddings" ? "embeddings" : "llm";
+}
+
+async function resolverEntidad(
+  rawValue: string,
+  kind: EntityKind,
+  candidates: EntidadCandidata[],
+  obraId: string,
+): Promise<EntidadResuelta> {
+  if (motorResolucion() === "embeddings") {
+    try {
+      const resultado = await buscarEntidades(obraId, kind, rawValue);
+      const top = resultado.candidatos
+        .slice(0, 3)
+        .map((c) =>
+          `${c.nombre}:${typeof c.similitud === "number" ? c.similitud.toFixed(3) : "?"}`,
+        )
+        .join(" | ");
+      console.log(
+        `[entityResolution] embeddings "${rawValue}" (${kind}) → confianza=${resultado.confianza}${top ? `, top=${top}` : ""}`,
+      );
+      return mapearResultadoBusqueda(resultado);
+    } catch (error) {
+      console.error(
+        `[entityResolution] búsqueda por embeddings falló para "${rawValue}", caigo a LLM:`,
+        error,
+      );
+    }
+  }
+  return resolveEntity(rawValue, kind, candidates);
+}
 
 export interface EntityQuestion {
   entity: string;
@@ -51,7 +89,7 @@ function isId(value: unknown): boolean {
  */
 export async function resolveOperationEntities(
   op: ApiCall,
-  catalogo: Catalogo,
+  catalogo: Catalogo | null,
   obraId: string,
   opIndex: number,
 ): Promise<EntityQuestion | null> {
@@ -77,7 +115,7 @@ async function resolveContainer(
   container: Record<string, unknown>,
   dataKey: string | null,
   itemIndex: number,
-  catalogo: Catalogo,
+  catalogo: Catalogo | null,
   obraId: string,
   op: ApiCall,
   opIndex: number,
@@ -98,7 +136,7 @@ async function resolveSlot(
   container: Record<string, unknown>,
   slot: SlotDef,
   rawValue: string,
-  catalogo: Catalogo,
+  catalogo: Catalogo | null,
   obraId: string,
   opIndex: number,
   dataKey: string | null,
@@ -106,7 +144,7 @@ async function resolveSlot(
   op: ApiCall,
 ): Promise<EntityQuestion | null> {
   const candidates = catalogList(catalogo, slot.kind);
-  const resolved = await resolveEntity(rawValue, slot.kind, candidates);
+  const resolved = await resolverEntidad(rawValue, slot.kind, candidates, obraId);
 
   console.log(`[entityResolution] slot "${slot.key}" con valor "${rawValue}" → match_id=${resolved.match_id}, confianza=${resolved.confianza}, candidatos=${resolved.candidatos.map((c) => c.id).join(",")}`);
 
@@ -184,7 +222,8 @@ async function resolveSlot(
   };
 }
 
-function catalogList(catalogo: Catalogo, kind: EntityKind): EntidadCandidata[] {
+function catalogList(catalogo: Catalogo | null, kind: EntityKind): EntidadCandidata[] {
+  if (!catalogo) return [];
   switch (kind) {
     case "material":
       return catalogo.materiales ?? [];
