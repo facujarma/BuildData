@@ -4,7 +4,13 @@ import { handleFreeText } from "./freetext.handler";
 import { MSG, MSG_TRANSCRIPTION } from "../shared/responses";
 
 export async function handleAudio(phone: string, message: Message): Promise<void> {
-  const media = await message.downloadMedia();
+  let media;
+  try {
+    media = await message.downloadMedia();
+  } catch (error) {
+    console.error(`[audio] Error descargando media de ${phone}:`, error);
+    media = undefined;
+  }
 
   if (!media) {
     await message.reply(MSG.ERROR_AUDIO_DOWNLOAD);

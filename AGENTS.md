@@ -52,7 +52,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
   - `rubro_id` → `rubro_id` (rubro)
   - `tarea_nombre` → `tarea_id` (**tarea real**; endpoint completar)
 - **Resolución**: `resolveEntity()` (LLM) decide match `alta` (aplica directo), `baja`/`ninguna` (encuesta al usuario con opciones). En encuesta de **tarea**, "Ninguno de estos" **cancela la operación**; en materiales ya existentes se auto-crea
-- **Motor de resolución** (`ENTITY_RESOLVER`): `llm` (default) usa `resolveEntity` con catálogo; `embeddings` llama a `GET /bot/entidades/buscar` (sin tokens de LLM) y cae a LLM si la búsqueda falla. `entityMatch.service.ts` mapea alta → aplica, baja → encuesta (candidatos), ninguna → auto-crea material / descarta proveedor
+- **Motor de resolución** (`ENTITY_RESOLVER`): `llm` (default) usa `resolveEntity` con catálogo; `embeddings` llama a `GET /bot/entidades/buscar` (sin tokens de LLM) y cae a LLM si la búsqueda falla. `entityMatch.service.ts` mapea alta → aplica; baja y ninguna → encuesta con los candidatos más parecidos (aunque sean flojos). **La resolución NO auto-crea materiales**: sin match se pregunta; solo con catálogo vacío la pregunta no tiene opciones. El proveedor sin match se descarta; "Ninguno de estos" en materiales sí crea la entidad (elección explícita del usuario)
 - **El LLM NO genera UUIDs**: los campos-nombre se mandan con NOMBRE (regla del `SYSTEM_PROMPT`), la resolución es pipeline del bot. **No existe** pipeline `match_tareas` (era una descripción obsoleta del schema)
 
 ## Embeddings de entidades (pgvector + OpenAI)

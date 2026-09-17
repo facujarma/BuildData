@@ -16,7 +16,8 @@ export interface ResultadoBusquedaEntidades {
  * resolveSlot (EntidadResuelta):
  * - alta    → match_id del top y sin candidatos (se aplica directo)
  * - baja    → sin match y con candidatos (se encuesta al usuario)
- * - ninguna → sin match ni candidatos (auto-crear material / descartar proveedor)
+ * - ninguna → sin match, pero con candidatos (aunque sean flojos) para que el
+ *             usuario elija; solo si el catálogo está vacío queda sin opciones.
  */
 export function mapearResultadoBusqueda(
   resultado: ResultadoBusquedaEntidades,
@@ -30,8 +31,12 @@ export function mapearResultadoBusqueda(
   if (resultado?.confianza === "alta" && candidatos.length > 0) {
     return { match_id: candidatos[0].id, confianza: "alta", candidatos: [] };
   }
-  if (resultado?.confianza === "baja" && candidatos.length > 0) {
-    return { match_id: null, confianza: "baja", candidatos };
+  if (candidatos.length > 0) {
+    return {
+      match_id: null,
+      confianza: resultado?.confianza === "baja" ? "baja" : "ninguna",
+      candidatos,
+    };
   }
   return { match_id: null, confianza: "ninguna", candidatos: [] };
 }

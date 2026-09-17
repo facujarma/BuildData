@@ -31,12 +31,22 @@ describe("mapearResultadoBusqueda", () => {
     });
   });
 
-  test("ninguna descarta los candidatos informativos", () => {
+  test("ninguna conserva los candidatos flojos para la encuesta", () => {
     const r = mapearResultadoBusqueda({
       confianza: "ninguna",
-      candidatos: [{ id: "a", nombre: "X", similitud: 0.3 }],
+      candidatos: [
+        { id: "a", nombre: "X", similitud: 0.3 },
+        { id: "b", nombre: "Y", similitud: 0.2 },
+      ],
     });
-    expect(r).toEqual({ match_id: null, confianza: "ninguna", candidatos: [] });
+    expect(r).toEqual({
+      match_id: null,
+      confianza: "ninguna",
+      candidatos: [
+        { id: "a", nombre: "X" },
+        { id: "b", nombre: "Y" },
+      ],
+    });
   });
 
   test("alta sin candidatos cae a ninguna", () => {

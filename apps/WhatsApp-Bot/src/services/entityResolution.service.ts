@@ -196,17 +196,10 @@ async function resolveSlot(
     return null;
   }
 
-  // Sin match confiable
-  if (slot.kind === "material") {
-    try {
-      const created = await crearMaterial({ obra_id: obraId, nombre: rawValue.trim() });
-      apply(created.id, created.nombre || rawValue.trim());
-      return null;
-    } catch (error) {
-      console.error(`[entityResolution] no pude auto-crear material "${rawValue}":`, error);
-    }
-  } else if (slot.kind === "proveedor") {
-    // El proveedor es opcional: si no matchea, se omite y queda NULL en el Backend.
+  // Sin match confiable: el proveedor es opcional y se omite; el resto se
+  // pregunta con las opciones disponibles (aunque el parecido sea flojo). No se
+  // auto-crean entidades en la resolución.
+  if (slot.kind === "proveedor") {
     drop();
     return null;
   }

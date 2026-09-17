@@ -27,7 +27,13 @@ export async function handleImage(
     await message.reply(MSG.ERROR_PENDING_CANCELLED);
   }
 
-  const media = await message.downloadMedia();
+  let media;
+  try {
+    media = await message.downloadMedia();
+  } catch (error) {
+    console.error(`[imagen] Error descargando media de ${phone}:`, error);
+    media = undefined;
+  }
 
   if (!media) {
     await message.reply(MSG.ERROR_IMAGE_DOWNLOAD);

@@ -4,6 +4,7 @@ import qrcode from "qrcode-terminal";
 import { mongoStore } from "./mongoStore";
 import { handleMessage } from "./handlers/message.handler";
 import { handlePollVote } from "./services/pollConfirmation.service";
+import { applyWhatsappPatches } from "./services/whatsappPatch.service";
 
 const mongoUri = process.env.MONGO_URI!;
 const isProduction = process.env.NODE_ENV === "production";
@@ -17,6 +18,8 @@ export function getClient(): Client {
 export async function initClient() {
   await mongoose.connect(mongoUri);
   console.log("✅ Conectado a MongoDB");
+
+  applyWhatsappPatches();
 
   client = new Client({
     authStrategy: new RemoteAuth({

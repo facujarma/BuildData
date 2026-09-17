@@ -98,7 +98,7 @@ Reglas:
 - "alta": hay UNA opción que claramente es la misma entidad (sinónimos, plurales, marcas, versiones, abreviaturas).
 - "baja": hay un par de opciones plausibles pero no estás seguro.
 - "ninguna": ninguna opción corresponde. match_id = null.
-- candidatos: las mejores opciones para mostrarle al usuario cuando la confianza no es alta.
+- candidatos: cuando la confianza NO es alta, incluí SIEMPRE las opciones más parecidas del catálogo (aunque el parecido sea mínimo) para que el usuario elija; con confianza alta devolvé [].
 `;
 
 export async function resolveEntity(
