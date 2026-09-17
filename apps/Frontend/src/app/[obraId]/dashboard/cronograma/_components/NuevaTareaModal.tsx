@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Xmark, Check, Calendar } from "@gravity-ui/icons";
-import Button from "@/components/ui/Button";
+import { Check, Plus, Xmark } from "@gravity-ui/icons";
 import { parseDate, fmtDateLong } from "../data";
 import { getRubrosDeObra, getMiembrosDeObra, type OptionItem } from "@/services/cronogramaService";
 import { createTask } from "@/services/tareasService";
@@ -83,12 +82,9 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
 
   const startDate = useMemo(() => parseDate(fechaInicio), [fechaInicio]);
   const endDate = useMemo(() => parseDate(fechaLimite), [fechaLimite]);
+  const rubroName = rubros?.find((r) => r.id === rubroId)?.nombre || "Sin rubro";
 
-  const canSave =
-    !submitting &&
-    name.trim().length > 0 &&
-    //rubroId.trim().length > 0 &&
-    fechaInicio.trim().length > 0;
+  const canSave = !submitting && name.trim().length > 0 && fechaInicio.trim().length > 0;
 
   const resetForm = () => {
     setName("");
@@ -127,165 +123,204 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
     onCreate();
     onClose();
   };
+
+  const createAnother = () => {
+    resetForm();
+    setSuccessName(null);
+  };
+
   if (!open) return null;
+
   return (
     <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
-      <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[560px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-none">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary-50 text-primary">
-              <Calendar width={16} height={16} />
+      <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[640px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
+        {successName ? (
+          <div className="px-8 py-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-success text-white flex items-center justify-center mx-auto mb-4">
+              <Check width={26} height={26} />
             </div>
-            <div className="text-[15px] font-extrabold display-tight">Nueva tarea</div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-950 flex items-center justify-center"
-          >
-            <Xmark width={16} height={16} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4 overflow-y-auto">
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Nombre de la tarea *</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Hormigonado losa +4"
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
-            />
-          </label>
-
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Rubro *</span>
-            {rubros === null ? (
-              <div className="text-[12px] text-slate-400 py-2">Cargando rubros…</div>
-            ) : optsError ? (
-              <div className="text-[12px] text-[#B91C1C] py-1">{optsError}</div>
-            ) : rubros.length === 0 ? (
-              <div className="text-[12px] text-slate-500 py-1">La obra no tiene rubros. Creá uno desde el dashboard.</div>
-            ) : (
-              <select
-                value={rubroId}
-                onChange={(e) => setRubroId(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+            <h3 className="text-[22px] font-extrabold display-tight leading-tight mb-2">Tarea creada</h3>
+            <p className="text-[13px] text-slate-600 mb-1">
+              <b className="text-slate-950">{successName}</b> · {rubroName}
+            </p>
+            <p className="text-[12px] text-slate-500 mb-6">
+              {startDate ? fmtDateLong(startDate) : "—"} → {endDate ? fmtDateLong(endDate) : "—"}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={closeAfterSuccess}
+                className="text-[13px] font-bold bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md px-4 py-[9px]"
               >
-                {rubros.map((r) => (
-                  <option key={r.id} value={r.id}>{r.nombre}</option>
-                ))}
-              </select>
-            )}
-          </label>
-
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Responsable</span>
-            <select
-              value={asignadoA}
-              onChange={(e) => setAsignadoA(e.target.value)}
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
-            >
-              <option value="">Sin asignar</option>
-              {miembros.map((m) => (
-                <option key={m.id} value={m.id}>{m.nombre}</option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Prioridad</span>
-              <select
-                value={prioridad}
-                onChange={(e) => setPrioridad(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+                Cerrar
+              </button>
+              <button
+                onClick={createAnother}
+                className="text-[13px] font-bold bg-primary hover:bg-primary-700 text-white rounded-md px-4 py-[9px]"
               >
-                {PRIORIDADES.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Costo estimado (AR$)</span>
-              <input
-                value={costo}
-                onChange={(e) => setCosto(e.target.value.replace(/[^0-9.,]/g, ""))}
-                placeholder="Ej: 5200000"
-                inputMode="decimal"
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Fecha de inicio *</span>
-              <input
-                type="date"
-                required
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
-              />
-            </label>
-
-            <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Fecha límite</span>
-              <input
-                type="date"
-                value={fechaLimite}
-                min={fechaInicio}
-                onChange={(e) => setFechaLimite(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
-              />
-            </label>
-          </div>
-
-          {startDate && (
-            <div className="bg-primary-50 border border-primary/20 rounded-lg p-3">
-              <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-primary mb-1">Vista previa</div>
-              <div className="text-[13px] font-bold text-slate-950">
-                {fmtDateLong(startDate)}{endDate ? ` → ${fmtDateLong(endDate)}` : ""}
-              </div>
-              <div className="text-[11px] text-slate-600 mt-1">
-                {duracionSemanas} {duracionSemanas === 1 ? "semana" : "semanas"} de duración estimada
-              </div>
+                Crear otra
+              </button>
             </div>
-          )}
-
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-bold text-slate-700">Descripción</span>
-            <textarea
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Qué hay que hacer, cantidades, observaciones…"
-              rows={3}
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[72px]"
-            />
-          </label>
-
-          {submitError && (
-            <div className="bg-critical-50 border border-[#FECACA] rounded-lg px-3 py-2 text-[12px] font-semibold text-[#B91C1C]">
-              {submitError}
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-none">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary-50 text-primary">
+                  <Plus width={16} height={16} />
+                </div>
+                <div>
+                  <div className="text-[15px] font-extrabold display-tight">Nueva tarea</div>
+                  <div className="text-[11px] text-slate-500">Se agrega al cronograma · podés editarla después</div>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-950 flex items-center justify-center"
+              >
+                <Xmark width={16} height={16} />
+              </button>
             </div>
-          )}
-        </div>
 
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Check width={14} height={14} />}
-            disabled={!canSave}
-            onClick={handleCreate}
-          >
-            {submitting ? "Creando…" : "Crear tarea"}
-          </Button>
-        </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <label className="flex flex-col gap-[6px]">
+                <span className="text-[11px] font-bold text-slate-700">Nombre*</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Hormigonado losa +4"
+                  className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Rubro</span>
+                  {rubros === null ? (
+                    <div className="text-[12px] text-slate-400 py-2">Cargando rubros…</div>
+                  ) : optsError ? (
+                    <div className="text-[12px] text-[#B91C1C] py-1">{optsError}</div>
+                  ) : rubros.length === 0 ? (
+                    <div className="text-[12px] text-slate-500 py-2">La obra no tiene rubros.</div>
+                  ) : (
+                    <select
+                      value={rubroId}
+                      onChange={(e) => setRubroId(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+                    >
+                      {rubros.map((r) => (
+                        <option key={r.id} value={r.id}>{r.nombre}</option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Responsable</span>
+                  <select
+                    value={asignadoA}
+                    onChange={(e) => setAsignadoA(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+                  >
+                    <option value="">Sin asignar</option>
+                    {miembros.map((m) => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Prioridad</span>
+                  <select
+                    value={prioridad}
+                    onChange={(e) => setPrioridad(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none"
+                  >
+                    {PRIORIDADES.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Costo estimado (AR$)</span>
+                  <input
+                    value={costo}
+                    onChange={(e) => setCosto(e.target.value.replace(/[^0-9.,]/g, ""))}
+                    placeholder="Ej: 5200000"
+                    inputMode="decimal"
+                    className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Fecha de inicio*</span>
+                  <input
+                    type="date"
+                    required
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
+                  />
+                </label>
+                <label className="flex flex-col gap-[6px]">
+                  <span className="text-[11px] font-bold text-slate-700">Fecha límite</span>
+                  <input
+                    type="date"
+                    value={fechaLimite}
+                    min={fechaInicio}
+                    onChange={(e) => setFechaLimite(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum"
+                  />
+                </label>
+              </div>
+
+              {startDate && (
+                <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Rango</span>
+                  <span className="font-semibold text-slate-950">
+                    {fmtDateLong(startDate)}
+                    {endDate ? ` → ${fmtDateLong(endDate)}` : ""}
+                    {duracionSemanas ? <span className="text-slate-500"> · {duracionSemanas} sem.</span> : null}
+                  </span>
+                </div>
+              )}
+
+              <label className="flex flex-col gap-[6px]">
+                <span className="text-[11px] font-bold text-slate-700">Descripción</span>
+                <textarea
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  placeholder="Qué hay que hacer, cantidades, observaciones…"
+                  rows={3}
+                  className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[72px]"
+                />
+              </label>
+
+              {submitError && (
+                <div className="bg-critical-50 border border-[#FECACA] rounded-lg px-3 py-2 text-[12px] font-semibold text-[#B91C1C]">
+                  {submitError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
+              <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!canSave}
+                className={`inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors ${
+                  canSave ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                {submitting ? "Creando…" : "Crear tarea"} <Check width={14} height={14} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

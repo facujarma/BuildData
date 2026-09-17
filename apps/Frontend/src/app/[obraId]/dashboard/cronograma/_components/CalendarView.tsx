@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ChevronRight } from "@gravity-ui/icons";
 import type { TaskItem } from "../data";
 import { TASK_STATE_MAP, parseDate, fmtDateLong } from "../data";
 
@@ -11,30 +12,27 @@ interface Props {
 
 const DAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const WEEKENDS = [5, 6];
-const GRID_WEEKS = 5; // 2 semanas atrás + semana actual + 2 adelante
 
 interface DayInfo {
   date: Date;
   tasks: TaskItem[];
   isWeekend: boolean;
   isToday: boolean;
-  monthLabel?: string;
 }
 
-function buildGrid(tasks: TaskItem[]): { monthLabel: string; days: DayInfo[] } {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+function buildGrid(tasks: TaskItem[], cursor: Date): { monthLabel: string; days: DayInfo[] } {
+  const todayMs = new Date().setHours(0, 0, 0, 0);
 
-  // Lunes de la semana actual, menos 2 semanas
-  const monday = new Date(now);
-  monday.setDate(monday.getDate() + (monday.getDay() === 0 ? -6 : 1 - monday.getDay()));
-  const gridStart = new Date(monday);
-  gridStart.setDate(gridStart.getDate() - 14);
+  const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const gridStart = new Date(first);
+  gridStart.setDate(gridStart.getDate() + (first.getDay() === 0 ? -6 : 1 - first.getDay()));
 
-  const todayMs = now.getTime();
+  const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+  const offset = Math.round((first.getTime() - gridStart.getTime()) / 86_400_000);
+  const weekCount = Math.max(5, Math.ceil((offset + daysInMonth) / 7));
+
   const days: DayInfo[] = [];
-
-  for (let i = 0; i < GRID_WEEKS * 7; i++) {
+  for (let i = 0; i < weekCount * 7; i++) {
     const d = new Date(gridStart);
     d.setDate(d.getDate() + i);
     const dMs = d.getTime();
@@ -45,106 +43,120 @@ function buildGrid(tasks: TaskItem[]): { monthLabel: string; days: DayInfo[] } {
       return s !== undefined && e !== undefined && dMs >= s && dMs <= e;
     });
 
-    const monthLabel =
-      i === 0
-        ? d.toLocaleDateString("es-AR", { month: "long", year: "numeric" })
-        : days[i - 1]?.date.getMonth() !== d.getMonth()
-          ? d.toLocaleDateString("es-AR", { month: "long", year: "numeric" })
-          : undefined;
-
     days.push({
       date: d,
       tasks: activeTasks,
       isWeekend: WEEKENDS.includes(d.getDay()),
       isToday: dMs === todayMs,
-      monthLabel,
     });
   }
 
-  const monthLabel =
-    days.find((d) => d.monthLabel)?.monthLabel ||
-    now.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
-  return { monthLabel, days };
+  return {
+    monthLabel: cursor.toLocaleDateString("es-AR", { month: "long", year: "numeric" }),
+    days,
+  };
 }
 
 export function CalendarView({ tasks, onPick }: Props) {
-  const { monthLabel, days } = useMemo(() => buildGrid(tasks), [tasks]);
+  const [cursor, setCursor] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
 
-  if (tasks.length === 0) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-card p-8 text-center text-slate-500 text-[13px]">
-        No hay tareas para mostrar
-      </div>
-    );
-  }
+  const { monthLabel, days } = useMemo(() => buildGrid(tasks, cursor), [tasks, cursor]);
+
+  const shift = (delta: number) => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+  const goToday = () => {
+    const n = new Date();
+    setCursor(new Date(n.getFullYear(), n.getMonth(), 1));
+  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-card overflow-hidden">
-      <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-        <span className="text-[11px] font-bold text-slate-500 tracking-[0.06em] uppercase capitalize">
-          {monthLabel}
-        </span>
-        <span className="text-[10px] text-slate-400">Semanas alrededor de hoy</span>
+      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <div className="text-[14px] font-bold text-slate-950 capitalize">{monthLabel}</div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => shift(-1)}
+            className="w-7 h-7 rounded-md hover:bg-slate-100 text-slate-600 flex items-center justify-center"
+            title="Mes anterior"
+          >
+            <ChevronRight width={12} height={12} className="rotate-180" />
+          </button>
+          <button
+            onClick={goToday}
+            className="text-[11px] font-bold px-2 py-1 rounded-md hover:bg-slate-100 text-slate-600"
+          >
+            Hoy
+          </button>
+          <button
+            onClick={() => shift(1)}
+            className="w-7 h-7 rounded-md hover:bg-slate-100 text-slate-600 flex items-center justify-center"
+            title="Mes siguiente"
+          >
+            <ChevronRight width={12} height={12} />
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-slate-100">
-        {DAY_HEADERS.map((h) => (
+      <div className="grid grid-cols-7 border-b border-slate-200">
+        {DAY_HEADERS.map((w, i) => (
           <div
-            key={h}
-            className={`text-[10px] font-bold tracking-[0.06em] uppercase text-center py-1.5 border-r border-slate-100 last:border-r-0 ${
-              h === "Sáb" || h === "Dom" ? "text-slate-400 bg-slate-50" : "text-slate-500"
+            key={w}
+            className={`px-3 py-2 text-[10px] tracking-[0.06em] uppercase font-bold ${
+              i > 4 ? "text-slate-400 bg-slate-50" : "text-slate-600"
             }`}
           >
-            {h}
+            {w}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7">
-        {days.map((day) => (
-          <div
-            key={day.date.getTime()}
-            className={`min-h-[72px] border-b border-r border-slate-100 last:border-r-0 px-1.5 py-1 ${
-              day.isWeekend ? "bg-slate-50/60" : ""
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span
-                className={`text-[10px] font-bold tnum ${
-                  day.isToday
-                    ? "bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center"
-                    : "text-slate-400"
-                }`}
-              >
-                {day.date.getDate()}
-              </span>
-              {day.monthLabel && (
-                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-300 truncate ml-1">
-                  {day.monthLabel.split(" ")[0]}
-                </span>
-              )}
+      <div className="grid grid-cols-7" style={{ gridAutoRows: "120px" }}>
+        {days.map((day, idx) => {
+          const inMonth = day.date.getMonth() === cursor.getMonth();
+          const shown = day.tasks.slice(0, 3);
+          const overflow = day.tasks.length - shown.length;
+          const isLastCol = idx % 7 === 6;
+          return (
+            <div
+              key={day.date.getTime()}
+              className={`border-b border-slate-100 p-2 flex flex-col overflow-hidden ${isLastCol ? "" : "border-r"} ${
+                day.isWeekend ? "bg-slate-50/60" : "bg-white"
+              }`}
+            >
+              <div className={`text-[11px] font-bold mb-1 flex items-center gap-1 ${day.isToday ? "text-primary" : inMonth ? "text-slate-600" : "text-slate-300"}`}>
+                {day.isToday ? (
+                  <span className="w-5 h-5 rounded-full bg-primary text-white inline-flex items-center justify-center text-[10px]">
+                    {day.date.getDate()}
+                  </span>
+                ) : (
+                  day.date.getDate()
+                )}
+              </div>
+              <div className="flex flex-col gap-[3px] min-h-0">
+                {shown.map((t) => {
+                  const s = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPick(t.id);
+                      }}
+                      style={{ background: s.bg, color: s.fg, borderLeft: `3px solid ${s.dot}` }}
+                      className="text-left text-[9.5px] font-bold px-[6px] py-[2px] rounded-sm truncate hover:opacity-80 transition-opacity"
+                      title={`${t.name} · ${fmtDateLong(day.date)}`}
+                    >
+                      {t.name}
+                    </button>
+                  );
+                })}
+                {overflow > 0 && <div className="text-[9px] font-bold text-slate-500">+{overflow} más</div>}
+              </div>
             </div>
-            <div className="space-y-[3px]">
-              {day.tasks.slice(0, 3).map((t) => {
-                const sm = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => onPick(t.id)}
-                    title={`${t.name} · ${fmtDateLong(day.date)}`}
-                    className="w-full text-left text-[9px] font-bold px-1 py-[2px] rounded truncate block hover:opacity-80 transition-opacity"
-                    style={{ background: `${sm.dot}1A`, color: sm.fg === "#fff" ? sm.bg : sm.fg }}
-                  >
-                    {t.name}
-                  </button>
-                );
-              })}
-              {day.tasks.length > 3 && (
-                <div className="text-[9px] text-slate-400 font-bold pl-1">+{day.tasks.length - 3} más</div>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

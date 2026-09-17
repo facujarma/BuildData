@@ -648,40 +648,40 @@
     "semantic_hash": "e3c23605ba3c677f1860ee3900b0f904"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/CalendarView.tsx": {
-    "mtime": 1789079788.9900765,
-    "seen": 1789515629.7269907,
-    "ast_hash": "12bbd933a2b92d3ee92ace7fc259ccb9",
-    "semantic_hash": "12bbd933a2b92d3ee92ace7fc259ccb9"
+    "mtime": 1789603007.2940705,
+    "seen": 1789603284.0557358,
+    "ast_hash": "a6a5d7a51efe2375c6c1b6c476e646d8",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/GanttView.tsx": {
-    "mtime": 1789079788.990225,
-    "seen": 1789515629.726994,
-    "ast_hash": "5e9c48eb8e5a539087e8bffe2f99e1ac",
-    "semantic_hash": "5e9c48eb8e5a539087e8bffe2f99e1ac"
+    "mtime": 1789603081.6426303,
+    "seen": 1789603284.05574,
+    "ast_hash": "79acf7b2ab0b881359a48df8c032e432",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/ListView.tsx": {
-    "mtime": 1789079788.9903553,
-    "seen": 1789515629.7269979,
-    "ast_hash": "fa344d9ec4d27c834c0eb73d0de93d0c",
-    "semantic_hash": "fa344d9ec4d27c834c0eb73d0de93d0c"
+    "mtime": 1789603081.645569,
+    "seen": 1789603284.0557451,
+    "ast_hash": "ab6ea778e38ff89824fe7896a277f807",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/NuevaTareaModal.tsx": {
-    "mtime": 1789079788.9904926,
-    "seen": 1789515629.727003,
-    "ast_hash": "c8dc2269f0a55d4d2f014ea09ebdeb40",
-    "semantic_hash": "c8dc2269f0a55d4d2f014ea09ebdeb40"
+    "mtime": 1789603081.6482806,
+    "seen": 1789603284.0557497,
+    "ast_hash": "aef21a18feedd2e5a1c8447534f0c1a9",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/ScreenCronograma.tsx": {
-    "mtime": 1789079788.9906192,
-    "seen": 1789515629.727008,
-    "ast_hash": "c061b87b2fa087b52a92d91b42ee3c99",
-    "semantic_hash": "c061b87b2fa087b52a92d91b42ee3c99"
+    "mtime": 1789603044.262011,
+    "seen": 1789603284.0557542,
+    "ast_hash": "872c886d4f5ff3954611eb17e2facd8c",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/TaskDetail.tsx": {
-    "mtime": 1789079788.9907465,
-    "seen": 1789515629.7270126,
-    "ast_hash": "4f4e639fee1381d1b65fb07448fff21a",
-    "semantic_hash": "4f4e639fee1381d1b65fb07448fff21a"
+    "mtime": 1789603081.646942,
+    "seen": 1789603284.0557592,
+    "ast_hash": "1063ab989360e3fad78873bfd9048ed6",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/_components/index.ts": {
     "mtime": 1782331275.4250023,
@@ -690,16 +690,16 @@
     "semantic_hash": "09d133c3b9367938dac6da9cf3daeae0"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/data/index.ts": {
-    "mtime": 1789079788.99087,
-    "seen": 1789515629.7270188,
-    "ast_hash": "6c331561e5fee99853406824166be2f1",
-    "semantic_hash": "6c331561e5fee99853406824166be2f1"
+    "mtime": 1789602969.3416643,
+    "seen": 1789603284.0558393,
+    "ast_hash": "536cfc59a159019347b8081ca2040a23",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/loading.tsx": {
-    "mtime": 1782331275.4262338,
-    "seen": 1789515629.727024,
-    "ast_hash": "f0e029e9cb9a86f7a69e7394449e6dd6",
-    "semantic_hash": "f0e029e9cb9a86f7a69e7394449e6dd6"
+    "mtime": 1789603050.5854983,
+    "seen": 1789603284.055844,
+    "ast_hash": "1c6bb6b9c2f41b3841d6d1cbd1753163",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/cronograma/page.tsx": {
     "mtime": 1782331275.4262338,
@@ -750,10 +750,10 @@
     "semantic_hash": "16af6182751aaf6027d8a2c02c44c306"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/data/index.ts": {
-    "mtime": 1789427093.1109684,
-    "seen": 1789515629.7270627,
-    "ast_hash": "8b991ffdeaea4cdc88c6dec8e9a7c4a5",
-    "semantic_hash": "8b991ffdeaea4cdc88c6dec8e9a7c4a5"
+    "mtime": 1789602039.0521255,
+    "seen": 1789603284.0564258,
+    "ast_hash": "856d3003b8e772c900afa0e970d043dd",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/loading.tsx": {
     "mtime": 1789427653.2144418,
@@ -768,10 +768,10 @@
     "semantic_hash": "8a97d8c44390afaf37cb4d7a7a53bb26"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/layout.tsx": {
-    "mtime": 1789427907.4120734,
-    "seen": 1789515629.727077,
-    "ast_hash": "2cc28dc06beade41401671f02ba2ad1c",
-    "semantic_hash": "2cc28dc06beade41401671f02ba2ad1c"
+    "mtime": 1789603248.478759,
+    "seen": 1789603284.0565643,
+    "ast_hash": "58b8f0487d9e91027e098079af4c67fe",
+    "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/loading.tsx": {
     "mtime": 1789600971.309632,

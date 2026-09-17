@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChartBar, ListUl, Calendar, Plus } from "@gravity-ui/icons";
+import { ChartBar, FileArrowDown, ListUl, Calendar, Plus } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import Button from "@/components/ui/Button";
+import { DashToast, useToast } from "../../_components/useToast";
 import {
   getCronograma,
   completeCronogramaTask,
@@ -21,12 +22,11 @@ import { TASK_STATE_MAP } from "../data";
 
 type ViewMode = "gantt" | "list" | "calendar";
 
-const LEGENDS = [
-  { state: "done", label: "Completado" },
-  { state: "progress", label: "En curso" },
-  { state: "late", label: "Retraso" },
-  { state: "planned", label: "Programado" },
-];
+const VIEW_META: Record<ViewMode, { label: string; icon: typeof ChartBar }> = {
+  gantt: { label: "Gantt", icon: ChartBar },
+  list: { label: "Lista", icon: ListUl },
+  calendar: { label: "Calendario", icon: Calendar },
+};
 
 export function ScreenCronograma() {
   const { obraId } = useDashboardData();
@@ -38,6 +38,7 @@ export function ScreenCronograma() {
   const [pick, setPick] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [toast, flash] = useToast();
 
   // El estado se actualiza dentro de los callbacks del fetch (no sincrónico
   // en el cuerpo del efecto). Para recargar, los handlers incrementan refreshKey.
@@ -70,6 +71,7 @@ export function ScreenCronograma() {
   const allTasks = groups.flatMap((g) => g.items);
   const totalTasks = allTasks.length;
   const doneTasks = allTasks.filter((t) => t.state === "done").length;
+  const progTasks = allTasks.filter((t) => t.state === "progress").length;
   const lateTasks = allTasks.filter((t) => t.state === "late").length;
 
   const handlePick = useCallback((taskId: string) => {
@@ -125,62 +127,60 @@ export function ScreenCronograma() {
 
   if (!timeline) return null;
 
-  const VIEW_ICONS: Record<ViewMode, typeof ChartBar> = {
-    gantt: ChartBar,
-    list: ListUl,
-    calendar: Calendar,
-  };
-
   return (
     <>
       <DPageHeader
         title="Cronograma de tareas"
-        subtitle={`${totalTasks} tareas · ${doneTasks} completadas · ${lateTasks} retrasadas`}
+        subtitle={`${totalTasks} tareas en ${groups.length} rubros · ${doneTasks} completadas · ${progTasks} en curso · ${lateTasks} en retraso`}
         right={
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus width={13} height={13} />}
-            onClick={() => setNewTaskOpen(true)}
-          >
-            Nueva tarea
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<FileArrowDown width={13} height={13} />}
+              onClick={() => flash("Exportando cronograma…")}
+            >
+              Exportar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus width={13} height={13} />}
+              onClick={() => setNewTaskOpen(true)}
+            >
+              Nueva tarea
+            </Button>
+          </>
         }
       />
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {LEGENDS.map((l) => {
-            const sm = TASK_STATE_MAP[l.state] || TASK_STATE_MAP.planned;
-            return (
-              <div key={l.state} className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ background: sm.dot }} />
-                <span className="text-[11px] text-slate-600">{l.label}</span>
-              </div>
-            );
-          })}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="flex gap-4 flex-wrap">
+          {Object.entries(TASK_STATE_MAP).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-[6px] text-[11px] font-semibold text-slate-600">
+              <span
+                style={{ background: v.bg, border: v.border ? `1px solid ${v.border}` : 0 }}
+                className="w-3 h-3 rounded-sm inline-block"
+              />
+              {v.label}
+            </div>
+          ))}
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-          {(Object.keys(VIEW_ICONS) as ViewMode[]).map((v) => {
-            const Icon = VIEW_ICONS[v];
-            const labels: Record<ViewMode, string> = {
-              gantt: "Gantt",
-              list: "Lista",
-              calendar: "Calendario",
-            };
+        <div className="flex bg-slate-100 rounded-md p-[2px] gap-[2px]">
+          {(Object.keys(VIEW_META) as ViewMode[]).map((v) => {
+            const { label, icon: Icon } = VIEW_META[v];
+            const on = view === v;
             return (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-md transition-colors ${
-                  view === v
-                    ? "bg-white text-slate-950 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
+                className={`text-[11px] font-bold px-[10px] py-[5px] rounded inline-flex items-center gap-[6px] transition-colors ${
+                  on ? "bg-white text-slate-950 shadow-card" : "text-slate-600 hover:text-slate-950"
                 }`}
               >
-                <Icon width={14} height={14} />
-                {labels[v]}
+                <Icon width={12} height={12} />
+                {label}
               </button>
             );
           })}
@@ -214,6 +214,8 @@ export function ScreenCronograma() {
         onClose={() => setNewTaskOpen(false)}
         onCreate={handleCreate}
       />
+
+      <DashToast msg={toast} />
     </>
   );
 }

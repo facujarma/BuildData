@@ -1,7 +1,7 @@
 "use client";
 
 import type { TaskItem } from "../data";
-import { DPill } from "@/components/ui/DPill";
+import { DPill, type PillTone } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
 import {
   fmtDate,
@@ -16,12 +16,14 @@ interface Props {
   onPick: (taskId: string) => void;
 }
 
-const STATE_TONE: Record<string, "success" | "primary" | "critical" | "info"> = {
+const STATE_TONE: Record<string, PillTone> = {
   done: "success",
   progress: "primary",
-  late: "critical",
+  late: "criticalSolid",
   planned: "info",
 };
+
+const GRID = "grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_90px_90px_90px] gap-2";
 
 export function ListView({ tasks, onPick }: Props) {
   if (tasks.length === 0) {
@@ -34,62 +36,62 @@ export function ListView({ tasks, onPick }: Props) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-card overflow-hidden">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500">
-            <th className="px-4 py-3 w-[40%]">Tarea</th>
-            <th className="px-4 py-3 w-[15%]">Rubro</th>
-            <th className="px-4 py-3 w-[13%]">Responsable</th>
-            <th className="px-4 py-3 w-[11%]">Inicio</th>
-            <th className="px-4 py-3 w-[11%]">Fin</th>
-            <th className="px-4 py-3 w-[10%]">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((t) => {
-            const sm = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
-            const startD = parseDate(t.startDate);
-            const endD = parseDate(t.dueDate) ?? startD;
-            return (
-              <tr
-                key={t.id}
-                onClick={() => onPick(t.id)}
-                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
-              >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="w-2 h-2 rounded-full flex-none"
-                      style={{ background: sm.dot }}
-                    />
-                    <span className="text-[13px] font-bold text-slate-950">{t.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-[12px] text-slate-600 flex items-center gap-1.5">
-                    <span
-                      className="w-1.5 h-1.5 rounded-full flex-none"
-                      style={{ background: RUBRO_COLORS[t.rubro] || FALLBACK_RUBRO_COLOR }}
-                    />
-                    {t.rubro}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <DAvatar initials={t.who.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)} size={24} />
-                    <span className="text-[12px] text-slate-700 truncate max-w-[110px]">{t.who}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-[12px] text-slate-600 tnum">{startD ? fmtDate(startD) : "—"}</td>
-                <td className="px-4 py-3 text-[12px] text-slate-600 tnum">{endD ? fmtDate(endD) : "—"}</td>
-                <td className="px-4 py-3">
-                  <DPill tone={STATE_TONE[t.state] || "slate"}>{sm.label}</DPill>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className={`${GRID} px-5 py-3 bg-slate-50 border-b border-slate-200 text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500`}>
+        <div>Tarea</div>
+        <div>Rubro</div>
+        <div>Responsable</div>
+        <div>Inicio</div>
+        <div>Fin</div>
+        <div className="text-right">Estado</div>
+      </div>
+
+      {tasks.map((t, i) => {
+        const sm = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
+        const startD = parseDate(t.startDate);
+        const endD = parseDate(t.dueDate) ?? startD;
+        return (
+          <div
+            key={t.id}
+            className={`${GRID} px-5 py-3 items-center hover:bg-slate-50 cursor-pointer transition-colors ${
+              i < tasks.length - 1 ? "border-b border-slate-100" : ""
+            }`}
+            onClick={() => onPick(t.id)}
+          >
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold text-slate-950 truncate">{t.name}</div>
+              <div className="text-[11px] text-slate-500 truncate mt-[1px]">
+                {t.state !== "planned" && t.state !== "done" ? `${t.pct}% completado` : t.rubro}
+              </div>
+              <div className="mt-2 h-[3px] bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: sm.dot }} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[12px] text-slate-700 min-w-0">
+              <span
+                className="w-2 h-2 rounded-full flex-none"
+                style={{ background: RUBRO_COLORS[t.rubro] || FALLBACK_RUBRO_COLOR }}
+              />
+              <span className="truncate">{t.rubro}</span>
+            </div>
+
+            <div className="flex items-center gap-2 text-[12px] min-w-0">
+              <DAvatar
+                initials={t.who.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+                size={22}
+              />
+              <span className="text-slate-700 truncate">{t.who}</span>
+            </div>
+
+            <div className="text-[12px] text-slate-700 tnum truncate">{startD ? fmtDate(startD) : "—"}</div>
+            <div className="text-[12px] text-slate-700 tnum truncate">{endD ? fmtDate(endD) : "—"}</div>
+
+            <div className="flex justify-end">
+              <DPill tone={STATE_TONE[t.state] || "slate"}>{sm.label}</DPill>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

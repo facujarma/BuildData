@@ -72,7 +72,7 @@ function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string
         <QuickAddModal kind={quickAdd} obraId={obraId} onClose={() => setQuickAdd(null)} onDone={flash} />
       )}
       <DashToast msg={toast} />
-      <ChatBubble />
+      {/* <ChatBubble /> */}
     </>
   );
 }

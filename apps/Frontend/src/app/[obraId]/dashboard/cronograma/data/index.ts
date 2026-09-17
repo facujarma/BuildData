@@ -22,6 +22,15 @@ export function fmtDateLong(d: Date) {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+// Número de semana ISO 8601 (1-53) para el header del Gantt.
+export function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
+}
+
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
 

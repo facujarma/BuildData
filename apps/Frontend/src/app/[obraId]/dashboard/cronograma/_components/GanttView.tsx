@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { ChevronRight } from "@gravity-ui/icons";
+import { DCard } from "@/components/ui/DCard";
 import type { TaskGroup, Timeline } from "../data";
 import {
   TASK_STATE_MAP,
@@ -10,6 +11,7 @@ import {
   weekDate,
   todayColumn,
   fmtDate,
+  isoWeek,
 } from "../data";
 
 interface Props {
@@ -18,166 +20,222 @@ interface Props {
   onPick: (taskId: string) => void;
 }
 
-const ZOOMS = [
-  { label: "Compacto", w: 56 },
-  { label: "Normal", w: 72 },
-  { label: "Cómodo", w: 96 },
-] as const;
+type ZoomId = "compact" | "normal" | "comfortable";
+
+const ZOOMS: { id: ZoomId; label: string; w: number }[] = [
+  { id: "compact", label: "Compacto", w: 56 },
+  { id: "normal", label: "Normal", w: 72 },
+  { id: "comfortable", label: "Amplio", w: 96 },
+];
+
+const NAME_COL = 260;
 
 export function GanttView({ groups, timeline, onPick }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [weekWidth, setWeekWidth] = useState(72);
-  const [scrollToToday, setScrollToToday] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState<ZoomId>("normal");
+  const weekWidth = ZOOMS.find((z) => z.id === zoom)?.w ?? 72;
 
-  const { ganttStart, weekCount } = timeline;
-  const totalW = weekCount * weekWidth + 260;
+  const { weekCount } = timeline;
+  const totalWidth = weekCount * weekWidth;
+  const todayCol = todayColumn(timeline);
+
+  const scrollToToday = useCallback(() => {
+    if (!scrollerRef.current) return;
+    const targetX = todayCol * weekWidth - scrollerRef.current.clientWidth / 2 + NAME_COL / 2;
+    scrollerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
+  }, [todayCol, weekWidth]);
+
+  useEffect(() => {
+    scrollToToday();
+  }, [scrollToToday]);
 
   const months = useMemo(() => {
-    const arr: { label: string; start: number; span: number }[] = [];
+    const out: { key: string; label: string; span: number }[] = [];
     for (let i = 0; i < weekCount; i++) {
       const d = weekDate(timeline, i);
-      const m = d.getMonth();
-      const last = arr[arr.length - 1];
-      if (last && weekDate(timeline, last.start).getMonth() === m) {
-        last.span++;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const last = out[out.length - 1];
+      if (last && last.key === key) {
+        last.span += 1;
       } else {
-        arr.push({
-          label: d.toLocaleDateString("es-AR", { month: "long" }),
-          start: i,
+        out.push({
+          key,
+          label: d.toLocaleDateString("es-AR", { month: "long", year: "2-digit" }),
           span: 1,
         });
       }
     }
-    return arr;
+    return out;
   }, [timeline, weekCount]);
 
-  const todayCol = todayColumn(timeline);
-
-  useEffect(() => {
-    if (scrollToToday && scrollRef.current) {
-      const left = 260 + todayCol * weekWidth - scrollRef.current.clientWidth / 2;
-      scrollRef.current.scrollLeft = Math.max(0, left);
-      setScrollToToday(false);
-    }
-  }, [scrollToToday, weekWidth, todayCol]);
-
-  const doScrollToday = useCallback(() => setScrollToToday(true), []);
-
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 tracking-[0.06em] uppercase">Zoom</span>
+    <DCard padding="p-0" className="overflow-hidden">
+      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => scrollerRef.current?.scrollBy({ left: -weekWidth * 4, behavior: "smooth" })}
+          className="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+          title="Atrás"
+        >
+          <ChevronRight width={13} height={13} className="rotate-180" />
+        </button>
+        <button
+          onClick={scrollToToday}
+          className="text-[11px] font-bold px-3 py-[5px] rounded-md bg-white border border-slate-200 hover:border-primary text-slate-700"
+        >
+          Hoy
+        </button>
+        <button
+          onClick={() => scrollerRef.current?.scrollBy({ left: weekWidth * 4, behavior: "smooth" })}
+          className="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+          title="Adelante"
+        >
+          <ChevronRight width={13} height={13} />
+        </button>
+
+        <div className="text-[11px] text-slate-500 ml-2 flex-1 truncate">
+          {fmtDate(weekDate(timeline, 0))} → {fmtDate(weekDate(timeline, weekCount - 1, 6))} · {weekCount} semanas
+        </div>
+
+        <div className="flex bg-white border border-slate-200 rounded-md p-[2px] gap-[2px]">
           {ZOOMS.map((z) => (
             <button
-              key={z.label}
-              onClick={() => setWeekWidth(z.w)}
-              className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${
-                weekWidth === z.w
-                  ? "bg-primary text-white"
-                  : "text-slate-600 hover:bg-slate-200"
+              key={z.id}
+              onClick={() => setZoom(z.id)}
+              className={`text-[10px] font-bold px-[8px] py-[4px] rounded transition-colors ${
+                zoom === z.id ? "bg-slate-950 text-white" : "text-slate-600 hover:text-slate-950"
               }`}
             >
               {z.label}
             </button>
           ))}
         </div>
-        <button
-          onClick={doScrollToday}
-          className="text-[11px] font-bold text-primary hover:text-primary-700 flex items-center gap-1"
-        >
-          <ChevronRight width={14} height={14} className="rotate-90" />
-          Hoy
-        </button>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto overflow-y-visible" style={{ maxHeight: "calc(100vh - 260px)" }}>
-        <div style={{ width: totalW, minWidth: totalW }}>
-          <div className="flex" style={{ paddingLeft: 260 }}>
+      <div ref={scrollerRef} className="overflow-auto" style={{ maxHeight: "60vh" }}>
+        <div className="relative" style={{ width: NAME_COL + totalWidth }}>
+          <div className="flex bg-slate-50 border-b border-slate-200 relative z-40" style={{ paddingLeft: NAME_COL }}>
             {months.map((m) => (
               <div
-                key={`${m.start}-${m.label}`}
-                className="text-[10px] font-bold text-slate-400 tracking-[0.06em] uppercase px-2 py-1.5 border-b border-slate-100"
+                key={m.key}
                 style={{ width: m.span * weekWidth, minWidth: m.span * weekWidth }}
+                className="px-2 py-1 text-[10px] tracking-[0.06em] uppercase font-bold text-slate-600 border-l border-slate-200 capitalize truncate"
               >
                 {m.label}
               </div>
             ))}
           </div>
 
-          <div className="flex border-b border-slate-200 bg-slate-50" style={{ paddingLeft: 260 }}>
-            {Array.from({ length: weekCount }, (_, i) => (
-              <div
-                key={i}
-                className="text-[10px] font-bold text-slate-500 text-center py-1 border-r border-slate-100 last:border-r-0 tnum"
-                style={{ width: weekWidth, minWidth: weekWidth }}
-                title={ganttStart.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })}
-              >
-                {fmtDate(weekDate(timeline, i))}
-              </div>
-            ))}
+          <div className="flex bg-slate-50 border-b border-slate-200 sticky top-0 z-40">
+            <div
+              style={{ width: NAME_COL, minWidth: NAME_COL }}
+              className="px-4 py-[10px] text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 bg-slate-50 sticky left-0 z-50 border-r border-slate-200"
+            >
+              Tarea
+            </div>
+            {Array.from({ length: weekCount }, (_, i) => {
+              const isToday = i === Math.floor(todayCol);
+              const d = weekDate(timeline, i);
+              return (
+                <div
+                  key={i}
+                  style={{ width: weekWidth, minWidth: weekWidth }}
+                  className={`px-1 py-[10px] text-[10px] font-bold text-center border-l border-slate-200 ${
+                    isToday ? "bg-accent/10 text-accent-700" : "text-slate-500"
+                  }`}
+                >
+                  <div className="leading-tight">S{isoWeek(d)}</div>
+                  <div className="text-[9px] font-medium text-slate-400">{fmtDate(d)}</div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="relative">
-            {groups.map((g) => (
-              <div key={g.rubro}>
-                <div className="flex border-b border-slate-100">
-                  <div
-                    className="sticky left-0 z-10 bg-white flex items-center gap-2 px-3 py-2 border-r border-slate-100"
-                    style={{ width: 260, minWidth: 260 }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-none"
-                      style={{ background: RUBRO_COLORS[g.rubro] || FALLBACK_RUBRO_COLOR }}
-                    />
-                    <span className="text-[12px] font-bold text-slate-700 truncate">{g.rubro}</span>
-                  </div>
-                  <div className="flex-1 relative h-8">
-                    {g.items.map((task) => {
-                      const sm = TASK_STATE_MAP[task.state] || TASK_STATE_MAP.planned;
-                      const left = task.start * weekWidth;
-                      const w = task.span * weekWidth;
-                      const barH = 20;
-                      return (
-                        <button
-                          key={task.id}
-                          onClick={() => onPick(task.id)}
-                          className="absolute top-1/2 -translate-y-1/2 rounded-full overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{
-                            left,
-                            width: Math.max(w - 4, 8),
-                            height: barH,
-                            background: sm.bg,
-                          }}
-                        >
-                          <div className="relative w-full h-full">
-                            <div
-                              className="absolute inset-y-0 left-0 bg-white/25"
-                              style={{ width: `${task.pct}%` }}
-                            />
-                            <div className="absolute inset-0 flex items-center px-2">
-                              <span className="text-[10px] font-bold text-white truncate drop-shadow-sm">
-                                {task.name}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+          {groups.map((g) => (
+            <div key={g.rubro}>
+              <div
+                className="flex bg-slate-100/70 border-b border-slate-200 sticky left-0 z-30"
+                style={{ width: NAME_COL + totalWidth }}
+              >
+                <div
+                  style={{ width: NAME_COL, minWidth: NAME_COL }}
+                  className="px-4 py-[8px] flex items-center gap-2 bg-slate-100/95 sticky left-0 z-30 border-r border-slate-200"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-none"
+                    style={{ background: RUBRO_COLORS[g.rubro] || FALLBACK_RUBRO_COLOR }}
+                  />
+                  <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-700 truncate">
+                    {g.rubro}
+                  </span>
+                  <span className="text-[10px] text-slate-500">· {g.items.length}</span>
                 </div>
               </div>
-            ))}
 
-            <div
-              className="absolute top-0 bottom-0 w-[2px] bg-critical pointer-events-none z-20"
-              style={{ left: 260 + todayCol * weekWidth }}
-            >
-              <div className="w-2 h-2 rounded-full bg-critical -ml-[3px] -mt-[3px]" />
+              {g.items.map((t) => {
+                const s = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
+                return (
+                  <div
+                    key={t.id}
+                    className="flex items-center border-b border-slate-200 last:border-b-0 min-h-[48px] hover:bg-slate-50/60 cursor-pointer transition-colors group"
+                    onClick={() => onPick(t.id)}
+                  >
+                    <div
+                      style={{ width: NAME_COL, minWidth: NAME_COL }}
+                      className="px-4 py-2 sticky left-0 z-30 bg-white border-r border-slate-200 group-hover:bg-slate-50/80 transition-colors"
+                    >
+                      <div className="text-[12px] font-semibold text-slate-950 leading-tight group-hover:text-primary transition-colors truncate">
+                        {t.name}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-[1px] flex items-center gap-1">
+                        <span className="inline-block w-[5px] h-[5px] rounded-full flex-none" style={{ background: s.dot }} />
+                        <span className="truncate">{t.who}</span>
+                      </div>
+                    </div>
+
+                    <div className="relative h-[48px]" style={{ width: totalWidth }}>
+                      <div className="absolute inset-0 flex">
+                        {Array.from({ length: weekCount }, (_, i) => (
+                          <div
+                            key={i}
+                            style={{ width: weekWidth, minWidth: weekWidth }}
+                            className={`border-l border-dashed border-slate-100 ${
+                              i === Math.floor(todayCol) ? "bg-accent/[0.06]" : ""
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-accent/70 pointer-events-none z-[5]"
+                        style={{ left: todayCol * weekWidth }}
+                      />
+
+                      <div
+                        style={{
+                          left: t.start * weekWidth,
+                          width: Math.max(t.span * weekWidth - 6, 10),
+                          background: s.bg,
+                          color: s.fg,
+                          border: s.border ? `1px solid ${s.border}` : 0,
+                        }}
+                        className="absolute top-1/2 -translate-y-1/2 ml-[3px] h-[24px] rounded px-2 flex items-center text-[10px] font-bold gap-[6px] overflow-hidden whitespace-nowrap shadow-card hover:shadow-pop transition-shadow z-10"
+                      >
+                        {(t.state === "progress" || t.state === "late") && t.pct > 0 && (
+                          <div className="absolute inset-y-0 left-0 bg-white/25" style={{ width: `${t.pct}%` }} />
+                        )}
+                        <span className="relative z-10 truncate">
+                          {t.name}
+                          {t.state !== "done" && t.state !== "planned" ? ` · ${t.pct}%` : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ))}
         </div>
       </div>
-    </div>
+    </DCard>
   );
 }
