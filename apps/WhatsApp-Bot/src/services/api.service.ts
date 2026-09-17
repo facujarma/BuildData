@@ -121,3 +121,15 @@ export async function registrarMensaje(payload: {
 }): Promise<{ id: string }> {
   return apiRequest<{ id: string }>("POST", "/bot/mensaje", payload);
 }
+
+// Persiste la interpretación ya ejecutada del mensaje (columna mensajes.action_executed).
+export async function actualizarMensajeAcciones(
+  mensajeId: string,
+  payload: {
+    action_executed: unknown[];
+    estado_procesamiento?: "procesado" | "error";
+    error_detalle?: string;
+  },
+): Promise<void> {
+  await apiRequest("PATCH", `/bot/mensaje/${mensajeId}`, payload);
+}

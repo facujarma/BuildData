@@ -10,7 +10,13 @@ import {
   getEntityPending,
   PendingQuery,
 } from "../handlers/pendingQuery.store";
-import { callEndpoint, getCatalogo, registrarMensaje } from "./api.service";
+import { callEndpoint, getCatalogo, registrarMensaje, actualizarMensajeAcciones } from "./api.service";
+import {
+  ActionExecuted,
+  buildActionExecuted,
+  buildComprobanteAction,
+  buildFacturaAction,
+} from "./actionExecuted.service";
 import { MSG } from "../shared/responses";
 import { Obra } from "../types/api.types";
 import {
@@ -30,66 +36,105 @@ function parseMontoArg(raw: string): number {
   return parseFloat(normalized) || 0;
 }
 
+// Persiste en mensajes.action_executed lo que efectivamente se ejecutó
+// (también los errores) para que el frontend pueda renderizar la interpretación.
+async function persistActions(pending: PendingQuery, actions: ActionExecuted[]): Promise<void> {
+  if (!pending.mensaje_id || actions.length === 0) return;
+  const failed = actions.filter((a) => a.estado === "error");
+  try {
+    await actualizarMensajeAcciones(pending.mensaje_id, {
+      action_executed: actions,
+      estado_procesamiento: failed.length > 0 ? "error" : "procesado",
+      error_detalle:
+        failed.length > 0
+          ? failed.map((a) => `${a.endpoint}: ${a.error ?? "error"}`).join(" | ")
+          : undefined,
+    });
+  } catch (error) {
+    console.error("[executePending] no se pudo guardar action_executed:", error);
+  }
+}
+
 async function executePending(pending: PendingQuery, obraNombre: string, phone: string): Promise<void> {
   const tag = `obra "${obraNombre}"`;
-  switch (pending.type) {
-    case "operation": {
-      for (const op of pending.operation) {
-        const { endpoint, method, data } = op;
-        const payload: Record<string, unknown> = {
-          ...data,
+  const actions: ActionExecuted[] = [];
+
+  try {
+    switch (pending.type) {
+      case "operation": {
+        for (const op of pending.operation) {
+          const { endpoint, method, data } = op;
+          const payload: Record<string, unknown> = {
+            ...data,
+            obra_id: pending.obra_id,
+            telefono: phone,
+            mensaje_id: pending.mensaje_id,
+          };
+          for (const userPhoneField of getUserPhoneFields(endpoint)) {
+            if (payload[userPhoneField] == null) payload[userPhoneField] = phone;
+          }
+          const { path, body } = interpolatePathParams(endpoint, payload);
+          console.log(`[executePending] → ${method} ${path} para ${tag}`);
+          console.log(`[executePending] payload: ${JSON.stringify(body)}`);
+          try {
+            const result = await callEndpoint(method, path, body);
+            console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
+            actions.push(buildActionExecuted(op, { body, result }));
+          } catch (error) {
+            console.error(`[executePending] error llamando ${endpoint}:`, error);
+            actions.push(buildActionExecuted(op, { body, error }));
+            throw error;
+          }
+        }
+        break;
+      }
+      case "comprobante": {
+        const d = pending.data;
+        const payload = {
           obra_id: pending.obra_id,
           telefono: phone,
-          mensaje_id: pending.mensaje_id,
+          monto: parseMontoArg(d.monto),
+          moneda: d.moneda || "ARS",
+          descripcion: `${d.entidad} - ${d.tipo}`,
+          origen: "bot_imagen",
+          comprobante_detalle: d,
         };
-        for (const userPhoneField of getUserPhoneFields(endpoint)) {
-          if (payload[userPhoneField] == null) payload[userPhoneField] = phone;
-        }
-        const { path, body } = interpolatePathParams(endpoint, payload);
-        console.log(`[executePending] → ${method} ${path} para ${tag}`);
-        console.log(`[executePending] payload: ${JSON.stringify(body)}`);
+        console.log(`[executePending] → POST /bot/gastos (comprobante) para ${tag}`);
         try {
-          const result = await callEndpoint(method, path, body);
+          const result = await callEndpoint("POST", "/bot/gastos", payload);
           console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
+          actions.push(buildComprobanteAction(d, payload, { result }));
         } catch (error) {
-          console.error(`[executePending] error llamando ${endpoint}:`, error);
+          actions.push(buildComprobanteAction(d, payload, { error }));
           throw error;
         }
+        break;
       }
-      break;
+      case "factura": {
+        const d = pending.data;
+        const payload = {
+          obra_id: pending.obra_id,
+          telefono: phone,
+          monto: parseMontoArg(d.total),
+          moneda: "ARS",
+          descripcion: `Factura ${d.tipoFactura} ${d.numero} de ${d.emisor}`,
+          origen: "bot_imagen",
+          comprobante_detalle: d,
+        };
+        console.log(`[executePending] → POST /bot/gastos (factura) para ${tag}`);
+        try {
+          const result = await callEndpoint("POST", "/bot/gastos", payload);
+          console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
+          actions.push(buildFacturaAction(d, payload, { result }));
+        } catch (error) {
+          actions.push(buildFacturaAction(d, payload, { error }));
+          throw error;
+        }
+        break;
+      }
     }
-    case "comprobante": {
-      const d = pending.data;
-      const payload = {
-        obra_id: pending.obra_id,
-        telefono: phone,
-        monto: parseMontoArg(d.monto),
-        moneda: d.moneda || "ARS",
-        descripcion: `${d.entidad} - ${d.tipo}`,
-        origen: "bot_imagen",
-        comprobante_detalle: d,
-      };
-      console.log(`[executePending] → POST /bot/gastos (comprobante) para ${tag}`);
-      const result = await callEndpoint("POST", "/bot/gastos", payload);
-      console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-      break;
-    }
-    case "factura": {
-      const d = pending.data;
-      const payload = {
-        obra_id: pending.obra_id,
-        telefono: phone,
-        monto: parseMontoArg(d.total),
-        moneda: "ARS",
-        descripcion: `Factura ${d.tipoFactura} ${d.numero} de ${d.emisor}`,
-        origen: "bot_imagen",
-        comprobante_detalle: d,
-      };
-      console.log(`[executePending] → POST /bot/gastos (factura) para ${tag}`);
-      const result = await callEndpoint("POST", "/bot/gastos", payload);
-      console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-      break;
-    }
+  } finally {
+    await persistActions(pending, actions);
   }
 }
 

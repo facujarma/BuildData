@@ -22,5 +22,5 @@ export async function handleAudio(phone: string, message: Message): Promise<void
 
   await message.reply(MSG_TRANSCRIPTION(transcripcion));
   message.body = transcripcion;
-  await handleFreeText(phone, message);
+  await handleFreeText(phone, message, "audio");
 }

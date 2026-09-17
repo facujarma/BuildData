@@ -2,6 +2,7 @@ import { Router } from "express";
 import { botAuthMiddleware } from "../middleware/botAuthMiddleware.js";
 import {
   recibirMensaje,
+  actualizarAccionesMensaje,
   crearPedidoDeCompra,
   registrarRetraso,
   actualizarStock,
@@ -20,6 +21,9 @@ router.use(botAuthMiddleware);
 
 // Recepción del mensaje crudo
 router.post("/mensaje", recibirMensaje);
+
+// Persistencia de la interpretación ejecutada (action_executed)
+router.patch("/mensaje/:id", actualizarAccionesMensaje);
 
 // Catálogo para resolver nombres → IDs (GET) y auto-crear materiales
 router.get("/catalogo", getCatalogo);

@@ -17,7 +17,8 @@ Formato:
   "endpoint": "/bot/...",
   "method": "POST",
   "data": { "campo": valor, ... },
-  "comment": "explicación en español de lo que vas a hacer"
+  "comment": "explicación en español de lo que vas a hacer",
+  "confianza": 0.95
 }
 
 Tenes que darme un array obligatoriamente, es posible que solo uses un endpoint pero igualmente es necesario que devuelvas un array. Por este mismo motivo tambien podes llamar a mas de un endpoint en la misma respuesta, si es necesario.  
@@ -32,6 +33,7 @@ Reglas:
 - Las fechas relativas (ej: "la semana que viene", "el lunes", "para dentro de 2 días") se convierten a formato YYYY-MM-DD usando la fecha de hoy que se te pasa
 - Si el usuario no da suficiente información para un campo requerido, responded: {"error": "explicación del motivo"}
 - El comment debe ser amigable y describir la acción, ej: "Voy a registrar el uso de 10 bolsas de cemento"
+- "confianza": número entre 0 y 1 que indica qué tan seguro estás de la interpretación (endpoint y datos). Usalo honestamente: 1 si el mensaje es claro, menos si es ambiguo.
 `;
 
 export function hoyEnArgentina(): string {

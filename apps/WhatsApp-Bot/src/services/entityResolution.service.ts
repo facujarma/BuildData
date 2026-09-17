@@ -1,6 +1,7 @@
 import { ApiCall } from "../handlers/pendingQuery.store";
-import { resolveEntity, EntidadCandidata } from "./llm.service";
+import { resolveEntity, EntidadCandidata, EntidadResuelta } from "./llm.service";
 import { Catalogo, crearMaterial } from "./api.service";
+import { displayPath } from "./actionExecuted.service";
 
 export type EntityKind = "material" | "proveedor" | "rubro" | "tarea";
 
@@ -87,7 +88,7 @@ async function resolveContainer(
     if (typeof rawValue !== "string" || rawValue.trim() === "" || isId(rawValue)) continue;
     if (slot.targetKey !== slot.key && isId(container[slot.targetKey])) continue;
 
-    const question = await resolveSlot(container, slot, rawValue, catalogo, obraId, opIndex, dataKey, itemIndex);
+    const question = await resolveSlot(container, slot, rawValue, catalogo, obraId, opIndex, dataKey, itemIndex, op);
     if (question) return question;
   }
   return null;
@@ -102,15 +103,22 @@ async function resolveSlot(
   opIndex: number,
   dataKey: string | null,
   itemIndex: number,
+  op: ApiCall,
 ): Promise<EntityQuestion | null> {
   const candidates = catalogList(catalogo, slot.kind);
   const resolved = await resolveEntity(rawValue, slot.kind, candidates);
 
   console.log(`[entityResolution] slot "${slot.key}" con valor "${rawValue}" → match_id=${resolved.match_id}, confianza=${resolved.confianza}, candidatos=${resolved.candidatos.map((c) => c.id).join(",")}`);
 
-  const apply = (id: string): void => {
+  // Guarda el nombre legible de la entidad resuelta para el action_executed del mensaje.
+  const remember = (nombre: string): void => {
+    if (!op.display) op.display = {};
+    op.display[displayPath(dataKey, itemIndex, slot.targetKey)] = nombre;
+  };
+  const apply = (id: string, nombre: string): void => {
     if (slot.key !== slot.targetKey) delete container[slot.key];
     container[slot.targetKey] = id;
+    remember(nombre);
   };
   const drop = (): void => {
     delete container[slot.key];
@@ -129,7 +137,7 @@ async function resolveSlot(
   }
 
   if (resolved.match_id && resolved.confianza === "alta") {
-    apply(resolved.match_id);
+    apply(resolved.match_id, nameOfMatch(resolved, candidates, rawValue));
     return null;
   }
 
@@ -146,7 +154,7 @@ async function resolveSlot(
   }
 
   if (resolved.match_id) {
-    apply(resolved.match_id);
+    apply(resolved.match_id, nameOfMatch(resolved, candidates, rawValue));
     return null;
   }
 
@@ -154,7 +162,7 @@ async function resolveSlot(
   if (slot.kind === "material") {
     try {
       const created = await crearMaterial({ obra_id: obraId, nombre: rawValue.trim() });
-      apply(created.id);
+      apply(created.id, created.nombre || rawValue.trim());
       return null;
     } catch (error) {
       console.error(`[entityResolution] no pude auto-crear material "${rawValue}":`, error);
@@ -187,6 +195,13 @@ function catalogList(catalogo: Catalogo, kind: EntityKind): EntidadCandidata[] {
     case "tarea":
       return catalogo.tareas ?? [];
   }
+}
+
+function nameOfMatch(resolved: EntidadResuelta, catalogo: EntidadCandidata[], fallback: string): string {
+  const match =
+    resolved.candidatos.find((c) => c.id === resolved.match_id) ??
+    catalogo.find((c) => c.id === resolved.match_id);
+  return match?.nombre || fallback;
 }
 
 // Qué secciones del catálogo necesita cada endpoint → el bot solo pide lo necesario.
@@ -244,13 +259,17 @@ export async function applyQuestionAnswer(
   const slot = SLOTS.find((s) => s.key === question.slotKey);
   if (!slot) return;
 
-  const set = (id: string): void => {
+  const set = (id: string, nombre?: string): void => {
     if (slot.key !== slot.targetKey) delete container[slot.key];
     container[slot.targetKey] = id;
+    if (nombre) {
+      if (!op.display) op.display = {};
+      op.display[displayPath(question.dataKey, question.itemIndex, slot.targetKey)] = nombre;
+    }
   };
 
   if (option?.id) {
-    set(option.id);
+    set(option.id, option.nombre);
     return;
   }
 
@@ -258,7 +277,7 @@ export async function applyQuestionAnswer(
   if (slot.kind === "material") {
     try {
       const created = await crearMaterial({ obra_id: obraId, nombre: question.entity.trim() });
-      set(created.id);
+      set(created.id, created.nombre || question.entity.trim());
     } catch (error) {
       console.error(`[entityResolution] no pude auto-crear material "${question.entity}":`, error);
     }

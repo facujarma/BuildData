@@ -7,20 +7,14 @@ import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 // Nunca escribe SQL directo — siempre pasa por acá.
 // ============================================================
 
-function mapMessageAccion(tipo) {
-  if (tipo === "imagen") return "subió una foto";
-  return "envió un mensaje";
-}
-
-function mapMessageTipo(tipo) {
-  if (tipo === "imagen") return "Foto";
-  return "Mensaje";
-}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ESTADOS_PROCESAMIENTO = new Set(["pendiente", "procesado", "error"]);
 
 
 // POST /bot/mensaje
 // Facu manda el mensaje crudo. Nosotros lo guardamos con estado 'pendiente'.
 // Facu después lo procesa y llama a los endpoints específicos según el tipo.
+// Los mensajes NO se registran en el feed de actividad (tienen su propia sección).
 export async function recibirMensaje(req, res) {
   const { obra_id, telefono, tipo, contenido } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
@@ -34,15 +28,6 @@ export async function recibirMensaje(req, res) {
        VALUES ($1, $2, $3, $4, 'pendiente')
        RETURNING *`,
       [obra_id, usuario_id, tipo, contenido]
-    );
-
-    // Registramos el mensaje en el feed de actividad de la obra (y así también
-    // aparece en el dashboard). Las notas "subió una foto"/"envió un mensaje"
-    // se derivan del tipo del mensaje.
-    await pool.query(
-      `INSERT INTO actividad (obra_id, usuario_id, accion, tipo, texto)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [obra_id, usuario_id, mapMessageAccion(tipo), mapMessageTipo(tipo), contenido || null]
     );
 
     // Se llama en cada interacción del bot → es el punto único para trackear actividad
@@ -64,6 +49,56 @@ export async function recibirMensaje(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error guardando mensaje" });
+  }
+}
+
+
+// PATCH /bot/mensaje/:id
+// Facu ya ejecutó (o intentó ejecutar) la operación interpretada → persistimos
+// cada acción en mensajes.action_executed (jsonb[], una entry por llamada) para
+// que el frontend renderice la interpretación de la IA.
+// Body esperado: { action_executed: [ ... ], estado_procesamiento?, error_detalle? }
+export async function actualizarAccionesMensaje(req, res) {
+  const { id } = req.params;
+  const { action_executed, estado_procesamiento, error_detalle } = req.body;
+
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "id de mensaje inválido" });
+  }
+  if (!Array.isArray(action_executed)) {
+    return res.status(400).json({ error: "action_executed debe ser un array" });
+  }
+  if (estado_procesamiento && !ESTADOS_PROCESAMIENTO.has(estado_procesamiento)) {
+    return res.status(400).json({ error: "estado_procesamiento inválido" });
+  }
+
+  try {
+    // jsonb[] se concatena desempaquetando el JSON del body: pasar el string
+    // directo como ::jsonb[] no funciona porque el literal de array de Postgres
+    // no es lo mismo que un array JSON.
+    const result = await pool.query(
+      `UPDATE mensajes
+       SET action_executed = COALESCE(action_executed, '{}'::jsonb[])
+             || ARRAY(SELECT jsonb_array_elements($2::jsonb)),
+           estado_procesamiento = COALESCE($3, estado_procesamiento),
+           error_detalle = COALESCE($4, error_detalle)
+       WHERE id = $1
+       RETURNING *`,
+      [
+        id,
+        JSON.stringify(action_executed),
+        estado_procesamiento || null,
+        error_detalle || null,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Mensaje no encontrado" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error actualizando acciones del mensaje" });
   }
 }
 

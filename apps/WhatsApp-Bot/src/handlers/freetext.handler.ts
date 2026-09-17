@@ -8,10 +8,15 @@ import {
   ApiCall,
 } from "./pendingQuery.store";
 import { validateApiCall } from "../services/endpointSchema";
+import { clamp01 } from "../services/actionExecuted.service";
 import { sendObraConfirmationText } from "../services/pollConfirmation.service";
 import { MSG, MSG_LLM_ERROR } from "../shared/responses";
 
-export async function handleFreeText(phone: string, message: Message): Promise<void> {
+export async function handleFreeText(
+  phone: string,
+  message: Message,
+  tipoMensaje: string = "texto",
+): Promise<void> {
   try {
     if (hasPending(phone) || hasEntityPending(phone)) {
       clearPending(phone);
@@ -54,6 +59,12 @@ export async function handleFreeText(phone: string, message: Message): Promise<v
         continue;
       }
 
+      if (typeof call.confianza === "number") {
+        call.confianza = clamp01(call.confianza);
+      } else {
+        delete call.confianza;
+      }
+
       validCalls.push(call);
     }
 
@@ -73,7 +84,7 @@ export async function handleFreeText(phone: string, message: Message): Promise<v
       type: "operation",
       operation: validCalls,
       contenido: message.body.trim(),
-      tipo_mensaje: "texto",
+      tipo_mensaje: tipoMensaje,
     });
 
     if (invalidDetails.length > 0) {

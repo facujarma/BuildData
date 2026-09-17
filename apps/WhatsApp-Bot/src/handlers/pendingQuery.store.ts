@@ -7,7 +7,11 @@ export interface ApiCall {
   method: "POST" | "GET" | "PATCH";
   data: Record<string, unknown>;
   comment?: string;
+  confianza?: number;
   error?: string;
+  // Nombres legibles de las entidades resueltas (material_id → "Cemento Portland").
+  // Clave: path del campo en data (ej: "items[0].material_id" o "rubro_id").
+  display?: Record<string, string>;
 }
 
 export type PendingQuery =

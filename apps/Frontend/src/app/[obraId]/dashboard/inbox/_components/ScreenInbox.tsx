@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
@@ -20,7 +21,7 @@ import { DStatTile } from "../../_components/DStatTile";
 import { DashToast, useToast } from "../../_components/useToast";
 import DButton from "@/components/ui/Button";
 import { DAvatar } from "@/components/ui/DAvatar";
-import { getInbox } from "@/services/mock/inboxService";
+import { getInbox } from "@/services/mensajesService";
 import type { InboxMessage, InboxKind } from "@/types/inbox";
 import { HighlightedRaw } from "./HighlightedRaw";
 import { InboxCorrectModal } from "./InboxCorrectModal";
@@ -47,6 +48,7 @@ function confPill(c: number) {
 }
 
 export function ScreenInbox() {
+  const { obraId } = useParams<{ obraId: string }>();
   const [items, setItems] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabId>("pendientes");
@@ -56,11 +58,21 @@ export function ScreenInbox() {
   const [toast, flash] = useToast();
 
   useEffect(() => {
-    getInbox().then((d) => {
-      setItems(d.items);
-      setLoading(false);
-    });
-  }, []);
+    let cancelled = false;
+    getInbox(obraId)
+      .then((d) => {
+        if (!cancelled) setItems(d.items);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [obraId]);
 
   const patch = (id: string, f: Partial<InboxMessage>) =>
     setItems((p) => p.map((x) => (x.id === id ? { ...x, ...f } : x)));
@@ -87,7 +99,7 @@ export function ScreenInbox() {
   const confirmHighConfidence = () => {
     setItems((p) =>
       p.map((x) =>
-        x.dir === "in" && x.state === "pending" && (x.conf ?? 0) >= 0.9
+        x.dir === "in" && x.state === "pending" && !x.warn && (x.conf ?? 0) >= 0.9
           ? { ...x, state: "confirmed", by: "J. Méndez" }
           : x,
       ),
