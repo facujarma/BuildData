@@ -2,13 +2,15 @@ import { ENTIDADES } from "../services/embeddings.service.js";
 import {
   LIMITE_DEFAULT,
   LIMITE_MAX,
+  UMBRAL_BAJA,
   buscarCandidatos,
 } from "../services/entitySearch.service.js";
 
 // GET /bot/entidades/buscar?tipo=material|proveedor|rubro|tarea&nombre=...&obra_id=...&limite=5
 // Devuelve { confianza: "alta"|"baja"|"ninguna", candidatos: [{ id, nombre, similitud }] }.
-// Siempre incluye los candidatos más parecidos (aunque sean flojos): el bot los
-// ofrece como opciones para que el usuario elija, en vez de resolver solo.
+// - alta/baja: solo los candidatos confiables (≥ UMBRAL_BAJA) para la encuesta.
+// - ninguna: no hay match confiable, así que se devuelven igual los parecidos
+//   más flojos para que el usuario elija (nunca se auto-crea/descarta por esto).
 export async function buscarEntidad(req, res) {
   const { tipo, nombre } = req.query;
   const obraId = req.query.obra_id || null;
@@ -33,7 +35,11 @@ export async function buscarEntidad(req, res) {
 
   try {
     const resultado = await buscarCandidatos(tipo, obraId, nombre, limite);
-    res.json(resultado);
+    const candidatos =
+      resultado.confianza === "ninguna"
+        ? resultado.candidatos
+        : resultado.candidatos.filter((c) => c.similitud >= UMBRAL_BAJA);
+    res.json({ confianza: resultado.confianza, candidatos });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error buscando entidad" });
