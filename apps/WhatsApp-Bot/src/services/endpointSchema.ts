@@ -418,6 +418,7 @@ export interface MissingField {
   opIndex: number;
   path: string;
   name: string;
+  type: EndpointParam["type"];
   prompt: string;
   context?: string;
   examples?: string[];
@@ -469,6 +470,7 @@ export function collectMissingFields(
         opIndex,
         path: param.name,
         name: param.name,
+        type: param.type,
         prompt: param.prompt ?? `¿Me pasás el dato de "${param.name}"?`,
         examples: param.examples,
         dataKey: null,
@@ -492,6 +494,7 @@ export function collectMissingFields(
           opIndex,
           path: `${param.name}[${itemIndex}].${sub.name}`,
           name: sub.name,
+          type: sub.type,
           prompt: sub.prompt ?? `¿Me pasás el dato de "${sub.name}"?`,
           context,
           examples: sub.examples,
@@ -541,20 +544,42 @@ export function getUserPhoneFields(endpoint: string): string[] {
     .map((p) => p.name);
 }
 
-export function buildEndpointDescription(): string {
-  return ENDPOINTS.map((ep) => {
-    const requiredFields = ep.params
-      .filter((p) => p.required && p.source === "llm")
-      .map((p) => `${p.name} (${p.description})`)
-      .join(", ");
-    const optionalFields = ep.params
-      .filter((p) => !p.required)
-      .map((p) => `${p.name} (${p.description})`)
-      .join(", ");
+function describeEndpoint(ep: EndpointSchema): string {
+  const requiredFields = ep.params
+    .filter((p) => p.required && p.source === "llm")
+    .map((p) => `${p.name} (${p.description})`)
+    .join(", ");
+  const optionalFields = ep.params
+    .filter((p) => !p.required)
+    .map((p) => `${p.name} (${p.description})`)
+    .join(", ");
 
-    let desc = `  - ${ep.method} ${ep.path}: ${ep.description}`;
-    if (requiredFields) desc += `\n    Requerido: ${requiredFields}`;
-    if (optionalFields) desc += `\n    Opcional: ${optionalFields}`;
-    return desc;
-  }).join("\n\n");
+  let desc = `  - ${ep.method} ${ep.path}: ${ep.description}`;
+  if (requiredFields) desc += `\n    Requerido: ${requiredFields}`;
+  if (optionalFields) desc += `\n    Opcional: ${optionalFields}`;
+  return desc;
+}
+
+// paths opcional: si se pasa, describe solo esos endpoints (schema completo del
+// endpoint en curso). Sin paths (o con paths desconocidos) describe todos.
+export function buildEndpointDescription(paths?: string[]): string {
+  const wanted = paths && paths.length > 0 ? paths : null;
+  const selected = wanted
+    ? ENDPOINTS.filter((e) => wanted.includes(e.path))
+    : ENDPOINTS;
+  const targets = selected.length > 0 ? selected : ENDPOINTS;
+  return targets.map(describeEndpoint).join("\n\n");
+}
+
+// Índice compacto (una línea por endpoint) para que el LLM sepa qué endpoints
+// existen sin cargar todas las descripciones de campos.
+export function buildEndpointIndex(): string {
+  return ENDPOINTS.map((ep) => {
+    const required = ep.params
+      .filter((p) => p.required && p.source === "llm")
+      .map((p) => p.name)
+      .join(", ");
+    const suffix = required ? ` (requeridos: ${required})` : "";
+    return `  - ${ep.method} ${ep.path}: ${ep.description}${suffix}`;
+  }).join("\n");
 }

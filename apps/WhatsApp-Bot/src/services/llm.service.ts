@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { buildEndpointDescription } from "./endpointSchema";
+import { buildEndpointDescription, buildEndpointIndex } from "./endpointSchema";
 import type { ApiCall } from "../handlers/pendingQuery.store";
 
 const groq = new Groq({
@@ -161,9 +161,11 @@ export type CompleteOperationResult =
   | { type: "ops"; ops: ApiCall[] }
   | { type: "needs_clarification"; question: string };
 
-const CLARIFICATION_SYSTEM_PROMPT = `
+function buildClarificationSystemPrompt(ops: ApiCall[]): string {
+  const paths = [...new Set(ops.map((o) => o.endpoint))];
+  return `
 Sos un asistente que completa llamadas a una API REST conversando con un obrero de la construcción.
-Recibís operaciones ya interpretadas (pueden estar incompletas), los campos que faltan y el historial de repreguntas.
+Recibís operaciones ya interpretadas (pueden estar incompletas), los campos que faltan y los últimos intercambios.
 Respondé ÚNICAMENTE con JSON, sin explicaciones, sin markdown, sin backticks.
 
 Formato (array obligatorio, aunque sea una sola operación):
@@ -180,20 +182,23 @@ Formato (array obligatorio, aunque sea una sola operación):
 Si la respuesta del obrero es ambigua, incoherente o no aporta el dato pedido, respondé:
 { "needs_clarification": "pregunta corta y clara para volver a pedir el dato" }
 
-Endpoints disponibles:
+Endpoints (resumen):
+${buildEndpointIndex()}
 
-${ENDPOINTS_DESC}
+Schema completo de la operación en curso:
+${buildEndpointDescription(paths)}
 
 Reglas:
-- Partí de las operaciones actuales: mantené todo lo ya interpretado y agregá o corregí solo lo que aporta la nueva respuesta
+- Las operaciones actuales que recibís ya contienen todo lo interpretado hasta ahora: partí de ellas y agregá o corregí solo lo que aporta la nueva respuesta
 - Una sola respuesta puede completar varios campos
-- Si el obrero cambia de idea, podés cambiar el endpoint y/o los datos
+- Si el obrero cambia de idea, podés cambiar el endpoint y/o los datos (el resumen de arriba lista todos los endpoints)
 - Los campos que son nombres (materiales, tareas, proveedores, rubros) se pasan con el NOMBRE, no con el ID
 - No incluyas obra_id ni telefono, esos se agregan automáticamente después
 - Las fechas relativas se convierten a formato YYYY-MM-DD usando la fecha de hoy
 - Si sigue faltando un campo requerido, omitilo: el sistema volverá a preguntar. No inventes valores
 - Nunca respondas {"error"} por falta de datos
 `;
+}
 
 const GENERIC_RETRY = "No te entendí, ¿me lo podés decir de otra forma?";
 
@@ -219,13 +224,13 @@ export async function completeOperationFromReply(
   const historyDesc =
     turn.history.length > 0
       ? turn.history.map((h) => `P: ${h.question}\nR: ${h.answer}`).join("\n")
-      : "(sin preguntas previas)";
+      : "(sin intercambios previos)";
 
   const response = await groq.chat.completions.create({
     model: "openai/gpt-oss-120b",
     temperature: 0,
     messages: [
-      { role: "system", content: CLARIFICATION_SYSTEM_PROMPT },
+      { role: "system", content: buildClarificationSystemPrompt(turn.ops) },
       {
         role: "user",
         content:
@@ -233,11 +238,17 @@ export async function completeOperationFromReply(
           `Mensaje original del obrero (${turn.tipoMensaje}): "${turn.originalText}"\n\n` +
           `Operaciones actuales:\n${JSON.stringify(turn.ops)}\n\n` +
           `Campos faltantes:\n${missingDesc}\n\n` +
-          `Conversación:\n${historyDesc}\n\n` +
+          `Últimos intercambios:\n${historyDesc}\n\n` +
           `Nuevo mensaje del obrero: "${turn.userReply}"`,
       },
     ],
   });
+
+  if (response.usage) {
+    console.log(
+      `[clarification] tokens prompt=${response.usage.prompt_tokens} completion=${response.usage.completion_tokens}`,
+    );
+  }
 
   const raw = response.choices[0].message.content?.trim() ?? "";
 

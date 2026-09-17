@@ -96,6 +96,7 @@ export async function handleFreeText(
         missing,
         history: [],
         pendingQuestion: question,
+        pendingFieldPath: missing[0].path,
         attempts: 0,
         createdAt: Date.now(),
       };

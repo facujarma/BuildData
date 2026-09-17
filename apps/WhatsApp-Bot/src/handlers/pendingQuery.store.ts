@@ -85,6 +85,7 @@ export interface Clarification {
   missing: MissingField[];
   history: { question: string; answer: string }[];
   pendingQuestion: string;
+  pendingFieldPath: string | null;
   attempts: number;
   createdAt: number;
 }
