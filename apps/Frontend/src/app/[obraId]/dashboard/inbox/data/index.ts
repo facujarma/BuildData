@@ -19,10 +19,12 @@ export const INBOX_SEED: InboxMessage[] = [
     raw: "Se cortó la luz en el sector de arriba y no podemos seguir con el tendido. Va a haber que llamar al electricista, no sé si vamos a llegar con lo de hoy. Igual aproveché y mandé a los pibes a limpiar la planta baja.",
     conf: 0.71, state: "pending", note: "",
     mapped: ["Se cortó la luz", "no podemos seguir con el tendido", "llamar al electricista"],
+    loose: [{ txt: "mandé a los pibes a limpiar la planta baja", why: "Trabajo realizado sin tarea asociada" }],
     parse: { tipo: "Alerta", destino: "Alertas", campos: [
       ["Nivel sugerido", "Importante"], ["Categoría", "Equipos"],
-      ["Tarea afectada", "Tendido eléctrico"], ["Acción sugerida", ""],
+      ["Tarea afectada", "Tendido eléctrico"], ["Acción sugerida", "Asignar electricista"],
     ]},
+    warn: "Confianza media: el audio tiene ruido de fondo. Verificá el nivel de la alerta.",
   },
   {
     id: "IN-2212", dir: "in", kind: "photo", from: "C. Ríos", role: "Capataz", time: "hace 1 h",

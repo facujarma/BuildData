@@ -744,22 +744,22 @@
     "semantic_hash": "6c69216bb1a1a1a5b3cdf6b082386575"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/ScreenInbox.tsx": {
-    "mtime": 1789656029.6764045,
-    "seen": 1789656089.7886772,
-    "ast_hash": "db234608b7357ab9eff7158991974f7c",
-    "semantic_hash": ""
+    "mtime": 1789427848.148211,
+    "seen": 1789515629.727059,
+    "ast_hash": "16af6182751aaf6027d8a2c02c44c306",
+    "semantic_hash": "16af6182751aaf6027d8a2c02c44c306"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/data/index.ts": {
-    "mtime": 1789655992.9142795,
-    "seen": 1789656089.7886865,
-    "ast_hash": "8b991ffdeaea4cdc88c6dec8e9a7c4a5",
+    "mtime": 1789602039.0521255,
+    "seen": 1789603284.0564258,
+    "ast_hash": "856d3003b8e772c900afa0e970d043dd",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/loading.tsx": {
-    "mtime": 1789656035.6145298,
-    "seen": 1789656089.788691,
-    "ast_hash": "fb2366e21aeac66250c23b7743c1b26f",
-    "semantic_hash": ""
+    "mtime": 1789427653.2144418,
+    "seen": 1789515629.7270682,
+    "ast_hash": "9600f95c50a3a142f8c4466d70c0218d",
+    "semantic_hash": "9600f95c50a3a142f8c4466d70c0218d"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/page.tsx": {
     "mtime": 1789427648.610073,
@@ -1995,24 +1995,6 @@
     "mtime": 1789601366.3025029,
     "seen": 1789601962.273143,
     "ast_hash": "44fd22a0d0daac4f2c97665424aa03b4",
-    "semantic_hash": ""
-  },
-  "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/HighlightedRaw.tsx": {
-    "mtime": 1789655997.6328864,
-    "seen": 1789656089.788666,
-    "ast_hash": "148f0073976a009f664fb1ffb14566fd",
-    "semantic_hash": ""
-  },
-  "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/InboxCorrectModal.tsx": {
-    "mtime": 1789656006.1723208,
-    "seen": 1789656089.7886724,
-    "ast_hash": "0b48d4891d7f4ac461b9aefb48d6de3b",
-    "semantic_hash": ""
-  },
-  "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/index.ts": {
-    "mtime": 1789656034.1442165,
-    "seen": 1789656089.7886817,
-    "ast_hash": "af124318a592c70c38859275407009ad",
     "semantic_hash": ""
   }
 }
