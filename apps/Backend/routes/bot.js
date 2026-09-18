@@ -6,7 +6,6 @@ import {
   crearPedidoDeCompra,
   registrarRetraso,
   actualizarStock,
-  getCatalogo,
   crearMaterialDesdeBot,
 } from "../controllers/botController.js";
 import { registrarObrero, getUserByPhone } from "../controllers/obrerosController.js";
@@ -26,8 +25,7 @@ router.post("/mensaje", recibirMensaje);
 // Persistencia de la interpretación ejecutada (action_executed)
 router.patch("/mensaje/:id", actualizarAccionesMensaje);
 
-// Catálogo para resolver nombres → IDs (GET) y auto-crear materiales
-router.get("/catalogo", getCatalogo);
+// Auto-crear material ("Ninguno de estos" en la encuesta)
 router.post("/materiales", crearMaterialDesdeBot);
 
 // Búsqueda de entidades por similitud (exacto → fuzzy → embeddings)

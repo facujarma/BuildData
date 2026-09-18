@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mapearResultadoBusqueda } from "./entityMatch.service";
 
 describe("mapearResultadoBusqueda", () => {
-  test("alta aplica el top y no encuesta", () => {
+  test("alta aplica el top y lo conserva para el display", () => {
     const r = mapearResultadoBusqueda({
       confianza: "alta",
       candidatos: [
@@ -10,7 +10,11 @@ describe("mapearResultadoBusqueda", () => {
         { id: "b", nombre: "Cal", similitud: 0.5 },
       ],
     });
-    expect(r).toEqual({ match_id: "a", confianza: "alta", candidatos: [] });
+    expect(r).toEqual({
+      match_id: "a",
+      confianza: "alta",
+      candidatos: [{ id: "a", nombre: "Cemento Portland" }],
+    });
   });
 
   test("baja deja candidatos para la encuesta y sin match", () => {

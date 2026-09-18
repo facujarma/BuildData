@@ -11,7 +11,7 @@ import {
   PendingQuery,
   ApiCall,
 } from "../handlers/pendingQuery.store";
-import { callEndpoint, getCatalogo, registrarMensaje, actualizarMensajeAcciones } from "./api.service";
+import { callEndpoint, registrarMensaje, actualizarMensajeAcciones } from "./api.service";
 import {
   ActionExecuted,
   buildActionExecuted,
@@ -25,7 +25,6 @@ import {
   EntityQuestion,
   applyQuestionAnswer,
   EntityKind,
-  neededCatalogTipos,
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
 import { interpolatePathParams } from "./pathParams.service";
@@ -226,24 +225,12 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
 
   if (pending.type === "operation") {
     try {
-      // Se pide el catálogo solo de las entidades que resuelven los endpoints de esta
-      // operación (pedidos → materiales/proveedores, tareas → tareas/rubros, etc).
-      // Endpoint sin mapear (todavía sin pulir) → catálogo completo, como antes.
-      const tipos = neededCatalogTipos(pending.operation);
-      const catalogo =
-        tipos === null
-          ? await getCatalogo(obra.obra_id)
-          : tipos.length > 0
-            ? await getCatalogo(obra.obra_id, tipos)
-            : null;
-      if (catalogo) {
-        for (let i = 0; i < pending.operation.length; i++) {
-          const question = await resolveOperationEntities(pending.operation[i], catalogo, obra.obra_id, i);
-          if (question) {
-            setEntityPending(phone, { pending, obra, chatId, question });
-            await sendEntityQuestion(chatId, question);
-            return;
-          }
+      for (let i = 0; i < pending.operation.length; i++) {
+        const question = await resolveOperationEntities(pending.operation[i], obra.obra_id, i);
+        if (question) {
+          setEntityPending(phone, { pending, obra, chatId, question });
+          await sendEntityQuestion(chatId, question);
+          return;
         }
       }
     } catch (error) {

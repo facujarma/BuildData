@@ -247,53 +247,6 @@ export async function registrarRetraso(req, res) {
 }
 
 
-// GET /bot/catalogo?obra_id=<uuid>[&tipos=materiales,proveedores,rubros,tareas]
-// Facu lista el catálogo disponible (materiales, proveedores, rubros y tareas) para
-// que el LLM del bot pueda resolver nombres → IDs antes de ejecutar una operación.
-// Si `tipos` no viene, devuelve todas las secciones; si viene, solo las pedidas.
-export async function getCatalogo(req, res) {
-  const { obra_id, tipos } = req.query;
-  const VALID_SECTIONS = { materiales: true, proveedores: true, rubros: true, tareas: true };
-  const requested =
-    typeof tipos === "string"
-      ? tipos.split(",").map((t) => t.trim()).filter((t) => VALID_SECTIONS[t])
-      : null;
-  const sections = requested ?? ["materiales", "proveedores", "rubros", "tareas"];
-
-  const QUERIES = {
-    materiales: () =>
-      pool.query(
-        `SELECT id, nombre, unidad FROM materiales
-         WHERE obra_id = $1 OR obra_id IS NULL
-         ORDER BY nombre ASC`,
-        [obra_id]
-      ),
-    proveedores: () => pool.query(`SELECT id, nombre FROM proveedores ORDER BY nombre ASC`),
-    rubros: () =>
-      pool.query(
-        `SELECT id, nombre FROM rubros WHERE obra_id = $1 ORDER BY nombre ASC`,
-        [obra_id]
-      ),
-    tareas: () =>
-      pool.query(
-        `SELECT id, titulo AS nombre FROM tareas
-         WHERE obra_id = $1
-         ORDER BY fecha_inicio ASC, created_at ASC`,
-        [obra_id]
-      ),
-  };
-
-  try {
-    const entries = await Promise.all(
-      sections.map(async (name) => [name, (await QUERIES[name]()).rows])
-    );
-    res.json(Object.fromEntries(entries));
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error obteniendo catálogo" });
-  }
-}
-
 // POST /bot/materiales
 // Facu auto-crea un material que el usuario pidió y no está en el catálogo.
 // Body esperado: { obra_id, nombre, unidad? }

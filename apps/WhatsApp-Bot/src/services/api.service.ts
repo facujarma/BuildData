@@ -71,47 +71,21 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
 }
 
 // ──────────────────────────────────────────
-// Catálogo (resolución nombres → IDs)
+// Materiales
 // ──────────────────────────────────────────
 
-export interface CatalogoMaterial {
+export interface MaterialCreado {
   id: string;
   nombre: string;
   unidad?: string | null;
-}
-export interface CatalogoProveedor {
-  id: string;
-  nombre: string;
-}
-export interface CatalogoRubro {
-  id: string;
-  nombre: string;
-}
-export interface CatalogoTarea {
-  id: string;
-  nombre: string;
-}
-export interface Catalogo {
-  materiales?: CatalogoMaterial[];
-  proveedores?: CatalogoProveedor[];
-  rubros?: CatalogoRubro[];
-  tareas?: CatalogoTarea[];
-}
-
-// `tipos` filtra qué secciones trae el backend (materiales/proveedores/rubros/tareas).
-// Si no se pasa, el backend devuelve todas.
-export async function getCatalogo(obraId: string, tipos?: string[]): Promise<Catalogo> {
-  const query = new URLSearchParams({ obra_id: obraId });
-  if (tipos && tipos.length > 0) query.set("tipos", tipos.join(","));
-  return apiRequest<Catalogo>("GET", `/bot/catalogo?${query.toString()}`);
 }
 
 export async function crearMaterial(payload: {
   obra_id: string;
   nombre: string;
   unidad?: string;
-}): Promise<CatalogoMaterial> {
-  return apiRequest<CatalogoMaterial>("POST", "/bot/materiales", payload);
+}): Promise<MaterialCreado> {
+  return apiRequest<MaterialCreado>("POST", "/bot/materiales", payload);
 }
 
 // ──────────────────────────────────────────

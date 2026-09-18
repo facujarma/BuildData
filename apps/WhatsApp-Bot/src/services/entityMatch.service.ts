@@ -1,4 +1,13 @@
-import type { EntidadCandidata, EntidadResuelta } from "./llm.service";
+export interface EntidadCandidata {
+  id: string;
+  nombre: string;
+}
+
+export interface EntidadResuelta {
+  match_id: string | null;
+  confianza: "alta" | "baja" | "ninguna";
+  candidatos: EntidadCandidata[];
+}
 
 export interface CandidatoBusqueda {
   id: string;
@@ -14,10 +23,11 @@ export interface ResultadoBusquedaEntidades {
 /**
  * Traduce la respuesta de GET /bot/entidades/buscar al contrato que espera
  * resolveSlot (EntidadResuelta):
- * - alta    → match_id del top y sin candidatos (se aplica directo)
- * - baja    → sin match y con candidatos (se encuesta al usuario)
- * - ninguna → sin match, pero con candidatos (aunque sean flojos) para que el
- *             usuario elija; solo si el catálogo está vacío queda sin opciones.
+ * - alta    → match_id del top (con el top entre los candidatos, para el nombre
+ *             legible del action_executed)
+ * - baja    → sin match y con los candidatos confiables (se encuesta al usuario)
+ * - ninguna → sin match, pero con los parecidos más flojos para que el usuario
+ *             elija; solo queda sin opciones si el catálogo está vacío.
  */
 export function mapearResultadoBusqueda(
   resultado: ResultadoBusquedaEntidades,
@@ -29,7 +39,11 @@ export function mapearResultadoBusqueda(
     .map((c) => ({ id: c.id, nombre: c.nombre }));
 
   if (resultado?.confianza === "alta" && candidatos.length > 0) {
-    return { match_id: candidatos[0].id, confianza: "alta", candidatos: [] };
+    return {
+      match_id: candidatos[0].id,
+      confianza: "alta",
+      candidatos: [candidatos[0]],
+    };
   }
   if (candidatos.length > 0) {
     return {
