@@ -19,11 +19,14 @@ import ProgressByTradeCards from "./ProgressByTradeCards";
 import CriticalAlertsCard from "./CriticalAlertsCard";
 import { BudgetCard } from "./BudgetCard";
 import { ActivityFeed } from "./ActivityFeed";
+import { TasksInProgressCard } from "./TasksInProgressCard";
+import { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 import { SideDrawer } from "./SideDrawer";
+import { completeCronogramaTask } from "@/services/cronogramaService";
 import { useToast, DashToast } from "./useToast";
 import { CategoryModal, type CategoryFormData } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
-import type { DashboardData } from "@/types/dashboard";
+import type { DashboardData, TaskItem } from "@/types/dashboard";
 
 function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `AR$ ${Math.round(n / 1_000_000)} M`;
@@ -71,8 +74,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
     tasks,
   } = data;
 
-  const { setLookupData } = useDashboardData();
-  const { obraId } = useDashboardData();
+  const { setLookupData, obraId, refreshDashboard } = useDashboardData();
 
   const NAV_MAP: Record<string, string> = {
     cronograma: `/cronograma`,
@@ -141,6 +143,16 @@ export function DashboardContent({ data, onNavigate }: Props) {
     }
   };
 
+  const handleTaskComplete = async (task: TaskItem) => {
+    try {
+      await completeCronogramaTask(task.id);
+      await refreshDashboard();
+      flash("Tarea completada");
+    } catch {
+      flash("No se pudo completar la tarea");
+    }
+  };
+
   const saveCategory = (cat: CategoryFormData) => {
     setCategories((prev) =>
       prev.find((c) => c.id === cat.id)
@@ -194,6 +206,24 @@ export function DashboardContent({ data, onNavigate }: Props) {
         alertasCriticas={alertasCriticas}
         onNavigate={handleNav}
       />
+
+      {/* Hoy en la obra */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] tracking-[0.08em] uppercase font-bold text-slate-600">Hoy en la obra</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 items-stretch">
+          <TasksInProgressCard
+            tasks={tasks}
+            onViewAll={() => setDrawer({ kind: "tareas" })}
+            onComplete={handleTaskComplete}
+          />
+          <UpcomingDeliveriesCard
+            obraId={obraId}
+            onViewAll={() => handleNav("Pedidos")}
+          />
+        </div>
+      </div>
 
       {/* Stat tiles */}
       <div className="text-[11px] tracking-[0.08em] uppercase font-bold text-slate-600 mb-2">Estado general</div>

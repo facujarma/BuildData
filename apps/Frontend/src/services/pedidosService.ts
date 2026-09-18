@@ -82,6 +82,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
     prov: row.proveedor_nombre || "",
     cat: row.categoria || "",
     date: shortFecha(row.fecha_llegada_estimada),
+    dateISO: row.fecha_llegada_estimada,
     ordered: shortFecha(row.fecha),
     state: ESTADO_DB_UI[row.estado] || row.estado || "draft",
     total,

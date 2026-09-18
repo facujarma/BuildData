@@ -11,6 +11,8 @@ export { EmptyDashboardContent } from "./EmptyDashboardContent";
 export { SideDrawer } from "./SideDrawer";
 export { BudgetCard } from "./BudgetCard";
 export { ActivityFeed } from "./ActivityFeed";
+export { TasksInProgressCard } from "./TasksInProgressCard";
+export { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 export { CategoryModal } from "./CategoryModal";
 export type { CategoryFormData } from "./CategoryModal";
 export { AvatarMenu } from "@/components/ui/AvatarMenu";

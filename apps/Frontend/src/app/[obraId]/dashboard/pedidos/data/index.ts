@@ -7,6 +7,7 @@ export interface PedidoItem {
   prov: string;
   cat: string;
   date: string;
+  dateISO?: string | null;
   ordered: string;
   state: string;
   total: number;

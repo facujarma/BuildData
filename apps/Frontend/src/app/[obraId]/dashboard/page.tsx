@@ -41,7 +41,7 @@ export default function DashboardPage({
     refresh();
   }, [refresh]);
 
-  if(loading) return <DashboardLoading />;
+  if (loading && !data) return <DashboardLoading />;
 
   if (!data) return <EmptyDashboardContent />;
 
