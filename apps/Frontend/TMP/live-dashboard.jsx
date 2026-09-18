@@ -27,6 +27,15 @@ const DPill = ({ tone = 'slate', children }) => {
 };
 
 const DAvatar = ({ initials, size = 32 }) => {
+  // "Sin responsable" no es una persona: se muestra un placeholder punteado.
+  if (initials === 'SR' || initials === 'Sr' || initials === 'Sin responsable') {
+    return (
+      <div style={{ width: size, height: size }}
+        className="rounded-full border-2 border-dashed border-slate300 text-slate400 flex items-center justify-center flex-none">
+        <svg width={Math.round(size * 0.45)} height={Math.round(size * 0.45)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      </div>
+    );
+  }
   const palette = {
     JM: 'from-primary to-info', CR: 'from-info to-[#22C55E]',
     PS: 'from-[#F59E0B] to-[#EF4444]', LB: 'from-primary to-[#22C55E]',
@@ -57,9 +66,24 @@ const DButton = ({ variant = 'primary', size = 'md', icon, children, onClick, cl
   const sizes = { sm: 'text-[12px] px-3 py-[6px]', md: 'text-[13px] px-4 py-[8px]' };
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-[6px] font-bold rounded-md border transition-colors ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${className}`}>
+      className={`inline-flex items-center gap-[6px] font-bold rounded-md border transition-colors whitespace-nowrap ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${className}`}>
       {icon}{children}
     </button>
+  );
+};
+
+// Campo de importe: formatea con puntos de miles mientras se escribe y
+// devuelve el número sin formato al padre.
+const MoneyInput = ({ value, onChange, placeholder = '0', className = '', sym = 'AR$' }) => {
+  const digits = String(value == null ? '' : value).replace(/\D/g, '');
+  const shown = digits ? Number(digits).toLocaleString('es-AR') : '';
+  return (
+    <div className={"flex items-center bg-white border border-slate200 rounded-md focus-within:border-primary transition-colors " + className}>
+      <span className="pl-3 pr-1 text-[12px] font-semibold text-slate400 flex-none select-none">{sym}</span>
+      <input inputMode="numeric" value={shown} placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+        className="flex-1 min-w-0 bg-transparent border-0 outline-none px-2 py-[9px] text-[13px] tnum text-right" />
+    </div>
   );
 };
 
@@ -94,7 +118,7 @@ const DStatTile = ({ tone, label, value, suffix, icon, delta, deltaTone = 'slate
 
 const DPageHeader = ({ title, subtitle, right }) => (
   <div className="flex items-start justify-between gap-4 mb-5">
-    <div>
+    <div className="min-w-0">
       <h1 className="text-[22px] font-bold display-tight text-slate950 leading-tight">{title}</h1>
       {subtitle && <div className="text-[13px] text-slate500 mt-[2px]">{subtitle}</div>}
     </div>
@@ -328,6 +352,34 @@ const SEED_CATEGORIES = [
   { id: 'cat-inst', name: 'Instalaciones',        color: '#3B82F6', taskIds: ['inst-01', 'inst-02'] },
 ];
 
+// ── Fábrica de stores compartidos ───────────────────────────────────────────
+// Varias pantallas leen y escriben las mismas entidades (la Bandeja confirma
+// un mensaje y eso debe impactar en Pedidos, Stock o Galería). Se centraliza
+// acá para que el estado no viva suelto en cada pantalla.
+function makeStore(seed) {
+  const listeners = new Set();
+  const api = {
+    items: seed.map((x) => ({ ...x })),
+    get() { return api.items; },
+    emit() { listeners.forEach((fn) => fn()); },
+    set(next) { api.items = next; api.emit(); },
+    add(item, atTop = true) { api.set(atTop ? [item, ...api.items] : [...api.items, item]); },
+    update(id, patch) { api.set(api.items.map((x) => x.id === id ? { ...x, ...patch } : x)); },
+    remove(id) { api.set(api.items.filter((x) => x.id !== id)); },
+    _listeners: listeners,
+  };
+  return api;
+}
+function useStore(store) {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    store._listeners.add(fn);
+    return () => store._listeners.delete(fn);
+  }, [store]);
+  return store;
+}
+
 // ── Alertas: fuente única compartida por el dashboard y la pantalla Alertas ──
 const ALERTS_SEED = [
   { id: 'AL-061', lvl: 'critical',  cat: 'Equipos',    title: 'Falla en Grúa Torre 2',                  who: 'P. Salas',      time: 'hace 12 min', state: 'open',     assignee: null,         desc: 'Motor principal no responde. Cuadrilla detenida hasta revisión técnica. Posible falla eléctrica en el variador.', impact: 'Frena el hormigonado de losa +3.', link: { type: 'tarea', label: 'Hormigonado losa +3' } },
@@ -400,7 +452,7 @@ const useActivityStore = () => {
 
 // Dashboard widget: list in-progress / late tasks and let the user mark them
 // complete right from the dashboard (synced via TaskStore).
-const DashTareasComplete = ({ flash }) => {
+const DashTareasComplete = ({ flash, compact = false, limit = 3 }) => {
   const store = useTaskStore();
   const tasks = store.get().flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
   const done = tasks.filter((t) => t.state === 'done').length;
@@ -416,7 +468,37 @@ const DashTareasComplete = ({ flash }) => {
         </div>
         <div className="bg-slate100 h-[8px] rounded-full overflow-hidden"><div style={{ width: pct + '%' }} className="h-full bg-success rounded-full transition-all" /></div>
       </div>
-      {pending.length === 0 ? (
+      {compact ? (
+        pending.length === 0 ? (
+          <div className="text-center text-[#15803D] text-[12px] py-4 font-bold flex items-center justify-center gap-2">
+            <Icon name="check" size={14} /> Todas completadas
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pending.slice(0, limit).map((t) => {
+              const st = TASK_STATE_MAP[t.state];
+              return (
+                <div key={t.id} className="flex items-center gap-2 border border-slate200 rounded-lg px-3 py-2">
+                  <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: st.dot }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-bold text-slate950 truncate leading-tight">{t.name}</div>
+                    <div className="text-[10px] text-slate500 truncate">{t.rubro} · {t.pct}%</div>
+                  </div>
+                  <button onClick={() => { store.markComplete(t.id); flash && flash('Tarea completada'); }}
+                    className="text-[10px] font-bold text-[#15803D] bg-success50 hover:bg-success/20 rounded px-2 py-[5px] flex items-center gap-1 flex-none transition-colors">
+                    <Icon name="check" size={11} /> Completar
+                  </button>
+                </div>
+              );
+            })}
+            {pending.length > limit && (
+              <div className="text-[11px] text-slate500 text-center pt-1">
+                +{pending.length - limit} tarea{pending.length - limit === 1 ? '' : 's'} más en curso
+              </div>
+            )}
+          </div>
+        )
+      ) : pending.length === 0 ? (
         <div className="text-center text-[#15803D] text-[13px] py-8 font-bold flex flex-col items-center gap-2">
           <span className="w-12 h-12 rounded-full bg-success50 flex items-center justify-center"><Icon name="check" size={22} /></span>
           ¡Todas las tareas completadas!
@@ -457,6 +539,7 @@ const DashTareasComplete = ({ flash }) => {
 };
 
 const ScreenDashboard = ({ onNav }) => {
+  useStore(InboxStore); useStore(OrderStore);
   const [toast, flash] = useToast();
   const alertStore = useAlertStore();
   const activityStore = useActivityStore();
@@ -494,9 +577,9 @@ const ScreenDashboard = ({ onNav }) => {
         const openAlerts = alertStore.get().filter((a) => a.state === 'open');
         const critOpen   = openAlerts.filter((a) => a.lvl === 'critical').length;
         const actions = [
-          { n: 3, label: 'mensajes por confirmar', sub: 'La IA ya los interpretó — revisá antes de aplicar', ico: 'message', to: 'inbox',
+          { n: InboxStore.get().filter((m) => m.dir === 'in' && m.state === 'pending').length, label: 'mensajes por confirmar', sub: 'Revisalos antes de que impacten en la obra', ico: 'message', to: 'inbox',
             tone: 'bg-white border-slate200', badge: 'bg-primary text-white', cta: 'Revisar' },
-          { n: 3, label: 'pedidos por aprobar',    sub: 'PED-0140 está marcado urgente', ico: 'package', to: 'materials',
+          { n: OrderStore.get().filter((o) => o.state === 'pending').length, label: 'pedidos por aprobar', sub: 'Sin aprobar no se despachan', ico: 'package', to: 'materials',
             tone: 'bg-attention50 border-[#FDE68A]', badge: 'bg-accent text-slate950', cta: 'Aprobar' },
           { n: openAlerts.length, label: 'alertas sin atender', sub: critOpen + ' crítica' + (critOpen === 1 ? '' : 's') + ' frenando trabajo', ico: 'alert', to: 'alerts',
             tone: 'bg-critical50 border-[#FECACA]', badge: 'bg-critical text-white', cta: 'Ver' },
@@ -536,6 +619,64 @@ const ScreenDashboard = ({ onNav }) => {
         );
       })()}
 
+      {/* ── 2 · HOY EN LA OBRA ───────────────────────────────────────── */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] tracking-[0.08em] uppercase font-bold text-slate600">Hoy en la obra</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 items-stretch">
+          <DCard padding="p-0" className="flex flex-col">
+            <div className="px-5 py-3 border-b border-slate200 flex items-center justify-between flex-none">
+              <div className="text-[13px] font-bold">Tareas en curso</div>
+              <button onClick={() => setDrawer({ kind: 'tareas' })} className="text-[11px] font-bold text-primary hover:underline">Ver todas →</button>
+            </div>
+            <div className="p-4 flex-1"><DashTareasComplete flash={flash} compact limit={3} /></div>
+          </DCard>
+          <DCard padding="p-0" className="flex flex-col">
+            <div className="px-5 py-3 border-b border-slate200 flex items-center justify-between flex-none">
+              <div className="text-[13px] font-bold">Próximas entregas</div>
+              <button onClick={() => onNav('materials')} className="text-[11px] font-bold text-primary hover:underline">Ver pedidos →</button>
+            </div>
+            {(() => {
+              const ENTREGAS = [
+                { mat: 'Arena fina · 15 m³',        prov: 'Áridos Río',          when: '13 Jun', state: 'late' },
+                { mat: 'Hierro 12 mm · 2,5 t',      prov: 'Aceros Norte',        when: '18 Jun', state: 'transit' },
+                { mat: 'Ladrillo 18×18 · 8.000 u',  prov: 'Cerámica San Pedro',  when: '22 Jun', state: 'pending' },
+                { mat: 'Cal hidratada · 40 bolsas', prov: 'Cementos del Plata',  when: '24 Jun', state: 'transit' },
+                { mat: 'Caño PVC 110 mm · 30 u',    prov: 'Sanitarios Sur',      when: '26 Jun', state: 'pending' },
+                { mat: 'Pintura látex · 40 L',      prov: 'Pinturas Capital',    when: '02 Jul', state: 'pending' },
+              ];
+              const LIM = 4;
+              return (
+                <div className="p-4 flex-1">
+                  <div className="space-y-2">
+                    {ENTREGAS.slice(0, LIM).map((d) => {
+                      const st = d.state === 'late' ? { l: 'DEMORADO', t: 'criticalSolid' } : d.state === 'transit' ? { l: 'EN CAMINO', t: 'info' } : { l: 'POR APROBAR', t: 'attentionSolid' };
+                      return (
+                        <button key={d.mat} onClick={() => onNav('materials')}
+                          className="w-full flex items-center gap-2 border border-slate200 rounded-lg px-3 py-2 hover:border-primary hover:bg-slate50 text-left transition-colors">
+                          <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: d.state === 'late' ? '#EF4444' : d.state === 'transit' ? '#3B82F6' : '#F59E0B' }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-bold text-slate950 truncate leading-tight">{d.mat}</div>
+                            <div className="text-[10px] text-slate500 truncate">{d.prov} · {d.when}</div>
+                          </div>
+                          <DPill tone={st.t}>{st.l}</DPill>
+                        </button>
+                      );
+                    })}
+                    {ENTREGAS.length > LIM && (
+                      <div className="text-[11px] text-slate500 text-center pt-1">
+                        +{ENTREGAS.length - LIM} pedido{ENTREGAS.length - LIM === 1 ? '' : 's'} más en camino
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </DCard>
+        </div>
+      </div>
+
       {/* ── 3 · ESTADO GENERAL (contexto) ────────────────────────────── */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] tracking-[0.08em] uppercase font-bold text-slate600">Estado general</span>
@@ -547,15 +688,15 @@ const ScreenDashboard = ({ onNav }) => {
         <DStatTile tone="success"   label="Tareas hoy"       value="9/12"          icon="check"   delta="Marcá completadas" deltaTone="success" onClick={() => setDrawer({ kind: 'tareas' })} />
       </div>
 
-      <div className="grid grid-cols-[2fr_1fr] gap-3 mb-4">
+      <div className="grid grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
         {/* Avance por rubro — solo lectura; la administración vive en Rubros */}
-        <DCard padding="p-0">
+        <DCard padding="p-0" className="flex flex-col">
           <div className="px-5 py-3 border-b border-slate200 flex items-center justify-between gap-2">
             <div>
               <div className="text-[14px] font-bold text-slate950">Avance por rubro</div>
               <div className="text-[11px] text-slate500 mt-[1px]">Calculado con las tareas de cada rubro</div>
             </div>
-            <button onClick={() => onNav('rubros')} className="text-[11px] font-bold text-primary hover:underline flex-none">Administrar →</button>
+            <button onClick={() => { window.location.href = 'Configuracion.html#rubros'; }} className="text-[11px] font-bold text-primary hover:underline flex-none">Administrar →</button>
           </div>
           <div className="p-3">
             {categories.length === 0 && (
@@ -579,6 +720,9 @@ const ScreenDashboard = ({ onNav }) => {
                 </button>
               );
             })}
+          </div>
+          <div className="p-3 border-t border-slate200 mt-auto">
+            <DButton variant="secondary" size="sm" className="w-full justify-center" onClick={() => { window.location.href = 'Configuracion.html#rubros'; }}>Ver todos los rubros</DButton>
           </div>
         </DCard>
 
@@ -669,7 +813,7 @@ const ScreenDashboard = ({ onNav }) => {
           </div>
         </div>
 
-        <DCard padding="p-0">
+        <DCard padding="p-0" className="flex flex-col">
           <div className="px-5 py-3 border-b border-slate200">
             <div className="text-[14px] font-bold">Avances de hoy</div>
           </div>
@@ -687,6 +831,9 @@ const ScreenDashboard = ({ onNav }) => {
                 </button>
               );
             })}
+          </div>
+          <div className="p-3 border-t border-slate200 mt-auto">
+            <DButton variant="secondary" size="sm" className="w-full justify-center" onClick={() => onNav('activity')}>Ver todos los avances</DButton>
           </div>
         </DCard>
       </div>
@@ -904,6 +1051,10 @@ const TASK_STATE_MAP = {
 // ── Rubros: la taxonomía transversal de la obra ─────────────────────────────
 // Un rubro agrupa tareas, presupuesto, pedidos y stock. Se administran desde
 // la sección "Rubros"; los "+ nuevo rubro" de los formularios escriben acá.
+// Sentinelas para tareas creadas antes de que exista su rubro o responsable.
+const SIN_RUBRO = 'Sin rubro asignado';
+const SIN_RESPONSABLE = 'Sin responsable';
+
 const RUBROS_SEED = [
   { name: 'Movimiento de suelos', color: '#94A3B8', desc: 'Excavación, nivelación, cimentaciones y retiro de suelo.' },
   { name: 'Hormigón armado',      color: '#0F4395', desc: 'Losas, columnas, vigas y todo trabajo de estructura de hormigón.' },
@@ -922,6 +1073,8 @@ const RubroStore = {
   sync() {
     Object.keys(RUBRO_COLORS).forEach((k) => { delete RUBRO_COLORS[k]; });
     RubroStore.items.forEach((r) => { RUBRO_COLORS[r.name] = r.color; });
+    RUBRO_COLORS[SIN_RUBRO] = '#94A3B8'; // grupo contenedor
+
     RUBRO_LISTENERS.forEach((fn) => fn());
   },
   add(r) {
@@ -966,6 +1119,12 @@ const weekDate = (weekIdx, dayOffset = 0) => {
   return d;
 };
 const fmtDate = (d) => d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+
+// Offset en semanas (fraccionario) del inicio y duración de una tarea.
+const taskOffs  = (t) => (t.offs || 0) / 7;
+const taskWeeks = (t) => (t.days != null ? t.days / 7 : t.span);
+const taskFrom  = (t) => weekDate(t.start, t.offs || 0);
+const taskTo    = (t) => weekDate(t.start, (t.offs || 0) + (t.days != null ? t.days : t.span * 7) - 1);
 const fmtDateLong = (d) => d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
 
 // Initial task data — original tasks were placed against S15. Re-anchor to
@@ -979,14 +1138,17 @@ const INITIAL_GROUPS = [
   { rubro: 'Hormigón armado', items: [
     { id: 'horm-01', name: 'Hormigonado losa +1',   who: 'L. Benítez', start: 2 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +1, 22 m³ de hormigón H21. Probetas con resistencia 26 MPa.',       cost: 'AR$ 6,8 M', deps: ['mov-02'] },
     { id: 'horm-02', name: 'Hormigonado losa +2',   who: 'L. Benítez', start: 3 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +2, 24 m³ H21. Curado completado sin fisuras.',                       cost: 'AR$ 7,3 M', deps: ['horm-01'] },
-    { id: 'horm-03', name: 'Hormigonado losa +3',   who: 'L. Benítez', start: 4 + TASK_OFFSET, span: 4, state: 'progress', pct: 62,  desc: 'En curso · 28 m³ planeados, 17 m³ vertidos. Próximo paño previsto para el viernes.', cost: 'AR$ 8,1 M', deps: ['horm-02'] },
-    { id: 'horm-04', name: 'Columnas eje 4-6',      who: 'L. Benítez', start: 5 + TASK_OFFSET, span: 3, state: 'late',     pct: 30,  desc: 'Retrasada 3 días por faltante de hierro 12 mm. Pedido PED-0141 sin aprobar.',     cost: 'AR$ 4,5 M', deps: ['horm-03'] },
+    { id: 'horm-03', name: 'Hormigonado losa +3',   who: 'L. Benítez', start: 4 + TASK_OFFSET, span: 4, offs: 2, days: 23, state: 'progress', pct: 62,  desc: 'En curso · 28 m³ planeados, 17 m³ vertidos. Próximo paño previsto para el viernes.', cost: 'AR$ 8,1 M', deps: ['horm-02'] },
+    { id: 'horm-04', name: 'Columnas eje 4-6',      who: 'L. Benítez', start: 5 + TASK_OFFSET, span: 3, offs: 3, days: 16, state: 'late',     pct: 30,  desc: 'Retrasada 3 días por faltante de hierro 12 mm. Pedido PED-0141 sin aprobar.',     cost: 'AR$ 4,5 M', deps: ['horm-03'] },
   ]},
   { rubro: 'Mampostería', items: [
-    { id: 'mamp-01', name: 'Tabiquería interior',   who: 'P. Salas',   start: 6 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Tabiques 12 cm en ladrillo hueco. 1.200 m² previstos en 6 semanas.',              cost: 'AR$ 12,4 M', deps: ['horm-04'] },
+    { id: 'mamp-03', name: 'Replanteo de tabiques', who: 'P. Salas',   start: 5 + TASK_OFFSET, span: 2, offs: 1, days: 9,  state: 'progress', pct: 45,  desc: 'Marcado en piso de la tabiquería de planta 2.', cost: 'AR$ 1,1 M', deps: [] },
+    { id: 'mamp-01', name: 'Tabiquería interior',   who: 'P. Salas',   start: 6 + TASK_OFFSET, span: 4, offs: 3, days: 25, state: 'planned',  pct: 0,   desc: 'Tabiques 12 cm en ladrillo hueco. 1.200 m² previstos en 6 semanas.',              cost: 'AR$ 12,4 M', deps: ['horm-04'] },
     { id: 'mamp-02', name: 'Cierres exteriores',    who: 'P. Salas',   start: 7 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Muros perimetrales 20 cm con aislación. Termina con revoque grueso exterior.',     cost: 'AR$ 9,9 M', deps: ['mamp-01'] },
   ]},
   { rubro: 'Instalaciones', items: [
+    { id: 'inst-03', name: 'Cañería embutida',      who: 'M. Ortiz',   start: 5 + TASK_OFFSET, span: 3, offs: 4, days: 12, state: 'progress', pct: 30,  desc: 'Corrugado en losa antes del colado.', cost: 'AR$ 2,4 M', deps: [] },
+    { id: 'inst-04', name: 'Prueba hidráulica',     who: 'M. Ortiz',   start: 6 + TASK_OFFSET, span: 1, offs: 2, days: 2,  state: 'planned',  pct: 0,   desc: 'Ensayo de presión en sanitarios de planta 1.', cost: 'AR$ 0,4 M', deps: [] },
     { id: 'inst-01', name: 'Tendido eléctrico',     who: 'M. Ortiz',   start: 7 + TASK_OFFSET, span: 5, state: 'planned',  pct: 0,   desc: 'Cañería corrugada, cableado por sectores, tablero general en planta baja.',        cost: 'AR$ 11,2 M', deps: ['mamp-01'] },
     { id: 'inst-02', name: 'Sanitarios',            who: 'M. Ortiz',   start: 8 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Provisión de agua fría/caliente, desagües, ventilaciones. Termotanques en azotea.', cost: 'AR$ 8,6 M', deps: ['mamp-01'] },
   ]},
@@ -1031,9 +1193,38 @@ const TaskStore = {
       items: g.items.map((t) => t.id === id ? { ...t, state: 'progress', pct: t.pct >= 100 ? 60 : t.pct, completedBy: undefined, completedOn: undefined } : t),
     })));
   },
+  setPct(id, pct) {
+    TaskStore.set(TaskStore.groups.map((g) => ({
+      ...g,
+      items: g.items.map((t) => t.id === id
+        ? { ...t, pct, state: pct >= 100 ? 'done' : t.state === 'planned' ? 'progress' : t.state }
+        : t),
+    })));
+  },
   addTask(task) {
-    TaskStore.set(TaskStore.groups.map((g) =>
-      g.rubro === task.rubro ? { ...g, items: [...g.items, task] } : g));
+    const exists = TaskStore.groups.some((g) => g.rubro === task.rubro);
+    if (exists) {
+      TaskStore.set(TaskStore.groups.map((g) =>
+        g.rubro === task.rubro ? { ...g, items: [...g.items, task] } : g));
+    } else {
+      // El rubro todavía no existe (o quedó sin asignar): se crea un grupo
+      // contenedor para que la tarea no desaparezca.
+      TaskStore.set([...TaskStore.groups, { rubro: task.rubro, items: [task] }]);
+    }
+  },
+  // Reasignar rubro / responsable después, cuando ya existan.
+  assign(id, patch) {
+    const all = TaskStore.groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+    const task = all.find((t) => t.id === id);
+    if (!task) return;
+    const next = { ...task, ...patch };
+    let groups = TaskStore.groups
+      .map((g) => ({ ...g, items: g.items.filter((t) => t.id !== id) }))
+      .filter((g) => g.items.length > 0 || g.rubro !== SIN_RUBRO);
+    const target = groups.find((g) => g.rubro === next.rubro);
+    if (target) groups = groups.map((g) => g.rubro === next.rubro ? { ...g, items: [...g.items, next] } : g);
+    else groups = [...groups, { rubro: next.rubro, items: [next] }];
+    TaskStore.set(groups);
   },
 };
 // Hook: subscribe a component to task-store changes.
@@ -1053,9 +1244,10 @@ const useTaskStore = () => {
 
 const GanttView = ({ groups, onPick }) => {
   const scrollerRef = React.useRef(null);
-  // 'comfortable' (90px/week) → fits ~7 weeks · 'normal' (72px) → ~9 · 'compact' (56px) → ~12
-  const [zoom, setZoom] = React.useState('normal');
-  const weekWidth = { compact: 56, normal: 72, comfortable: 96 }[zoom];
+  // Zoom continuo: ancho de semana en px. Se ajusta con ⌘/Ctrl + rueda o pinch
+  // dentro del propio tablero, sin controles externos.
+  const [weekWidth, setWeekWidth] = React.useState(72);
+  const MINW = 40, MAXW = 140;
 
   const weekNumbers = Array.from({ length: WEEK_COUNT }, (_, i) => WEEK_START_IDX + i);
   const totalWidth = WEEK_COUNT * weekWidth;
@@ -1068,6 +1260,29 @@ const GanttView = ({ groups, onPick }) => {
   }, [weekWidth]);
 
   React.useEffect(() => { scrollToToday(); }, [scrollToToday]);
+
+  // Zoom con ⌘/Ctrl + rueda (y pinch en trackpad, que llega como ctrlKey).
+  React.useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left + el.scrollLeft - 260;   // px dentro del track
+      setWeekWidth((w) => {
+        const next = Math.max(MINW, Math.min(MAXW, Math.round(w * (e.deltaY < 0 ? 1.12 : 0.89))));
+        if (next === w) return w;
+        // mantener el punto bajo el cursor
+        requestAnimationFrame(() => {
+          el.scrollLeft = Math.max(0, (x * next / w) - (e.clientX - rect.left) + 260);
+        });
+        return next;
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const monthSpans = React.useMemo(() => {
     // Group weeks by month for a top header band.
@@ -1108,18 +1323,22 @@ const GanttView = ({ groups, onPick }) => {
           {fmtDate(weekDate(0))} → {fmtDate(weekDate(WEEK_COUNT - 1, 4))} · {WEEK_COUNT} semanas
         </div>
 
-        <div className="flex bg-white border border-slate200 rounded-md p-[2px] gap-[2px]">
-          {[
-            { id: 'compact',     label: 'Compacto' },
-            { id: 'normal',      label: 'Normal' },
-            { id: 'comfortable', label: 'Amplio' },
-          ].map((z) => (
-            <button key={z.id} onClick={() => setZoom(z.id)}
-              className={`text-[10px] font-bold px-[8px] py-[4px] rounded transition-colors
-                ${zoom === z.id ? 'bg-slate950 text-white' : 'text-slate600 hover:text-slate950'}`}>
-              {z.label}
+        <div className="flex items-center gap-2 flex-none">
+          <span className="hidden lg:inline text-[10px] text-slate400">⌘/Ctrl + rueda para hacer zoom</span>
+          <div className="flex items-center bg-white border border-slate200 rounded-md">
+            <button onClick={() => setWeekWidth((w) => Math.max(MINW, Math.round(w * 0.89)))}
+              className="w-7 h-7 text-slate600 hover:text-slate950 flex items-center justify-center" title="Alejar">
+              <Icon name="minus" size={12} />
             </button>
-          ))}
+            <button onClick={() => setWeekWidth(72)}
+              className="text-[10px] font-bold text-slate500 hover:text-slate950 px-2 border-x border-slate200 h-7" title="Restablecer zoom">
+              {Math.round(weekWidth / 72 * 100)}%
+            </button>
+            <button onClick={() => setWeekWidth((w) => Math.min(MAXW, Math.round(w * 1.12)))}
+              className="w-7 h-7 text-slate600 hover:text-slate950 flex items-center justify-center" title="Acercar">
+              <Icon name="plus" size={12} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1194,8 +1413,8 @@ const GanttView = ({ groups, onPick }) => {
 
                       {/* Bar */}
                       <div style={{
-                        left: t.start * weekWidth,
-                        width: t.span * weekWidth - 6,
+                        left: (t.start + taskOffs(t)) * weekWidth,
+                        width: Math.max(18, taskWeeks(t) * weekWidth - 6),
                         background: s.bg, color: s.fg, border: s.border ? `1px solid ${s.border}` : 0,
                       }} className="absolute top-1/2 -translate-y-1/2 ml-[3px] h-[24px] rounded px-2 flex items-center text-[10px] font-bold gap-[6px] overflow-hidden whitespace-nowrap shadow-card hover:shadow-pop transition-shadow z-10">
                         {(t.state === 'progress' || t.state === 'late') && t.pct > 0 && (
@@ -1255,8 +1474,8 @@ const ListView = ({ tasks, onPick }) => (
             <DAvatar initials={t.who.split(' ').map((w) => w[0]).join('').replace('.', '')} size={22} />
             <span className="text-slate700 truncate">{t.who}</span>
           </div>
-          <div className="text-[12px] text-slate700 tnum truncate">{fmtDate(weekDate(t.start))}</div>
-          <div className="text-[12px] text-slate700 tnum truncate">{fmtDate(weekDate(t.start + t.span, -1))}</div>
+          <div className="text-[12px] text-slate700 tnum truncate">{fmtDate(taskFrom(t))}</div>
+          <div className="text-[12px] text-slate700 tnum truncate">{fmtDate(taskTo(t))}</div>
           <div className="flex justify-end"><DPill tone={t.state === 'late' ? 'criticalSolid' : t.state === 'done' ? 'success' : t.state === 'progress' ? 'primary' : 'info'}>{s.label}</DPill></div>
         </div>
       );
@@ -1269,75 +1488,202 @@ const ListView = ({ tasks, onPick }) => (
 // ──────────────────────────────────────────────────────────────────────────
 
 const CalendarView = ({ tasks, onPick }) => {
-  // 5 weeks of "May 2025" (sample month visible in this view)
-  const monthStart = new Date(2025, 4, 5); // Mon May 5, 2025
-  // S19 falls at week index 11 in the new range (S8..S37).
-  const startWeek = 11;
-  const weekdays = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  // Mes real: se navega por mes y se calculan los días que efectivamente tiene.
+  const [cursor, setCursor] = React.useState(() => weekDate(TODAY_COL | 0));
+  const [openWeeks, setOpenWeeks] = React.useState({});
+  const y = cursor.getFullYear(), mo = cursor.getMonth();
 
-  // For each day grid cell, find tasks that include it.
-  const tasksByWeek = [];
-  for (let w = 0; w < 5; w++) {
-    const calWeek = startWeek + w;
-    tasksByWeek.push(
-      tasks.filter((t) => calWeek >= t.start && calWeek < t.start + t.span)
-    );
+  const monthLabel = cursor.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(y, mo + 1, 0).getDate();
+  // Lunes = 0 … domingo = 6
+  const firstDow = (new Date(y, mo, 1).getDay() + 6) % 7;
+  const weeks = Math.ceil((firstDow + daysInMonth) / 7);
+  const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayTs = dayStart(weekDate(TODAY_COL | 0));
+
+  // Rango real de cada tarea (fecha de inicio → fin), a partir de su semana.
+  const spans = React.useMemo(() => tasks.map((t) => ({
+    t,
+    from: dayStart(taskFrom(t)),
+    to:   dayStart(taskTo(t)),
+  })), [tasks]);
+
+  // Tareas activas por día del mes
+  const byDay = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ts = dayStart(new Date(y, mo, d));
+    byDay[d] = spans.filter((s) => ts >= s.from && ts <= s.to);
   }
+
+  // Tareas que tocan el mes, ordenadas: son las "barras" que se dibujan.
+  const monthFrom = dayStart(new Date(y, mo, 1));
+  const monthTo   = dayStart(new Date(y, mo, daysInMonth));
+  const inMonth = spans
+    .filter((s) => s.to >= monthFrom && s.from <= monthTo)
+    .sort((a, b) => a.from - b.from || b.t.span - a.t.span);
+
+  const move = (delta) => setCursor(new Date(y, mo + delta, 1));
+  const toToday = () => setCursor(weekDate(TODAY_COL | 0));
+
+  // Para cada semana del mes, se arma un tablero de barras continuas.
+  // Cada barra ocupa las columnas de los días que abarca dentro de esa semana.
+  const weekRows = [];
+  for (let w = 0; w < weeks; w++) {
+    const startDay = w * 7 - firstDow + 1;          // puede ser <= 0
+    const endDay   = startDay + 6;
+    const wFrom = dayStart(new Date(y, mo, Math.max(1, startDay)));
+    const wTo   = dayStart(new Date(y, mo, Math.min(daysInMonth, endDay)));
+
+    const bars = inMonth
+      .filter((s) => s.to >= wFrom && s.from <= wTo)
+      .map((s) => {
+        const startCol = Math.max(1, Math.min(7, (new Date(Math.max(s.from, wFrom)).getDate() - startDay) + 1));
+        const endCol   = Math.max(1, Math.min(7, (new Date(Math.min(s.to, wTo)).getDate() - startDay) + 1));
+        return {
+          ...s,
+          col: startCol,
+          span: endCol - startCol + 1,
+          cutLeft:  s.from < wFrom,
+          cutRight: s.to   > wTo,
+        };
+      });
+
+    // Asignación de carriles: evita superposición visual.
+    const lanes = [];
+    bars.forEach((b) => {
+      let lane = lanes.findIndex((rows) => rows.every((o) => b.col > o.col + o.span - 1 || b.col + b.span - 1 < o.col));
+      if (lane === -1) { lanes.push([b]); lane = lanes.length - 1; } else { lanes[lane].push(b); }
+      b.lane = lane;
+    });
+
+    weekRows.push({ startDay, endDay, bars, laneCount: Math.max(1, lanes.length) });
+  }
+
+  const MAX_LANES = 3;
+  // Altura de fila constante en todo el mes: evita que meses con pocas tareas
+  // (o pasados) se vean comprimidos respecto a los cargados.
+  const maxLanesMonth = Math.min(MAX_LANES, Math.max(1, ...weekRows.map((r) => r.laneCount)));
+  const anyOverflow = weekRows.some((r) => r.laneCount > MAX_LANES);
+  const BASE_ROW_H = 34 + maxLanesMonth * 24 + (anyOverflow ? 20 : 0);
+  const rowHeight = (row, wi) => openWeeks[wi]
+    ? 34 + row.laneCount * 24 + 20
+    : BASE_ROW_H;
 
   return (
     <DCard padding="p-0" className="overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate200 flex items-center justify-between">
-        <div className="text-[14px] font-bold">Mayo 2025</div>
+      {/* Cabecera de navegación */}
+      <div className="px-5 py-3 border-b border-slate200 flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[14px] font-bold capitalize">{monthLabel}</div>
         <div className="flex items-center gap-1">
-          <button className="w-7 h-7 rounded-md hover:bg-slate100 text-slate600 flex items-center justify-center"><Icon name="chevron-right" size={12} className="rotate-180" /></button>
-          <button className="text-[11px] font-bold px-2 py-1 rounded-md hover:bg-slate100 text-slate600">Hoy</button>
-          <button className="w-7 h-7 rounded-md hover:bg-slate100 text-slate600 flex items-center justify-center"><Icon name="chevron-right" size={12} /></button>
+          <button onClick={() => move(-1)} className="w-7 h-7 rounded-md hover:bg-slate100 text-slate600 flex items-center justify-center" title="Mes anterior">
+            <Icon name="chevron-right" size={12} className="rotate-180" />
+          </button>
+          <button onClick={toToday} className="text-[11px] font-bold px-3 py-[5px] rounded-md bg-white border border-slate200 hover:border-primary text-slate700">Hoy</button>
+          <button onClick={() => move(1)} className="w-7 h-7 rounded-md hover:bg-slate100 text-slate600 flex items-center justify-center" title="Mes siguiente">
+            <Icon name="chevron-right" size={12} />
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-slate200">
+      {/* Encabezado de días */}
+      <div className="grid grid-cols-7 border-b border-slate200 bg-slate50">
         {weekdays.map((w, i) => (
-          <div key={w} className={`px-3 py-2 text-[10px] tracking-[0.06em] uppercase font-bold ${i > 4 ? 'text-slate400 bg-slate50' : 'text-slate600'}`}>{w}</div>
+          <div key={w} className={"px-3 py-2 text-[10px] tracking-[0.06em] uppercase font-bold " + (i > 4 ? 'text-slate400' : 'text-slate600')}>{w}</div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 grid-rows-5" style={{ gridAutoRows: '120px' }}>
-        {Array.from({ length: 35 }, (_, idx) => {
-          const w = Math.floor(idx / 7);
-          const dow = idx % 7;
-          const dayNum = monthStart.getDate() + idx; // simplified
-          const isWeekend = dow > 4;
-          const isToday = idx === 18; // visual "today" anchor
-          const dayTasks = !isWeekend ? tasksByWeek[w].slice(0, 3) : []; // show first 3
-          const overflow = !isWeekend ? Math.max(0, tasksByWeek[w].length - 3) : 0;
-
+      {/* Semanas */}
+      <div>
+        {weekRows.map((row, wi) => {
+          const isOpen = !!openWeeks[wi];
+          const limit = isOpen ? row.laneCount : MAX_LANES;
+          const hidden = Math.max(0, row.laneCount - MAX_LANES);
+          const H = rowHeight(row, wi);
           return (
-            <div key={idx}
-              className={`border-r border-b border-slate100 last:border-r-0 p-2 flex flex-col overflow-hidden
-                ${isWeekend ? 'bg-slate50/60' : 'bg-white'}
-                ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
-                ${w === 4 ? 'border-b-0' : ''}`}>
-              <div className={`text-[11px] font-bold mb-1 flex items-center gap-1 ${isToday ? 'text-primary' : 'text-slate600'}`}>
-                {isToday ? <span className="w-5 h-5 rounded-full bg-primary text-white inline-flex items-center justify-center text-[10px]">{dayNum}</span> : dayNum}
-              </div>
-              <div className="flex flex-col gap-[3px]">
-                {dayTasks.map((t) => {
-                  const s = TASK_STATE_MAP[t.state];
+            <div key={wi} className={"relative " + (wi < weekRows.length - 1 ? 'border-b border-slate200' : '')}>
+              {/* Números de día + fondo */}
+              <div className="grid grid-cols-7">
+                {Array.from({ length: 7 }, (_, di) => {
+                  const dayNum = row.startDay + di;
+                  const valid = dayNum >= 1 && dayNum <= daysInMonth;
+                  const isWeekend = di > 4;
+                  const ts = valid ? dayStart(new Date(y, mo, dayNum)) : null;
+                  const isToday = ts === todayTs;
                   return (
-                    <button key={t.id}
-                      onClick={(e) => { e.stopPropagation(); onPick(t.id); }}
-                      style={{ background: s.bg + (t.state === 'planned' ? '' : ''), color: s.fg, borderLeft: `3px solid ${s.dot}` }}
-                      className="text-left text-[9.5px] font-bold px-[6px] py-[2px] rounded-sm truncate hover:opacity-80 transition-opacity"
-                      title={t.name}>
-                      {t.name}
+                    <div key={di}
+                      className={"px-2 pt-2 " + (di < 6 ? 'border-r border-slate100 ' : '') +
+                        (!valid ? 'bg-slate50/70 ' : isWeekend ? 'bg-slate50/40 ' : 'bg-white ')}
+                      style={{ minHeight: H }}>
+                      {valid && (
+                        <div className={"text-[11px] font-bold inline-flex items-center justify-center " +
+                          (isToday ? 'w-[22px] h-[22px] rounded-full bg-primary text-white' : isWeekend ? 'text-slate400' : 'text-slate600')}>
+                          {dayNum}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Barras continuas de tareas */}
+              <div className="absolute left-0 right-0" style={{ top: 30 }}>
+                {row.bars.filter((b) => b.lane < limit).map((b) => {
+                  const st = TASK_STATE_MAP[b.t.state];
+                  const planned = b.t.state === 'planned';
+                  return (
+                    <button key={b.t.id + '-' + wi} onClick={() => onPick(b.t.id)}
+                      title={b.t.name + ' · ' + (RUBRO_COLORS[b.t.rubro] ? b.t.rubro : '') + ' · ' + b.t.pct + '%'}
+                      className="absolute h-[20px] flex items-center gap-[5px] px-[6px] text-[10px] font-bold overflow-hidden whitespace-nowrap hover:brightness-95 transition-all"
+                      style={{
+                        left:  'calc(' + ((b.col - 1) / 7 * 100) + '% + 4px)',
+                        width: 'calc(' + (b.span / 7 * 100) + '% - 8px)',
+                        top: b.lane * 24,
+                        background: planned ? '#EFF6FF' : st.bg,
+                        color: planned ? '#1D4ED8' : st.fg,
+                        border: planned ? '1px solid #BFDBFE' : 'none',
+                        borderTopLeftRadius: b.cutLeft ? 0 : 5,
+                        borderBottomLeftRadius: b.cutLeft ? 0 : 5,
+                        borderTopRightRadius: b.cutRight ? 0 : 5,
+                        borderBottomRightRadius: b.cutRight ? 0 : 5,
+                      }}>
+                      {b.cutLeft && <span className="opacity-60 flex-none">‹</span>}
+                      <span className="w-[5px] h-[5px] rounded-full flex-none" style={{ background: planned ? '#3B82F6' : 'rgba(255,255,255,.75)' }} />
+                      <span className="truncate">{b.t.name}</span>
+                      {b.cutRight && <span className="opacity-60 ml-auto flex-none">›</span>}
                     </button>
                   );
                 })}
-                {overflow > 0 && <div className="text-[9px] font-bold text-slate500">+{overflow} más</div>}
               </div>
+
+              {/* Overflow por semana → expande la fila en el lugar */}
+              {hidden > 0 && (
+                <button onClick={() => setOpenWeeks((p) => ({ ...p, [wi]: !p[wi] }))}
+                  className="absolute left-2 flex items-center gap-[5px] text-[10px] font-bold text-primary hover:bg-primary-50 rounded px-2 py-[3px] transition-colors"
+                  style={{ top: 30 + (isOpen ? row.laneCount : MAX_LANES) * 24 }}>
+                  <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={10} />
+                  {isOpen ? 'Mostrar menos' : hidden + ' tarea' + (hidden === 1 ? '' : 's') + ' más'}
+                </button>
+              )}
             </div>
           );
         })}
+      </div>
+
+      {/* Resumen del mes */}
+      <div className="px-5 py-3 border-t border-slate200 bg-slate50 flex items-center gap-4 flex-wrap">
+        <span className="text-[11px] text-slate500">
+          <b className="text-slate950 tnum">{inMonth.length}</b> tarea{inMonth.length === 1 ? '' : 's'} activa{inMonth.length === 1 ? '' : 's'} este mes
+        </span>
+        <div className="flex items-center gap-3 flex-wrap ml-auto">
+          {Object.entries(TASK_STATE_MAP).map(([k, v]) => (
+            <span key={k} className="inline-flex items-center gap-[5px] text-[10px] font-semibold text-slate600">
+              <span className="w-[10px] h-[10px] rounded-sm" style={{ background: v.bg, border: v.border ? '1px solid ' + v.border : 'none' }} />
+              {v.label}
+            </span>
+          ))}
+        </div>
       </div>
     </DCard>
   );
@@ -1348,12 +1694,15 @@ const CalendarView = ({ tasks, onPick }) => {
 // ──────────────────────────────────────────────────────────────────────────
 
 const TaskDetail = ({ taskId, onClose, onComplete, onReopen }) => {
+  const rubroNames = useRubroStore().names();
+  const PEOPLE_ALL = ['C. Ríos', 'L. Benítez', 'P. Salas', 'M. Ortiz', 'A. Gómez'];
   if (!taskId) return null;
   const t = TASK_BY_ID[taskId];
   if (!t) return null;
   const s = TASK_STATE_MAP[t.state];
-  const startDate = weekDate(t.start);
-  const endDate   = weekDate(t.start + t.span, -1);
+  const startDate = taskFrom(t);
+  const endDate   = taskTo(t);
+  const durDays   = t.days != null ? t.days : t.span * 7;
   const dep = (t.deps || []).map((d) => TASK_BY_ID[d]).filter(Boolean);
 
   return (
@@ -1417,13 +1766,52 @@ const TaskDetail = ({ taskId, onClose, onComplete, onReopen }) => {
             </div>
             <div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-1">Duración</div>
-              <div className="text-[12px] font-semibold text-slate950">{t.span} semanas</div>
+              <div className="text-[12px] font-semibold text-slate950">
+                {durDays % 7 === 0 ? (durDays / 7) + (durDays / 7 === 1 ? ' semana' : ' semanas') : durDays + ' días'}
+              </div>
             </div>
             <div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-1">Costo</div>
               <div className="text-[12px] font-semibold text-slate950 tnum">{t.cost}</div>
             </div>
           </div>
+
+          {(t.rubro === SIN_RUBRO || t.who === SIN_RESPONSABLE) && (
+            <div className="border border-slate200 bg-slate50 rounded-lg p-3">
+              <div className="flex items-center gap-[6px] mb-1">
+                <Icon name="info" size={12} className="text-slate400 flex-none" />
+                <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate600">Elegir opciones</span>
+              </div>
+              <div className="text-[11px] text-slate500 leading-snug mb-3">
+                Esta tarea todavía no tiene {t.rubro === SIN_RUBRO && t.who === SIN_RESPONSABLE ? 'rubro ni responsable' : t.rubro === SIN_RUBRO ? 'rubro' : 'responsable'}. Podés asignarlo ahora o dejarlo para después.
+              </div>
+              <div className="space-y-2">
+                {t.rubro === SIN_RUBRO && (
+                  <label className="flex flex-col gap-[4px]">
+                    <span className="text-[10px] font-bold text-slate600">Rubro</span>
+                    <select value={SIN_RUBRO} onChange={(e) => TaskStore.assign(t.id, { rubro: e.target.value })}
+                      className="bg-white border border-slate200 rounded-md px-2 py-[7px] text-[12px] focus:border-primary focus:outline-none">
+                      <option value="" disabled>Elegir opciones…</option>
+                      <option value={SIN_RUBRO}>{SIN_RUBRO}</option>
+                      {rubroNames.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </label>
+                )}
+                {t.who === SIN_RESPONSABLE && (
+                  <label className="flex flex-col gap-[4px]">
+                    <span className="text-[10px] font-bold text-slate600">Responsable</span>
+                    <select value={SIN_RESPONSABLE} onChange={(e) => TaskStore.assign(t.id, { who: e.target.value })}
+                      className="bg-white border border-slate200 rounded-md px-2 py-[7px] text-[12px] focus:border-primary focus:outline-none">
+                      <option value="" disabled>Elegir opciones…</option>
+                      <option value={SIN_RESPONSABLE}>{SIN_RESPONSABLE}</option>
+                      {PEOPLE_ALL.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </label>
+                )}
+              </div>
+              <div className="text-[10px] text-slate400 mt-2 leading-snug">¿El rubro no existe? Creálo en Configuración › Rubros.</div>
+            </div>
+          )}
 
           <div>
             <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-2">Responsable</div>
@@ -1513,7 +1901,7 @@ const NuevaTareaModal = ({ open, onClose, onCreate, defaultRubro, onManageRubros
   const [rubroModal, setRubroModal] = React.useState(false);
 
   const [data, setData] = React.useState({
-    name: '', rubro: defaultRubro || rubros[0] || '', who: PEOPLE[0],
+    name: '', rubro: defaultRubro || '', who: '',
     state: 'planned', cost: '',
     startWeek: TODAY_WEEK + 1, span: 2,
     desc: '',
@@ -1555,7 +1943,8 @@ const NuevaTareaModal = ({ open, onClose, onCreate, defaultRubro, onManageRubros
       desc: data.desc.trim() || 'Sin descripción — se completará después.',
       cost: data.cost.trim() || 'A definir',
       deps: [],
-      rubro: data.rubro,
+      rubro: data.rubro || SIN_RUBRO,
+      who: data.who || SIN_RESPONSABLE,
     });
     setCreated(true);
   };
@@ -1570,8 +1959,20 @@ const NuevaTareaModal = ({ open, onClose, onCreate, defaultRubro, onManageRubros
             </div>
             <h3 className="text-[22px] font-extrabold display-tight leading-tight mb-2">Tarea creada</h3>
             <p className="text-[13px] text-slate600 mb-1">
-              <b className="text-slate950">{data.name}</b> · {data.rubro}
+              <b className="text-slate950">{data.name}</b> · {data.rubro || SIN_RUBRO}
             </p>
+            {(!data.rubro || !data.who) && (
+              <div className="mx-auto max-w-[340px] mb-3 bg-slate50 border border-slate200 rounded-lg px-3 py-2 text-left">
+                <div className="flex items-start gap-2">
+                  <Icon name="info" size={12} className="text-slate400 mt-[2px] flex-none" />
+                  <div className="text-[11px] text-slate600 leading-snug">
+                    Queda <b className="text-slate800">sin asignar</b>
+                    {!data.rubro && !data.who ? ' rubro y responsable' : !data.rubro ? ' el rubro' : ' el responsable'}.
+                    La tarea ya está en el cronograma — podés completarlo cuando lo tengas creado.
+                  </div>
+                </div>
+              </div>
+            )}
             <p className="text-[12px] text-slate500 mb-6">
               {fmtDateLong(startDate)} → {fmtDateLong(endDate)}
             </p>
@@ -1623,6 +2024,8 @@ const NuevaTareaModal = ({ open, onClose, onCreate, defaultRubro, onManageRubros
                   </div>
                   <select value={data.rubro} onChange={(e) => setData({ ...data, rubro: e.target.value })}
                     className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                    <option value="" disabled>Elegir opciones…</option>
+                    <option value={SIN_RUBRO}>Sin asignar rubro</option>
                     {rubros.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
@@ -1630,6 +2033,8 @@ const NuevaTareaModal = ({ open, onClose, onCreate, defaultRubro, onManageRubros
                   <span className="text-[11px] font-bold text-slate700">Responsable</span>
                   <select value={data.who} onChange={(e) => setData({ ...data, who: e.target.value })}
                     className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                    <option value="" disabled>Elegir opciones…</option>
+                    <option value={SIN_RESPONSABLE}>Sin asignar responsable</option>
                     {PEOPLE.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </label>
@@ -1743,7 +2148,7 @@ const ScreenGantt = ({ onNav }) => {
     <>
       <DPageHeader
         title="Cronograma de tareas"
-        subtitle={`${total} tareas en 4 rubros · ${done} completadas · ${prog} en curso · ${late} en retraso`}
+        subtitle={`${total} tareas en ${groups.length} rubro${groups.length === 1 ? '' : 's'} · ${done} completadas · ${prog} en curso · ${late} en retraso`}
         right={
           <>
             <DButton variant="secondary" size="sm" icon={<Icon name="download" size={13} />}>Exportar</DButton>
@@ -2138,16 +2543,20 @@ const AlertDrawer = ({ alert, LVL, STATE, onClose, onResolve, onReopen, onStart,
 // Screen: PEDIDOS (Materials)
 // ============================================================================
 
-const ScreenMaterials = ({ onNav }) => {
-  const SEED = [
+const ORDERS_SEED = [
     { id: 'PED-0142', mat: 'Cemento Portland · 50 kg',  qty: '120 bolsas', prov: 'Cementos del Plata', cat: 'Áridos y cementos', date: '15 Jun', ordered: '08 Jun', state: 'delivered',  total: 920000, unit: 'AR$ 7.667', who: 'L. Benítez', urgent: false, note: 'Entrega completa. Descargado en Depósito A.', delivery: { date: '15 Jun 2026 · 09:40', loc: 'Depósito A · acceso lateral', receiver: 'C. Ríos', doc: 'DNI 28.114.502' } },
     { id: 'PED-0141', mat: 'Hierro 12 mm · 12 m',       qty: '2,5 t',     prov: 'Aceros Norte',        cat: 'Hierros',           date: '18 Jun', ordered: '10 Jun', state: 'transit',    total: 1250000, unit: 'AR$ 500.000/t', who: 'L. Benítez', urgent: false, note: 'Despachado. Llega en 2 días.' },
     { id: 'PED-0140', mat: 'Ladrillo cerámico 18×18',   qty: '8.000 u',   prov: 'Cerámica San Pedro',  cat: 'Mampostería',       date: '22 Jun', ordered: '11 Jun', state: 'pending',    total: 920000, unit: 'AR$ 115/u', who: 'P. Salas', urgent: true, note: 'Bloquea inicio de tabiquería. Necesita aprobación hoy.' },
     { id: 'PED-0139', mat: 'Arena fina',                 qty: '15 m³',    prov: 'Áridos Río',           cat: 'Áridos y cementos', date: '13 Jun', ordered: '05 Jun', state: 'late',       total: 315000, unit: 'AR$ 21.000/m³', who: 'C. Ríos', urgent: true, note: 'Entrega prevista para el 11 Jun no llegó. Proveedor confirmó retraso de 24-48 h; nueva fecha estimada 13 Jun.' },
     { id: 'PED-0138', mat: 'Pintura látex blanco',      qty: '40 L',     prov: 'Pinturas Capital',     cat: 'Terminaciones',     date: '02 Jul', ordered: '09 Jun', state: 'approved',   total: 145000, unit: 'AR$ 3.625/L', who: 'M. Ortiz', urgent: false, note: 'Aprobado. Pendiente de despacho del proveedor.' },
     { id: 'PED-0137', mat: 'Cable subterráneo 3×6 mm',  qty: '200 m',    prov: 'Eléctrica Plaza',      cat: 'Eléctrico',         date: '08 Jul', ordered: '07 Jun', state: 'draft',      total: 380000, unit: 'AR$ 1.900/m', who: 'M. Ortiz', urgent: false, note: 'Borrador — falta confirmar metraje final.' },
-  ];
-  const [orders, setOrders] = React.useState(SEED);
+];
+const OrderStore = makeStore(ORDERS_SEED);
+
+const ScreenMaterials = ({ onNav }) => {
+  const orderStore = useStore(OrderStore);
+  const orders = orderStore.get();
+  const setOrders = (fn) => orderStore.set(typeof fn === 'function' ? fn(orderStore.get()) : fn);
   const [filter, setFilter] = React.useState('Todos');
   const [pick, setPick]     = React.useState(null);
   const [newOpen, setNewOpen] = React.useState(false);
@@ -2227,11 +2636,10 @@ const ScreenMaterials = ({ onNav }) => {
         {list.map((o) => {
           const s = STATE[o.state];
           return (
-            <button key={o.id} onClick={() => setPick(o)}
-              className="text-left bg-white border border-slate200 rounded-lg overflow-hidden hover:border-primary hover:shadow-card2 transition-all group flex flex-col self-start w-full">
+            <div key={o.id} className="bg-white border border-slate200 rounded-lg overflow-hidden hover:border-primary hover:shadow-card2 transition-all group flex flex-col self-start">
               {/* Top color strip by state */}
               <div className="h-[3px] w-full" style={{ background: s.dot }} />
-              <div className="p-4">
+              <button onClick={() => setPick(o)} className="text-left w-full p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-[2px]">
@@ -2264,15 +2672,14 @@ const ScreenMaterials = ({ onNav }) => {
                     <div className="text-[13px] font-extrabold text-slate950 tnum">{fmt(o.total)}</div>
                   </div>
                 </div>
-
-                {o.state === 'pending' && (
-                  <div className="flex gap-2 mt-3 pt-3 border-t border-slate100" onClick={(e) => e.stopPropagation()}>
-                    <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => approve(o.id)}>Aprobar</DButton>
-                    <DButton variant="secondary" size="sm" onClick={() => setPick(o)}>Ver</DButton>
-                  </div>
-                )}
-              </div>
             </button>
+            {o.state === 'pending' && (
+              <div className="border-t border-slate100 px-4 py-2 flex gap-2 bg-slate50/50">
+                <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => approve(o.id)}>Aprobar</DButton>
+                <DButton variant="secondary" size="sm" onClick={() => setPick(o)}>Ver</DButton>
+              </div>
+            )}
+          </div>
           );
         })}
         {list.length === 0 && (
@@ -2283,7 +2690,7 @@ const ScreenMaterials = ({ onNav }) => {
       {/* Detail drawer */}
       {pick && <OrderDrawer order={pick} STATE={STATE} fmt={fmt} onClose={() => setPick(null)} onApprove={approve} onCancel={cancelOrder} onDeliver={(id) => setDeliverFor(orders.find((o) => o.id === id))} />}
       {/* New order modal */}
-      {newOpen && <NewOrderModal STATE={STATE} fmt={fmt} onClose={() => setNewOpen(false)} onSave={addOrder} count={orders.length} onManageRubros={() => onNav && onNav('rubros')} />}
+      {newOpen && <NewOrderModal STATE={STATE} fmt={fmt} onClose={() => setNewOpen(false)} onSave={addOrder} count={orders.length} onManageRubros={() => onNav && onNav('rubros')} onManageSuppliers={() => onNav && onNav('proveedores')} />}
       {/* Delivery reception modal */}
       {deliverFor && <DeliveryModal order={deliverFor} onClose={() => setDeliverFor(null)} onSave={(del) => markDelivered(deliverFor.id, del)} />}
 
@@ -2511,7 +2918,7 @@ const OrderDrawer = ({ order, STATE, fmt, onClose, onApprove, onCancel, onDelive
   );
 };
 
-const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros }) => {
+const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onManageSuppliers }) => {
   const rubroStore = useRubroStore();
   const cats = rubroStore.names();
   const [d, setD] = React.useState({ mat: '', prov: '', cat: rubroStore.names()[0] || '', qty: '', unit: 'bolsas', total: '', date: '', who: 'L. Benítez', urgent: false });
@@ -2570,9 +2977,18 @@ const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros }) =
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate700">Proveedor</span>
-              <input value={d.prov} onChange={(e) => set({ prov: e.target.value })} placeholder="Ej: Cementos del Plata"
-                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate700">Proveedor</span>
+                {onManageSuppliers && <button type="button" onClick={onManageSuppliers} className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]"><Icon name="plus" size={10} /> Nuevo</button>}
+              </div>
+              <select value={d.prov} onChange={(e) => set({ prov: e.target.value })}
+                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">Sin proveedor asignado</option>
+                {SupplierStore.get()
+                  .filter((p) => p.scope === 'global' || p.owner === 'J. Méndez')
+                  .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0))
+                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'private' ? ' (privado)' : '')}</option>)}
+              </select>
             </label>
             <label className="flex flex-col gap-[6px]">
               <div className="flex items-center justify-between">
@@ -2614,9 +3030,8 @@ const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros }) =
               </div>
             </label>
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate700">Total (AR$)*</span>
-              <input type="number" min="0" value={d.total} onChange={(e) => set({ total: e.target.value })} placeholder="0"
-                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
+              <span className="text-[11px] font-bold text-slate700">Total</span>
+              <MoneyInput value={d.total} onChange={(v) => set({ total: v })} />
             </label>
             <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate700">Llegada estimada</span>
@@ -3371,8 +3786,7 @@ const MessageComposer = ({ person: p, onClose, onSent }) => {
 // Screen: STOCK / MATERIALES (inventory)
 // ============================================================================
 
-const ScreenStock = () => {
-  const SEED = [
+const STOCK_SEED = [
     { id: 's1', name: 'Cemento Portland 50 kg', cat: 'Áridos y cementos', unit: 'bolsas', qty: 84,  min: 40,  loc: 'Depósito A', photo: '' },
     { id: 's2', name: 'Arena fina',             cat: 'Áridos y cementos', unit: 'm³',     qty: 12,  min: 8,   loc: 'Playa', photo: '' },
     { id: 's3', name: 'Hierro 12 mm × 12 m',    cat: 'Hierros',           unit: 'barras', qty: 18,  min: 60,  loc: 'Depósito B', photo: '' },
@@ -3381,8 +3795,13 @@ const ScreenStock = () => {
     { id: 's6', name: 'Cal hidratada 25 kg',    cat: 'Mampostería',       unit: 'bolsas', qty: 26,  min: 30,  loc: 'Depósito A', photo: '' },
     { id: 's7', name: 'Cable 3×6 mm',           cat: 'Eléctrico',         unit: 'm',      qty: 240, min: 100, loc: 'Pañol', photo: '' },
     { id: 's8', name: 'Caño PVC 110 mm',        cat: 'Sanitario',         unit: 'u',      qty: 14,  min: 20,  loc: 'Pañol', photo: '' },
-  ];
-  const [items, setItems]   = React.useState(SEED);
+];
+const StockStore = makeStore(STOCK_SEED);
+
+const ScreenStock = () => {
+  const stockStore = useStore(StockStore);
+  const items = stockStore.get();
+  const setItems = (fn) => stockStore.set(typeof fn === 'function' ? fn(stockStore.get()) : fn);
   const [cats, setCats]     = React.useState(['Áridos y cementos', 'Hierros', 'Mampostería', 'Eléctrico', 'Sanitario']);
   const [filter, setFilter] = React.useState('Todos');
   const [view, setView]     = React.useState('grid'); // grid | list
@@ -3926,9 +4345,18 @@ const ReceiptModal = ({ cats, onClose, onSave, onAddCat }) => {
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate700">Proveedor</span>
-              <input value={d.prov} onChange={(e) => set({ prov: e.target.value })} placeholder="Ej: Cementos del Plata"
-                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate700">Proveedor</span>
+                {onManageSuppliers && <button type="button" onClick={onManageSuppliers} className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]"><Icon name="plus" size={10} /> Nuevo</button>}
+              </div>
+              <select value={d.prov} onChange={(e) => set({ prov: e.target.value })}
+                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">Sin proveedor asignado</option>
+                {SupplierStore.get()
+                  .filter((p) => p.scope === 'global' || p.owner === 'J. Méndez')
+                  .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0))
+                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'private' ? ' (privado)' : '')}</option>)}
+              </select>
             </label>
             <label className="flex flex-col gap-[6px]">
               <div className="flex items-center justify-between">
@@ -3941,9 +4369,8 @@ const ReceiptModal = ({ cats, onClose, onSave, onAddCat }) => {
               </select>
             </label>
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate700">Monto (AR$)*</span>
-              <input type="number" min="0" value={d.amount} onChange={(e) => set({ amount: e.target.value })} placeholder="0"
-                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
+              <span className="text-[11px] font-bold text-slate700">Monto</span>
+              <MoneyInput value={d.amount} onChange={(v) => set({ amount: v })} />
             </label>
             <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate700">Fecha</span>
@@ -5257,6 +5684,77 @@ const INBOX_SEED = [
   },
 ];
 
+const InboxStore = makeStore(INBOX_SEED);
+
+// ── Aplicar un mensaje confirmado a la obra ─────────────────────────────────
+// Regla: confirmar ESCRIBE en la sección destino; descartar no escribe nada.
+// Devuelve las etiquetas de lo que se creó/modificó, para mostrarlas en la ficha.
+function applyInboxItem(m) {
+  const val = (k) => { const f = (m.parse.campos || []).find(([kk]) => kk === k); return f ? f[1] : ''; };
+  const applied = [];
+
+  if (m.parse.tipo === 'Pedido de material') {
+    const code = 'PED-0' + (143 + OrderStore.get().filter((o) => o.id.startsWith('PED-')).length - 6);
+    OrderStore.add({
+      id: code, mat: val('Material'), qty: val('Cantidad'), prov: val('Proveedor') || 'Sin proveedor',
+      cat: 'Sin rubro asignado', date: val('Llegada') || '—', ordered: 'hoy',
+      state: 'pending', total: 0, unit: '—', who: m.from, urgent: false,
+      note: 'Creado desde la Bandeja (' + m.id + ').' + (m.note ? ' ' + m.note : ''),
+    });
+    applied.push(code + ' creado en Pedidos');
+  }
+
+  if (m.parse.tipo === 'Entrega de material') {
+    const pedido = (val('Pedido') || '').split(' ·')[0];
+    const qty = parseInt((val('Cantidad recibida') || '').replace(/\D/g, ''), 10) || 0;
+    const ord = OrderStore.get().find((o) => o.id === pedido);
+    if (ord) {
+      OrderStore.update(ord.id, {
+        state: 'delivered',
+        delivery: { date: 'hoy', place: val('Lugar'), by: val('Recibió'), doc: '—' },
+      });
+      applied.push(ord.id + ' marcado entregado');
+      // Suma al stock el material recibido
+      const mat = StockStore.get().find((x) => ord.mat.toLowerCase().includes(x.name.split(' ')[0].toLowerCase()));
+      if (mat && qty) {
+        StockStore.update(mat.id, { qty: mat.qty + qty });
+        applied.push('+' + qty + ' ' + mat.unit + ' en Stock');
+      }
+    }
+  }
+
+  if (m.parse.tipo === 'Alerta') {
+    const id = 'AL-0' + (62 + AlertStore.get().length - 7);
+    AlertStore.add({
+      id, lvl: (val('Nivel sugerido') || 'Importante') === 'Crítico' ? 'critical' : 'attention',
+      cat: val('Categoría') || 'Equipos', title: m.raw.slice(0, 60).replace(/sS*$/, '') + '…',
+      who: m.from, time: 'hace un momento', state: 'open', assignee: null,
+      desc: m.raw, impact: val('Tarea afectada') ? 'Afecta ' + val('Tarea afectada') : 'Sin impacto declarado',
+      link: null, note: m.note || '',
+    });
+    applied.push(id + ' creada en Alertas');
+  }
+
+  if (m.parse.tipo === 'Avance con foto') {
+    const task = val('Tarea');
+    const count = parseInt((val('Fotos') || '').replace(/\D/g, ''), 10) || 1;
+    const tk = ALL_TASKS.find((t) => t.name === task);
+    for (let k = 0; k < count; k++) {
+      PhotoStore.add({
+        id: 'F-' + (342 + k), task, rubro: tk ? tk.rubro : 'Sin rubro asignado',
+        who: m.from, date: 'Hoy', time: m.time.replace('hace ', '') || 'hoy',
+        tone: RUBRO_COLORS[tk ? tk.rubro : ''] || '#94A3B8',
+        note: m.note || '',
+      }, false);
+    }
+    applied.push(count + ' fotos en Galería');
+    const pct = parseInt((val('Avance detectado') || '').replace(/\D/g, ''), 10);
+    if (tk && pct) { TaskStore.setPct(tk.id, pct); applied.push(task + ' → ' + pct + '%'); }
+  }
+
+  return applied.length ? applied : [m.parse.destino];
+}
+
 // Resalta en la transcripción qué se capturó (verde) y qué quedó suelto (ámbar),
 // para que el usuario vea de un vistazo si se está perdiendo información.
 const HighlightedRaw = ({ text, mapped = [], loose = [] }) => {
@@ -5291,7 +5789,9 @@ const KIND_META = {
 };
 
 const ScreenInbox = ({ onNav }) => {
-  const [items, setItems] = React.useState(INBOX_SEED);
+  const inboxStore = useStore(InboxStore);
+  const items = inboxStore.get();
+  const setItems = (fn) => inboxStore.set(typeof fn === 'function' ? fn(inboxStore.get()) : fn);
   const [tab, setTab] = React.useState('pendientes');
   const [pick, setPick] = React.useState(null);
   const [expanded, setExpanded] = React.useState(null);
@@ -5302,10 +5802,10 @@ const ScreenInbox = ({ onNav }) => {
   const patch = (id, f) => setItems((p) => p.map((x) => x.id === id ? { ...x, ...f } : x));
   const confirmItem = (id) => {
     const it = items.find((x) => x.id === id);
-    patch(id, { state: 'confirmed', by: 'J. Méndez', at: 'hoy ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-      applied: it && it.parse ? [it.parse.destino] : undefined });
+    const applied = it && it.parse ? applyInboxItem(it) : undefined;
+    patch(id, { state: 'confirmed', by: 'J. Méndez', at: 'hoy ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }), applied });
     setPick(null); setNoteFor(null);
-    flash('Dato confirmado y aplicado a la obra');
+    flash(applied ? 'Aplicado · ' + applied[0] : 'Dato confirmado');
   };
   const discardItem = (id) => { patch(id, { state: 'discarded' }); setPick(null); flash('Mensaje descartado'); };
 
@@ -5337,8 +5837,8 @@ const ScreenInbox = ({ onNav }) => {
           <>
             <DButton variant="secondary" size="sm" icon={<Icon name="message" size={13} />} onClick={() => flash('Bot conectado · +54 9 11 2034-8821')}>Estado del bot</DButton>
             <DButton variant="primary" size="sm" icon={<Icon name="check" size={13} />} disabled={pend.length === 0}
-              onClick={() => { setItems((p) => p.map((x) => x.dir === 'in' && x.state === 'pending' && x.conf >= 0.9 ? { ...x, state: 'confirmed', by: 'J. Méndez' } : x)); flash('Confirmados los de confianza alta'); }}>
-              Confirmar confianza alta
+              onClick={() => { setItems((p) => p.map((x) => x.dir === 'in' && x.state === 'pending' ? { ...x, state: 'confirmed', by: 'J. Méndez' } : x)); flash('Mensajes confirmados'); }}>
+              Confirmar todos
             </DButton>
           </>
         }
@@ -5348,7 +5848,7 @@ const ScreenInbox = ({ onNav }) => {
         <DStatTile tone="attention" label="Por confirmar" value={pend.length} icon="clock" delta={pend.length ? 'Requieren revisión' : 'Al día'} deltaTone={pend.length ? 'critical' : 'success'} onClick={() => setTab('pendientes')} />
         <DStatTile tone="success"   label="Confirmados hoy" value={conf.length} icon="check" onClick={() => setTab('confirmados')} />
         <DStatTile tone="info"      label="Mensajes recibidos" value="1.284" icon="message" delta="Este mes" />
-        <DStatTile tone="primary"   label="Precisión de la IA" value="92" suffix="%" icon="sparkle" delta="Sobre lo confirmado" />
+        <DStatTile tone="primary"   label="Confirmados este mes" value="164" icon="check" delta="Sobre 178 recibidos" />
       </div>
 
       <div className="flex items-start gap-3 bg-success50 border border-[#BBF7D0] rounded-lg p-3 mb-4">
@@ -5414,9 +5914,7 @@ const ScreenInbox = ({ onNav }) => {
                   <div className="border-t border-[#BBF7D0] bg-white px-5 py-4 grid grid-cols-2 gap-5">
                     <div className="min-w-0">
                       <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-2">Mensaje original</div>
-                      <div className="text-[12px] text-slate700 leading-relaxed italic">
-                        “<HighlightedRaw text={m.raw} mapped={m.mapped} loose={m.loose} />”
-                      </div>
+                      <div className="text-[12px] text-slate700 leading-relaxed italic">“{m.raw}”</div>
                       {m.note && (
                         <div className="mt-3 bg-attention50 border-l-[3px] border-accent rounded-r px-3 py-2">
                           <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-[#A16207] mb-[2px]">Nota del director</div>
@@ -5484,16 +5982,10 @@ const ScreenInbox = ({ onNav }) => {
                     </div>
                   )}
 
-                  <div className="text-[12px] text-slate700 leading-relaxed italic">
-                    “<HighlightedRaw text={m.raw} mapped={m.mapped} loose={m.loose} />”
-                  </div>
+                  <div className="text-[12px] text-slate700 leading-relaxed italic">“{m.raw}”</div>
 
                   {!isOut && m.kind === 'audio' && (
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-slate400 flex-wrap">
-                      <span>Transcripción automática</span>
-                      {(m.mapped || []).length > 0 && <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-[3px] bg-success50 border border-[#BBF7D0]" /> capturado</span>}
-                      {(m.loose || []).length > 0 && <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-[3px] bg-attention50 border border-[#FDE68A]" /> sin capturar</span>}
-                    </div>
+                    <div className="mt-2 text-[10px] text-slate400">Transcripción automática</div>
                   )}
 
                   {isOut && m.trigger && (
@@ -5518,13 +6010,7 @@ const ScreenInbox = ({ onNav }) => {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-md bg-ink-deep text-accent flex items-center justify-center flex-none"><Icon name="sparkle" size={12} /></span>
-                          <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate600">Interpretación de la IA</span>
-                        </div>
-                        {cp && <span className={"text-[9px] font-bold px-[6px] py-[3px] rounded flex-none " + cp.cls}>{cp.t} · {Math.round(m.conf * 100)}%</span>}
-                      </div>
+                      <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-3">Datos detectados</div>
 
                       {m.parse.campos.length === 0 ? (
                         <div className="text-[12px] text-slate500 italic mb-3">{m.parse.tipo}</div>
@@ -5544,31 +6030,6 @@ const ScreenInbox = ({ onNav }) => {
                             ))}
                           </div>
                         </>
-                      )}
-
-                      {/* ── Datos sueltos: lo que no entra en ningún campo ── */}
-                      {(m.loose || []).length > 0 && m.state === 'pending' && (
-                        <div className="mb-3 border border-[#FDE68A] bg-attention50 rounded-lg p-2">
-                          <div className="flex items-center gap-[6px] mb-2">
-                            <Icon name="alert" size={11} className="text-[#A16207] flex-none" />
-                            <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-[#A16207]">Dicho pero no capturado</span>
-                          </div>
-                          <div className="space-y-2">
-                            {m.loose.map((l, i) => (
-                              <div key={i} className="bg-white border border-[#FDE68A] rounded p-2">
-                                <div className="text-[11px] text-slate800 leading-snug italic">“{l.txt}”</div>
-                                <div className="text-[10px] text-slate500 mt-[2px]">{l.why}</div>
-                                <div className="flex gap-2 mt-2">
-                                  <button onClick={() => { patch(m.id, { note: ((m.note ? m.note + ' ' : '') + l.txt).trim(), loose: m.loose.filter((_, k) => k !== i) }); flash('Agregado a la nota'); }}
-                                    className="text-[10px] font-bold text-primary hover:underline">Guardar como nota</button>
-                                  <button onClick={() => { setPick(m); }} className="text-[10px] font-bold text-primary hover:underline">Convertir en dato</button>
-                                  <button onClick={() => patch(m.id, { loose: m.loose.filter((_, k) => k !== i) })}
-                                    className="text-[10px] font-bold text-slate400 hover:text-slate600 ml-auto">Ignorar</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       )}
 
                       {m.warn && (
@@ -5803,7 +6264,10 @@ const PhotoThumb = ({ p, h = 128 }) => (
   </div>
 );
 
+const PhotoStore = makeStore(PHOTO_SEED);
+
 const ScreenGallery = ({ onNav }) => {
+  const photoStore = useStore(PhotoStore);
   const rubroStore = useRubroStore();
   const [group, setGroup] = React.useState('fecha'); // fecha | tarea
   const [fRubro, setFRubro] = React.useState('Todos');
@@ -5811,7 +6275,7 @@ const ScreenGallery = ({ onNav }) => {
   const [toast, setToast] = React.useState(null);
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2000); };
 
-  const list = PHOTO_SEED.filter((p) => fRubro === 'Todos' || p.rubro === fRubro);
+  const list = photoStore.get().filter((p) => fRubro === 'Todos' || p.rubro === fRubro);
   const key = (p) => group === 'fecha' ? p.date : p.task;
   const groups = list.reduce((acc, p) => { (acc[key(p)] = acc[key(p)] || []).push(p); return acc; }, {});
 
@@ -5834,7 +6298,7 @@ const ScreenGallery = ({ onNav }) => {
     <>
       <DPageHeader
         title="Galería de obra"
-        subtitle={PHOTO_SEED.length + ' fotos · asociadas a su tarea, rubro, fecha y autor'}
+        subtitle={photoStore.get().length + ' fotos · asociadas a su tarea, rubro, fecha y autor'}
         right={
           <>
             <DButton variant="secondary" size="sm" icon={<Icon name="download" size={13} />} onClick={() => flash('Exportando galería…')}>Exportar</DButton>
@@ -5984,35 +6448,510 @@ const ScreenGallery = ({ onNav }) => {
 // ¿cuánto gasté?). Se agrupan bajo un solo ítem de menú con un conmutador
 // arriba, en vez de ocupar tres lugares distintos en el sidebar.
 const makeGroupScreen = (subs) => {
-  const Group = (props) => {
-    const [sub, setSub] = React.useState(subs[0].id);
-    const active = subs.find((x) => x.id === sub) || subs[0];
-    return (
-      <>
-        <div className="flex items-center gap-1 bg-slate100 rounded-lg p-[3px] mb-5 w-fit">
-          {subs.map((x) => {
-            const on = sub === x.id;
-            return (
-              <button key={x.id} onClick={() => setSub(x.id)}
-                className={"inline-flex items-center gap-2 text-[12px] font-bold px-[14px] py-[7px] rounded-md transition-colors " +
-                  (on ? 'bg-white text-slate950 shadow-card' : 'text-slate600 hover:text-slate950')}>
-                <Icon name={x.icon} size={13} className={on ? 'text-primary' : 'text-slate400'} />
-                {x.label}
-                {x.badge && <span className={"text-[9px] font-bold px-[5px] py-[1px] rounded-full " + (on ? 'bg-primary-50 text-primary' : 'bg-slate200 text-slate600')}>{x.badge}</span>}
-              </button>
-            );
-          })}
-        </div>
-        <active.Comp {...props} />
-      </>
-    );
+  const Group = ({ subRoute, ...props }) => {
+    const active = subs.find((x) => x.id === subRoute) || subs[0];
+    return <active.Comp {...props} />;
   };
+  Group.subs = subs;
   return Group;
 };
 
+// ── Proveedores ─────────────────────────────────────────────────────────────
+// Dos ámbitos: los GLOBALES los ve todo el equipo con permiso de Pedidos; los
+// PRIVADOS son la agenda personal de cada usuario con rango administrativo
+// (director / compras) y no se comparten con el resto de la obra.
+const SUPPLIERS_SEED = [
+  { id: 'PV-01', scope: 'global', fav: true, name: 'Cementos del Plata', rubro: 'Hormigón armado', cuit: '30-71234567-4',
+    contact: 'Marta Ruiz', role: 'Ventas', phone: '+54 11 4788 2210', wa: '+54 9 11 4788 2210',
+    email: 'ventas@cementosdelplata.com.ar', web: 'cementosdelplata.com.ar',
+    address: 'Ruta 9 km 42, Escobar', pay: '30 días', lead: '3 días',
+    desc: 'Cemento Portland y cal. Entregan con camión propio y descarga incluida.',
+    orders: 8, spent: 3.1 },
+  { id: 'PV-02', scope: 'global', fav: true, name: 'Aceros Norte', rubro: 'Hormigón armado', cuit: '30-70998877-1',
+    contact: 'Diego Sosa', role: 'Comercial', phone: '+54 11 4312 7788', wa: '+54 9 11 4312 7788',
+    email: 'pedidos@acerosnorte.com', web: 'acerosnorte.com',
+    address: 'Av. Mitre 3420, San Martín', pay: '60 días', lead: '7 días',
+    desc: 'Hierro del 6 al 25, mallas y estribos. Corte y doblado a pedido.',
+    orders: 5, spent: 4.8 },
+  { id: 'PV-03', scope: 'global', fav: false, name: 'Cerámica San Pedro', rubro: 'Mampostería', cuit: '30-68112233-9',
+    contact: 'Laura Giménez', role: 'Atención al cliente', phone: '+54 11 5566 1190', wa: '+54 9 11 5566 1190',
+    email: 'hola@ceramicasanpedro.com.ar', web: 'ceramicasanpedro.com.ar',
+    address: 'Camino Centenario 1200, La Plata', pay: 'Contado', lead: '10 días',
+    desc: 'Ladrillo hueco y cerámico. Pedido mínimo 2.000 unidades.',
+    orders: 3, spent: 1.9 },
+  { id: 'PV-04', scope: 'global', fav: false, name: 'Áridos Río', rubro: 'Movimiento de suelos', cuit: '30-65443322-7',
+    contact: 'Hernán Paz', role: 'Logística', phone: '+54 11 4901 3355', wa: '+54 9 11 4901 3355',
+    email: 'logistica@aridosrio.com.ar', web: '',
+    address: 'Camino a Punta Lara s/n, Ensenada', pay: '15 días', lead: '2 días',
+    desc: 'Arena, piedra partida y granza. Cobran flete aparte según distancia.',
+    orders: 4, spent: 1.2 },
+  { id: 'PV-05', scope: 'global', fav: false, name: 'Eléctrica Plaza', rubro: 'Instalaciones', cuit: '30-71887766-3',
+    contact: 'Cecilia Viale', role: 'Ventas técnicas', phone: '+54 11 4383 9021', wa: '',
+    email: 'ventas@electricaplaza.com.ar', web: 'electricaplaza.com.ar',
+    address: 'Perón 1877, CABA', pay: '30 días', lead: '5 días',
+    desc: 'Cable, caños, tableros y llaves térmicas. Asesoramiento técnico.',
+    orders: 2, spent: 0.4 },
+  // Agenda privada del usuario actual (J. Méndez)
+  { id: 'PV-06', scope: 'private', owner: 'J. Méndez', fav: true, name: 'Hormigonera Sur', rubro: 'Hormigón armado', cuit: '30-70554433-2',
+    contact: 'Raúl Ibáñez', role: 'Dueño', phone: '+54 11 4667 8820', wa: '+54 9 11 4667 8820',
+    email: 'raul@hormigonerasur.com.ar', web: '',
+    address: 'Colectora Oeste 2280, Boulogne', pay: 'Contado', lead: '1 día',
+    desc: 'Contacto propio. Hormigón elaborado para urgencias, responde fuera de horario.',
+    orders: 0, spent: 0 },
+  { id: 'PV-07', scope: 'private', owner: 'J. Méndez', fav: false, name: 'Carpintería Lomas', rubro: 'Terminaciones', cuit: '',
+    contact: 'Sergio Duarte', role: 'Titular', phone: '+54 11 5520 7734', wa: '+54 9 11 5520 7734',
+    email: '', web: '',
+    address: 'Lomas de Zamora', pay: '50% anticipo', lead: '20 días',
+    desc: 'Aberturas y muebles a medida. Todavía no trabajamos con ellos en esta obra.',
+    orders: 0, spent: 0 },
+];
+const SupplierStore = makeStore(SUPPLIERS_SEED);
+
+// "Cementos del Plata" → "CP" (ignora conectores y sufijos societarios).
+const SUP_SKIP = /^(de|del|la|las|los|el|y|e|s\.?a\.?|s\.?r\.?l\.?|sas|ltda)$/i;
+const supInitials = (name) => (name || '')
+  .split(/\s+/).filter((w) => w && !SUP_SKIP.test(w))
+  .map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
+const ScreenSuppliers = ({ onNav }) => {
+  const supStore = useStore(SupplierStore);
+  useStore(OrderStore);
+  const rubroStore = useRubroStore();
+  const all = supStore.get();
+  const ME = 'J. Méndez';
+
+  const [scope, setScope] = React.useState('global'); // global | private
+  const [q, setQ] = React.useState('');
+  const [sel, setSel] = React.useState(null);
+  const [edit, setEdit] = React.useState(null);
+  const [toast, setToast] = React.useState(null);
+  const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2200); };
+
+  const globals = all.filter((p) => p.scope === 'global');
+  const privates = all.filter((p) => p.scope === 'private' && p.owner === ME);
+  const inScope = scope === 'global' ? globals : privates;
+
+  const shown = inScope.filter((p) => !q || (p.name + ' ' + p.contact + ' ' + p.rubro + ' ' + p.desc).toLowerCase().includes(q.toLowerCase()));
+  const favs = shown.filter((p) => p.fav);
+  const rest = shown.filter((p) => !p.fav);
+
+  // Agrupado por rubro para el bloque "resto"
+  const byRubro = rest.reduce((a, p) => { (a[p.rubro] = a[p.rubro] || []).push(p); return a; }, {});
+
+  const current = sel ? all.find((x) => x.id === sel) : null;
+  const ordersOf = (name) => OrderStore.get().filter((o) => o.prov === name);
+
+  const toggleFav = (id, cur) => { supStore.update(id, { fav: !cur }); flash(cur ? 'Quitado de frecuentes' : 'Agregado a frecuentes'); };
+  const save = (d) => {
+    if (d.id) { supStore.update(d.id, d); flash('Proveedor actualizado'); }
+    else {
+      const id = 'PV-' + String(all.length + 1).padStart(2, '0');
+      supStore.add({ ...d, id, scope, owner: scope === 'private' ? ME : undefined, fav: false, orders: 0, spent: 0 });
+      setSel(id);
+      flash(scope === 'global' ? 'Proveedor agregado a la obra' : 'Proveedor agregado a tu agenda');
+    }
+    setEdit(null);
+  };
+  const promote = (p) => { supStore.update(p.id, { scope: 'global', owner: undefined }); setScope('global'); flash('Compartido con la obra'); };
+
+  const Star = ({ on, onClick, size = 13 }) => (
+    <button onClick={onClick} className="p-1 -m-1 flex-none" title={on ? 'Quitar de frecuentes' : 'Marcar como frecuente'}>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={on ? '#F59E0B' : 'none'} stroke={on ? '#F59E0B' : '#CBD5E1'} strokeWidth="2">
+        <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+      </svg>
+    </button>
+  );
+
+  // Fila de la lista (estructura distinta al resto: lista + panel fijo)
+  const Row = (p) => {
+    const on = sel === p.id;
+    return (
+      <div key={p.id}
+        className={"group flex items-center gap-2 pl-3 pr-2 py-[9px] border-l-[3px] cursor-pointer transition-colors " +
+          (on ? 'bg-primary-50/60 border-primary' : 'border-transparent hover:bg-slate50')}
+        onClick={() => setSel(p.id)}>
+        <Star on={p.fav} onClick={(e) => { e.stopPropagation(); toggleFav(p.id, p.fav); }} />
+        <span className="w-8 h-8 rounded-md flex items-center justify-center flex-none font-extrabold text-[11px]"
+          style={{ background: (RUBRO_COLORS[p.rubro] || '#94A3B8') + '22', color: RUBRO_COLORS[p.rubro] || '#64748B' }}>
+          {supInitials(p.name)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-bold text-slate950 truncate leading-tight">{p.name}</div>
+          <div className="text-[10px] text-slate500 truncate">{p.contact || 'Sin contacto'} · {p.rubro}</div>
+        </div>
+        {p.orders > 0 && <span className="text-[10px] font-bold text-slate500 tnum flex-none">{p.orders} ped.</span>}
+        {p.scope === 'private' && <span className="text-[9px] font-bold text-[#A16207] bg-attention50 rounded px-[5px] py-[2px] flex-none">Privado</span>}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <DPageHeader
+        title="Proveedores"
+        subtitle={globals.length + ' de la obra · ' + privates.length + ' en tu agenda privada'}
+        right={<DButton variant="primary" size="sm" icon={<Icon name="plus" size={13} />} onClick={() => setEdit({ initial: null })}>Nuevo proveedor</DButton>}
+      />
+
+      {/* Selector de ámbito — dos listas separadas, no un filtro más */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {[
+          { id: 'global',  ico: 'users',  t: 'De la obra',      s: 'Visibles para todo el equipo con acceso a Pedidos', n: globals.length },
+          { id: 'private', ico: 'clock',  t: 'Mi agenda',       s: 'Solo los ves vos · contactos propios sin compartir', n: privates.length },
+        ].map((x) => {
+          const on = scope === x.id;
+          return (
+            <button key={x.id} onClick={() => { setScope(x.id); setSel(null); }}
+              className={"text-left rounded-lg border p-4 transition-all " + (on ? 'bg-white border-primary ring-1 ring-primary/20 shadow-card' : 'bg-slate50/60 border-slate200 hover:border-slate300')}>
+              <div className="flex items-start gap-3">
+                <span className={"w-9 h-9 rounded-lg flex items-center justify-center flex-none " + (on ? 'bg-primary text-white' : 'bg-white border border-slate200 text-slate500')}>
+                  <Icon name={x.id === 'private' ? 'users' : 'truck'} size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={"text-[14px] font-bold " + (on ? 'text-slate950' : 'text-slate700')}>{x.t}</span>
+                    <span className={"text-[10px] font-bold tnum px-[6px] py-[2px] rounded-full " + (on ? 'bg-primary-50 text-primary' : 'bg-slate200 text-slate600')}>{x.n}</span>
+                  </div>
+                  <div className="text-[11px] text-slate500 leading-snug mt-[3px]">{x.s}</div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Lista + ficha fija (estructura propia de esta subsección) */}
+      <div className="grid grid-cols-[320px_1fr] gap-3 items-start">
+        {/* Columna izquierda: buscador + listado agrupado */}
+        <DCard padding="p-0" className="overflow-hidden">
+          <div className="p-2 border-b border-slate200">
+            <div className="flex items-center gap-2 bg-slate50 border border-slate200 rounded-md px-2 py-[6px] text-[12px] text-slate500 focus-within:border-primary transition-colors">
+              <Icon name="search" size={13} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar proveedor o rubro…"
+                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-slate950 placeholder:text-slate400" />
+              {q && <button onClick={() => setQ('')} className="text-slate400 hover:text-slate700 flex-none"><Icon name="x" size={12} /></button>}
+            </div>
+          </div>
+
+          <div className="max-h-[560px] overflow-y-auto">
+            {favs.length > 0 && (
+              <>
+                <div className="px-3 py-[6px] bg-attention50 flex items-center gap-[6px] sticky top-0 z-10">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#F59E0B"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                  <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-[#A16207]">Frecuentes</span>
+                  <span className="text-[10px] font-bold text-[#A16207]/70 tnum ml-auto">{favs.length}</span>
+                </div>
+                {favs.map(Row)}
+              </>
+            )}
+
+            {Object.entries(byRubro).map(([r, ps]) => (
+              <React.Fragment key={r}>
+                <div className="px-3 py-[6px] bg-slate50 flex items-center gap-[6px] border-y border-slate100">
+                  <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: RUBRO_COLORS[r] || '#94A3B8' }} />
+                  <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate600 truncate">{r}</span>
+                  <span className="text-[10px] font-bold text-slate400 tnum ml-auto">{ps.length}</span>
+                </div>
+                {ps.map(Row)}
+              </React.Fragment>
+            ))}
+
+            {shown.length === 0 && (
+              <div className="text-center py-12 px-5">
+                <span className="w-12 h-12 rounded-full bg-slate100 text-slate400 flex items-center justify-center mx-auto mb-3">
+                  <Icon name={q ? 'search' : 'truck'} size={20} />
+                </span>
+                {q ? (
+                  <>
+                    <div className="text-[13px] font-bold text-slate700">Sin resultados</div>
+                    <div className="text-[11px] text-slate500 mt-1 leading-snug">
+                      Ningún proveedor coincide con “<b className="text-slate700">{q}</b>”
+                      {scope === 'global' ? ' en la obra.' : ' en tu agenda.'}
+                    </div>
+                    <button onClick={() => { setScope(scope === 'global' ? 'private' : 'global'); }}
+                      className="text-[11px] font-bold text-primary hover:underline mt-3">
+                      Buscar en {scope === 'global' ? 'mi agenda' : 'la obra'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-[13px] font-bold text-slate700">
+                      {scope === 'private' ? 'Tu agenda está vacía' : 'Sin proveedores'}
+                    </div>
+                    <div className="text-[11px] text-slate500 mt-1 leading-snug">
+                      {scope === 'private'
+                        ? 'Guardá contactos propios que todavía no querés compartir con el equipo.'
+                        : 'Cargá los proveedores con los que trabaja la obra.'}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="p-2 border-t border-slate200 bg-slate50">
+            <button onClick={() => setEdit({ initial: null })}
+              className="w-full flex items-center justify-center gap-2 text-[12px] font-bold text-primary py-[7px] rounded-md hover:bg-primary-50 transition-colors">
+              <Icon name="plus" size={12} /> Agregar a {scope === 'global' ? 'la obra' : 'mi agenda'}
+            </button>
+          </div>
+        </DCard>
+
+        {/* Columna derecha: ficha */}
+        {!current ? (
+          <DCard className="py-16 text-center">
+            <span className="w-14 h-14 rounded-full bg-slate100 text-slate400 flex items-center justify-center mx-auto mb-3"><Icon name="truck" size={24} /></span>
+            <div className="text-[14px] font-bold text-slate700">Elegí un proveedor</div>
+            <div className="text-[12px] text-slate500 mt-1 max-w-[340px] mx-auto leading-snug">
+              Vas a ver sus contactos, condiciones comerciales y los pedidos que le hiciste en esta obra.
+            </div>
+          </DCard>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {/* Encabezado de la ficha */}
+            <DCard padding="p-0" className="overflow-hidden">
+              <div className="h-[3px] w-full" style={{ background: RUBRO_COLORS[current.rubro] || '#94A3B8' }} />
+              <div className="p-5">
+                <div className="flex items-start gap-4">
+                  <span className="w-14 h-14 rounded-xl flex items-center justify-center flex-none font-extrabold text-[18px]"
+                    style={{ background: (RUBRO_COLORS[current.rubro] || '#94A3B8') + '22', color: RUBRO_COLORS[current.rubro] || '#64748B' }}>
+                    {supInitials(current.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-[20px] font-extrabold display-tight text-slate950 leading-tight">{current.name}</h3>
+                      <Star on={current.fav} onClick={() => toggleFav(current.id, current.fav)} size={16} />
+                      {current.scope === 'private'
+                        ? <span className="text-[9px] font-bold text-[#A16207] bg-attention50 border border-[#FDE68A] rounded px-[6px] py-[2px]">SOLO VOS</span>
+                        : <span className="text-[9px] font-bold text-primary bg-primary-50 rounded px-[6px] py-[2px]">TODA LA OBRA</span>}
+                    </div>
+                    <div className="text-[12px] text-slate500 mt-1 flex items-center gap-[6px]">
+                      <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: RUBRO_COLORS[current.rubro] || '#94A3B8' }} />
+                      {current.rubro}{current.cuit ? ' · CUIT ' + current.cuit : ''}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-none">
+                    <button onClick={() => setEdit({ initial: current })} className="text-slate400 hover:text-primary p-2" title="Editar"><Icon name="edit" size={14} /></button>
+                  </div>
+                </div>
+
+                {/* Contacto directo */}
+                <div className="flex items-center gap-2 mt-4 flex-wrap">
+                  {current.wa && <a href={'https://wa.me/' + current.wa.replace(/\D/g, '')} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-[6px] text-[12px] font-bold text-white bg-[#25D366] hover:brightness-95 rounded-md px-3 py-[8px] transition-all">
+                    <Icon name="message" size={13} /> WhatsApp</a>}
+                  {current.email && <a href={'mailto:' + current.email}
+                    className="inline-flex items-center gap-[6px] text-[12px] font-bold text-slate700 bg-white border border-slate200 hover:border-primary rounded-md px-3 py-[8px] transition-colors">
+                    <Icon name="message" size={13} /> Email</a>}
+                  {current.phone && <a href={'tel:' + current.phone.replace(/\s/g, '')}
+                    className="inline-flex items-center gap-[6px] text-[12px] font-bold text-slate700 bg-white border border-slate200 hover:border-primary rounded-md px-3 py-[8px] transition-colors">
+                    <Icon name="mic" size={13} /> Llamar</a>}
+                  <div className="flex-1" />
+                  {current.scope === 'private' && (
+                    <DButton variant="secondary" size="sm" icon={<Icon name="users" size={12} />} onClick={() => promote(current)}>Compartir con la obra</DButton>
+                  )}
+                </div>
+              </div>
+            </DCard>
+
+            {/* Datos en dos columnas */}
+            <div className="grid grid-cols-2 gap-3 items-start">
+              <DCard padding="p-0">
+                <div className="px-4 py-3 border-b border-slate200 text-[13px] font-bold">Contacto</div>
+                <div className="p-4">
+                  <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate100">
+                    <DAvatar initials={(current.contact || '?').split(' ').map((w) => w[0]).join('').slice(0, 2)} size={34} />
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-bold text-slate950 truncate">{current.contact || 'Sin contacto'}</div>
+                      <div className="text-[11px] text-slate500">{current.role || '—'}</div>
+                    </div>
+                  </div>
+                  <div className="space-y-[7px]">
+                    {[['WhatsApp', current.wa], ['Teléfono', current.phone], ['Email', current.email], ['Web', current.web], ['Dirección', current.address]].map(([l, v]) => (
+                      <div key={l} className="grid grid-cols-[76px_1fr] gap-2 text-[11px]">
+                        <span className="text-slate500">{l}</span>
+                        <span className={"truncate " + (v ? 'font-semibold text-slate900' : 'text-slate300')}>{v || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </DCard>
+
+              <DCard padding="p-0">
+                <div className="px-4 py-3 border-b border-slate200 text-[13px] font-bold">Condiciones</div>
+                <div className="p-4">
+                  <div className="grid grid-cols-2 gap-3 mb-3 pb-3 border-b border-slate100">
+                    {[['Pago', current.pay], ['Entrega', current.lead]].map(([l, v]) => (
+                      <div key={l}>
+                        <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-1">{l}</div>
+                        <div className="text-[13px] font-bold text-slate950">{v || '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-1">Qué provee</div>
+                  <p className="text-[12px] text-slate700 leading-relaxed">{current.desc || <span className="italic text-slate400">Sin descripción.</span>}</p>
+                </div>
+              </DCard>
+            </div>
+
+            {/* Pedidos */}
+            <DCard padding="p-0">
+              <div className="px-4 py-3 border-b border-slate200 flex items-center justify-between">
+                <div className="text-[13px] font-bold">Pedidos en esta obra</div>
+                <button onClick={() => onNav && onNav('pedidos')} className="text-[11px] font-bold text-primary hover:underline">Ver todos →</button>
+              </div>
+              {ordersOf(current.name).length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <div className="text-[12px] text-slate500 mb-3">Todavía no le hiciste pedidos a este proveedor.</div>
+                  <DButton variant="secondary" size="sm" icon={<Icon name="plus" size={12} />} onClick={() => onNav && onNav('pedidos')}>Crear un pedido</DButton>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate100">
+                  {ordersOf(current.name).map((o) => (
+                    <button key={o.id} onClick={() => onNav && onNav('pedidos')} className="w-full flex items-center gap-3 px-4 py-[10px] hover:bg-slate50 text-left transition-colors">
+                      <span className="w-8 h-8 rounded-md bg-slate100 text-slate600 flex items-center justify-center flex-none"><Icon name="package" size={13} /></span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] font-bold text-slate950 truncate">{o.mat}</div>
+                        <div className="text-[10px] text-slate500">{o.qty} · llega {o.date}</div>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate400 tnum flex-none">{o.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DCard>
+          </div>
+        )}
+      </div>
+
+      {edit && <SupplierModal initial={edit.initial} scope={scope} rubros={rubroStore.names()} onClose={() => setEdit(null)} onSave={save} />}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-slate950 text-white text-[13px] font-semibold rounded-lg px-4 py-3 flex items-center gap-2 shadow-pop animate-toast-in">
+          <Icon name="check" size={14} className="text-success" /> {toast}
+        </div>
+      )}
+    </>
+  );
+};
+
+const SUP_INP = "bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none";
+const SupField = ({ label, children, span }) => (
+  <label className={"flex flex-col gap-[6px] " + (span ? 'col-span-2' : '')}>
+    <span className="text-[11px] font-bold text-slate700">{label}</span>{children}
+  </label>
+);
+
+const SupplierModal = ({ initial, scope, rubros, onClose, onSave }) => {
+  const [d, setD] = React.useState(initial || {
+    name: '', rubro: rubros[0] || '', cuit: '', contact: '', role: '',
+    phone: '', wa: '', email: '', web: '', address: '', pay: '30 días', lead: '', desc: '',
+  });
+  React.useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  const set = (patch) => setD((p) => ({ ...p, ...patch }));
+  const canSave = (d.name || '').trim().length >= 2;
+  const isPrivate = (initial ? initial.scope : scope) === 'private';
+  const inp = SUP_INP;
+  const F = SupField;
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate950/60 backdrop-blur-sm animate-fade-task">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[620px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
+        <div className="px-6 py-4 border-b border-slate200 flex items-center justify-between flex-none">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-primary-50 text-primary flex items-center justify-center"><Icon name="truck" size={16} /></div>
+            <div>
+              <div className="text-[15px] font-extrabold display-tight">{initial ? 'Editar proveedor' : 'Nuevo proveedor'}</div>
+              <div className="text-[11px] text-slate500">{isPrivate ? 'Se guarda en tu agenda privada' : 'Visible para todo el equipo de la obra'}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-md hover:bg-slate100 text-slate500 hover:text-slate950 flex items-center justify-center"><Icon name="x" size={16} /></button>
+        </div>
+
+        {!initial && (
+          <div className={"px-6 py-3 flex items-start gap-2 border-b " + (isPrivate ? 'bg-attention50 border-[#FDE68A]' : 'bg-primary-50 border-primary/15')}>
+            <Icon name={isPrivate ? 'clock' : 'users'} size={13} className={(isPrivate ? 'text-[#A16207]' : 'text-primary') + ' mt-[2px] flex-none'} />
+            <span className="text-[11px] text-slate700 leading-snug">
+              {isPrivate
+                ? 'Solo vos vas a ver este contacto. Podés compartirlo con la obra más adelante desde su ficha.'
+                : 'Cualquier persona con acceso a Pedidos va a poder ver y usar este proveedor.'}
+            </span>
+          </div>
+        )}
+
+        <div className="p-6 overflow-y-auto space-y-5">
+          <div>
+            <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-2">Identificación</div>
+            <div className="grid grid-cols-2 gap-3">
+              <F label="Razón social*"><input value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="Ej: Cementos del Plata" className={inp} /></F>
+              <F label="CUIT"><input value={d.cuit} onChange={(e) => set({ cuit: e.target.value })} placeholder="30-71234567-4" className={inp + ' tnum'} /></F>
+              <F label="Rubro que provee">
+                <select value={d.rubro} onChange={(e) => set({ rubro: e.target.value })} className={inp}>
+                  {rubros.map((r) => <option key={r}>{r}</option>)}
+                </select>
+              </F>
+              <F label="Dirección"><input value={d.address} onChange={(e) => set({ address: e.target.value })} placeholder="Calle, localidad" className={inp} /></F>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-2">Contacto</div>
+            <div className="grid grid-cols-2 gap-3">
+              <F label="Persona de contacto"><input value={d.contact} onChange={(e) => set({ contact: e.target.value })} placeholder="Ej: Marta Ruiz" className={inp} /></F>
+              <F label="Puesto"><input value={d.role} onChange={(e) => set({ role: e.target.value })} placeholder="Ej: Ventas" className={inp} /></F>
+              <F label="WhatsApp" span>
+                {typeof PhoneInput !== 'undefined'
+                  ? <PhoneInput value={d.wa} onChange={(full) => set({ wa: full })} />
+                  : <input value={d.wa} onChange={(e) => set({ wa: e.target.value })} className={inp} />}
+              </F>
+              <F label="Teléfono fijo" span>
+                {typeof PhoneInput !== 'undefined'
+                  ? <PhoneInput value={d.phone} onChange={(full) => set({ phone: full })} />
+                  : <input value={d.phone} onChange={(e) => set({ phone: e.target.value })} className={inp} />}
+              </F>
+              <F label="Email"><input value={d.email} onChange={(e) => set({ email: e.target.value })} placeholder="ventas@proveedor.com" className={inp} /></F>
+              <F label="Sitio web"><input value={d.web} onChange={(e) => set({ web: e.target.value })} placeholder="proveedor.com.ar" className={inp} /></F>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 mb-2">Condiciones comerciales</div>
+            <div className="grid grid-cols-2 gap-3">
+              <F label="Condición de pago">
+                <select value={d.pay} onChange={(e) => set({ pay: e.target.value })} className={inp}>
+                  {['Contado', '50% anticipo', '15 días', '30 días', '60 días', '90 días'].map((x) => <option key={x}>{x}</option>)}
+                </select>
+              </F>
+              <F label="Plazo de entrega habitual"><input value={d.lead} onChange={(e) => set({ lead: e.target.value })} placeholder="Ej: 5 días" className={inp} /></F>
+              <F label="Qué provee / observaciones" span>
+                <textarea value={d.desc} onChange={(e) => set({ desc: e.target.value })} rows={3}
+                  placeholder="Materiales que vende, mínimos de compra, si incluye flete o descarga…"
+                  className={inp + ' resize-y min-h-[70px]'} />
+              </F>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate200 bg-slate50 flex items-center justify-end gap-2 flex-none">
+          <button onClick={onClose} className="text-[12px] font-bold text-slate600 hover:text-slate950 px-3 py-[8px]">Cancelar</button>
+          <button onClick={() => canSave && onSave(d)} disabled={!canSave}
+            className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? 'bg-primary hover:bg-primary-700 text-white' : 'bg-slate200 text-slate500 cursor-not-allowed')}>
+            Guardar <Icon name="check" size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ScreenMateriales = makeGroupScreen([
-  { id: 'pedidos', label: 'Pedidos', icon: 'package', badge: 7, Comp: ScreenMaterials },
-  { id: 'stock',   label: 'Stock',   icon: 'box',                Comp: ScreenStock },
+  { id: 'pedidos', label: 'Pedidos', icon: 'truck', badgeFn: () => OrderStore.get().filter((o) => o.state === 'pending').length, Comp: ScreenMaterials },
+  { id: 'stock',   label: 'Stock',   icon: 'box',              Comp: ScreenStock },
+  { id: 'proveedores', label: 'Proveedores', icon: 'truck',      Comp: ScreenSuppliers },
 ]);
 
 const ScreenCostos = makeGroupScreen([
@@ -6026,14 +6965,15 @@ const ScreenRegistro = makeGroupScreen([
   { id: 'reportes',  label: 'Reportes',  icon: 'chart',   Comp: ScreenReports },
 ]);
 
+
 const SCREENS = [
   { id: 'dashboard',  label: 'Dashboard',  icon: 'grid',     crumb: 'Dashboard',  Comp: ScreenDashboard },
-  { id: 'inbox',      label: 'Bandeja',    icon: 'message',  crumb: 'Bandeja',    Comp: ScreenInbox, badge: 3 },
+  { id: 'inbox',      label: 'Bandeja',    icon: 'message',  crumb: 'Bandeja',    Comp: ScreenInbox, badgeFn: () => InboxStore.get().filter((m) => m.dir === 'in' && m.state === 'pending').length },
   { id: 'gantt',      label: 'Cronograma', icon: 'calendar', crumb: 'Cronograma', Comp: ScreenGantt },
-  { id: 'materiales', label: 'Materiales', icon: 'package',  crumb: 'Materiales', Comp: ScreenMateriales, badge: 7 },
-  { id: 'costos',     label: 'Costos',     icon: 'dollar',   crumb: 'Costos',     Comp: ScreenCostos },
-  { id: 'alerts',     label: 'Alertas',    icon: 'alert',    crumb: 'Alertas',    Comp: ScreenAlerts, badge: 2 },
-  { id: 'registro',   label: 'Registro',   icon: 'photo',    crumb: 'Registro',   Comp: ScreenRegistro },
+  { id: 'materiales', label: 'Materiales', icon: 'box',      crumb: 'Materiales', Comp: ScreenMateriales, subs: ScreenMateriales.subs },
+  { id: 'costos',     label: 'Costos',     icon: 'dollar',   crumb: 'Costos',     Comp: ScreenCostos,     subs: ScreenCostos.subs },
+  { id: 'alerts',     label: 'Alertas',    icon: 'alert',    crumb: 'Alertas',    Comp: ScreenAlerts, badgeFn: () => AlertStore.get().filter((a) => a.state === 'open').length },
+  { id: 'registro',   label: 'Registro',   icon: 'photo',    crumb: 'Registro',   Comp: ScreenRegistro,   subs: ScreenRegistro.subs },
   { id: 'team',       label: 'Equipo',     icon: 'users',    crumb: 'Equipo',     Comp: ScreenTeam },
 ];
 
@@ -6043,12 +6983,13 @@ const SCREENS = [
 // poder comparar ambas arquitecturas de navegación desde el panel de Tweaks.
 const SCREENS_FLAT = [
   { id: 'dashboard',  label: 'Dashboard',  icon: 'grid',     crumb: 'Dashboard',  Comp: ScreenDashboard },
-  { id: 'inbox',      label: 'Bandeja',    icon: 'message',  crumb: 'Bandeja',    Comp: ScreenInbox, badge: 3 },
+  { id: 'inbox',      label: 'Bandeja',    icon: 'message',  crumb: 'Bandeja',    Comp: ScreenInbox, badgeFn: () => InboxStore.get().filter((m) => m.dir === 'in' && m.state === 'pending').length },
   { id: 'gantt',      label: 'Cronograma', icon: 'calendar', crumb: 'Cronograma', Comp: ScreenGantt },
   { id: 'rubros',     label: 'Rubros',     icon: 'layers',   crumb: 'Rubros',     Comp: ScreenRubros },
-  { id: 'alerts',     label: 'Alertas',    icon: 'alert',    crumb: 'Alertas',    Comp: ScreenAlerts, badge: 2 },
-  { id: 'materials',  label: 'Pedidos',    icon: 'package',  crumb: 'Pedidos',    Comp: ScreenMaterials, badge: 7 },
+  { id: 'alerts',     label: 'Alertas',    icon: 'alert',    crumb: 'Alertas',    Comp: ScreenAlerts, badgeFn: () => AlertStore.get().filter((a) => a.state === 'open').length },
+  { id: 'materials',  label: 'Pedidos',    icon: 'package',  crumb: 'Pedidos',    Comp: ScreenMaterials, badgeFn: () => OrderStore.get().filter((o) => o.state === 'pending').length },
   { id: 'stock',      label: 'Stock',      icon: 'box',      crumb: 'Stock',      Comp: ScreenStock },
+  { id: 'proveedores',label: 'Proveedores',icon: 'truck',    crumb: 'Proveedores',Comp: ScreenSuppliers },
   { id: 'receipts',   label: 'Recibos',    icon: 'receipt',  crumb: 'Recibos',    Comp: ScreenReceipts },
   { id: 'budget',     label: 'Presupuesto',icon: 'dollar',   crumb: 'Presupuesto',Comp: ScreenBudget },
   { id: 'gallery',    label: 'Galería',    icon: 'photo',    crumb: 'Galería',    Comp: ScreenGallery },
@@ -6071,7 +7012,7 @@ const EXTRA_SCREENS = [
   { id: 'rubros', label: 'Rubros', icon: 'layers', crumb: 'Rubros', Comp: ScreenRubros, hidden: true },
 ];
 
-const DashSidebar = ({ current, onNav, items = SCREENS, projectLabel = 'Edificio Belgrano', projectSub = '68% completa', userInitials = 'JM', userName = 'J. Méndez', userRole = 'Director de obra' }) => (
+const DashSidebar = ({ current, onNav, items = SCREENS, subRoute, onSubNav, projectLabel = 'Edificio Belgrano', projectSub = '68% completa', userInitials = 'JM', userName = 'J. Méndez', userRole = 'Director de obra' }) => (
   <aside className="w-[220px] bg-ink-deep text-white flex flex-col flex-none">
     <div className="px-4 py-4 flex items-center gap-[10px]">
       <Icon name="logo-mark" size={28} />
@@ -6089,20 +7030,53 @@ const DashSidebar = ({ current, onNav, items = SCREENS, projectLabel = 'Edificio
     <nav data-tour="sidebar" className="px-3 flex-1 min-h-0 overflow-y-auto flex flex-col gap-1">
       {items.map((s) => {
         const on = current === s.id;
+        const hasSubs = Array.isArray(s.subs) && s.subs.length > 0;
+        const activeSub = hasSubs ? ((s.subs.find((x) => x.id === subRoute) || s.subs[0]).id) : null;
         return (
-          <button key={s.id} data-tour={s.id === 'gantt' ? 'nav-gantt' : s.id === 'presupuesto' ? 'nav-presupuesto' : undefined} onClick={() => onNav(s.id)}
-            className={`relative flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left transition-colors
-              ${on ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/[0.06] hover:text-white'}`}>
-            {on && <span className="absolute -left-3 top-[8px] bottom-[8px] w-[3px] bg-accent rounded" />}
-            <span className={on ? 'text-accent' : 'text-white/55'}>
-              <Icon name={s.icon} size={16} />
-            </span>
-            <span className="flex-1">{s.label}</span>
-            {s.badge && (
-              <span className={`text-[9px] font-bold px-[6px] py-[1.5px] rounded-full
-                ${s.id === 'alerts' ? 'bg-critical text-white' : 'bg-white/20 text-white'}`}>{s.badge}</span>
+          <React.Fragment key={s.id}>
+            <button data-tour={s.id === 'gantt' ? 'nav-gantt' : undefined} onClick={() => onNav(s.id)}
+              className={`relative flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left transition-colors
+                ${on ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/[0.06] hover:text-white'}`}>
+              {on && <span className="absolute -left-3 top-[8px] bottom-[8px] w-[3px] bg-accent rounded" />}
+              <span className={on ? 'text-accent' : 'text-white/55'}>
+                <Icon name={s.icon} size={16} />
+              </span>
+              <span className="flex-1">{s.label}</span>
+              {(() => {
+                const bv = s.badgeFn ? s.badgeFn() : s.badge;
+                return bv ? (
+                  <span className={`text-[9px] font-bold px-[6px] py-[1.5px] rounded-full
+                    ${s.id === 'alerts' ? 'bg-critical text-white' : 'bg-white/20 text-white'}`}>{bv}</span>
+                ) : null;
+              })()}
+              {hasSubs && (
+                <Icon name={on ? 'chevron-up' : 'chevron-down'} size={13} className={on ? 'text-white/60' : 'text-white/35'} />
+              )}
+            </button>
+
+            {/* Subsecciones: sólo visibles cuando el grupo está activo */}
+            {hasSubs && on && (
+              <div className="relative pl-3 mb-1 flex flex-col gap-[2px]">
+                <span className="absolute left-[14px] top-[2px] bottom-[2px] w-px bg-white/12" />
+                {s.subs.map((x) => {
+                  const son = activeSub === x.id;
+                  return (
+                    <button key={x.id} onClick={() => onSubNav(x.id)}
+                      className={`relative flex items-center gap-[9px] pl-[22px] pr-3 py-[7px] rounded-md text-[12px] font-semibold text-left transition-colors
+                        ${son ? 'bg-white/[0.09] text-white' : 'text-white/55 hover:bg-white/[0.05] hover:text-white/85'}`}>
+                      <span className={son ? 'text-accent' : 'text-white/40'}>
+                        <Icon name={x.icon} size={14} />
+                      </span>
+                      <span className="flex-1">{x.label}</span>
+                      {x.badge && (
+                        <span className={`text-[9px] font-bold px-[5px] py-[1px] rounded-full ${son ? 'bg-accent text-slate950' : 'bg-white/15 text-white/80'}`}>{x.badge}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </button>
+          </React.Fragment>
         );
       })}
     </nav>
@@ -6120,13 +7094,6 @@ const DashSidebar = ({ current, onNav, items = SCREENS, projectLabel = 'Edificio
       </button>
     </div>
 
-    <div className="border-t border-white/10 p-3 flex items-center gap-[10px]">
-      <DAvatar initials={userInitials} size={30} />
-      <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-bold">{userName}</div>
-        <div className="text-[10px] text-white/55">{userRole}</div>
-      </div>
-    </div>
   </aside>
 );
 
@@ -6594,6 +7561,8 @@ const NotificationsPanel = ({ onClose }) => {
 };
 
 const LiveDashboard = ({ height = 720, initial = 'dashboard', screens, projectLabel, projectSub, userInitials = 'JM', userName = 'J. Méndez', userRole = 'Director de obra', onComplete, navVariant = 'grouped' }) => {
+  // Suscripción a los stores: los contadores del sidebar se recalculan solos.
+  useStore(InboxStore); useStore(OrderStore); useStore(StockStore); useAlertStore();
   const flat = navVariant === 'flat';
   const base = flat ? SCREENS_FLAT : SCREENS;
   const list = screens || base;
@@ -6601,7 +7570,15 @@ const LiveDashboard = ({ height = 720, initial = 'dashboard', screens, projectLa
   const allScreens = screens ? screens : (flat ? SCREENS_FLAT : [...SCREENS, ...EXTRA_SCREENS]);
   const [route, setRoute] = React.useState(initial);
   // En la versión agrupada se traducen los ids antiguos a los nuevos grupos.
-  const nav = (id) => setRoute(flat ? id : ((typeof ROUTE_ALIASES !== 'undefined' && ROUTE_ALIASES[id]) || id));
+  const [subRoute, setSubRoute] = React.useState(null);
+  // Un deep-link viejo (stock, recibos, galeria…) abre el grupo Y su subsección.
+  const SUB_OF = { materials: 'pedidos', stock: 'stock', budget: 'presupuesto', receipts: 'recibos', activity: 'actividad', gallery: 'galeria', reports: 'reportes' };
+  const nav = (id) => {
+    if (flat) { setRoute(id); return; }
+    const target = (typeof ROUTE_ALIASES !== 'undefined' && ROUTE_ALIASES[id]) || id;
+    setRoute(target);
+    setSubRoute(SUB_OF[id] || null);
+  };
   const [quickAdd, setQuickAdd] = React.useState(null);
   const [tourOpen, setTourOpen] = React.useState(false);
   const [toast, setToast] = React.useState(null);
@@ -6613,16 +7590,21 @@ const LiveDashboard = ({ height = 720, initial = 'dashboard', screens, projectLa
   // scroll to top on route change
   React.useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
-  }, [route]);
+  }, [route, subRoute]);
 
   return (
     <div style={{ height }} className="flex bg-paper rounded-lg overflow-hidden border border-slate200 shadow-big">
-      <DashSidebar current={route} onNav={nav} items={list} projectLabel={projectLabel} projectSub={projectSub} userInitials={userInitials} userName={userName} userRole={userRole} />
+      <DashSidebar current={route} onNav={nav} items={list} subRoute={subRoute} onSubNav={setSubRoute} projectLabel={projectLabel} projectSub={projectSub} userInitials={userInitials} userName={userName} userRole={userRole} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <DashTopBar crumb={s.crumb} userInitials={userInitials} onQuickAdd={setQuickAdd} />
+        <DashTopBar crumb={(() => {
+          const subs = s.subs;
+          if (!subs) return s.crumb;
+          const sub = subs.find((x) => x.id === subRoute) || subs[0];
+          return s.crumb + ' / ' + sub.label;
+        })()} userInitials={userInitials} onQuickAdd={setQuickAdd} />
         <main ref={contentRef} className="flex-1 overflow-y-auto bg-paper">
           <div className="p-6 max-w-[1100px] mx-auto">
-            <s.Comp onNav={nav} onComplete={onComplete} onQuickAdd={setQuickAdd} onStartTour={() => setTourOpen(true)} />
+            <s.Comp subRoute={subRoute} onNav={nav} onComplete={onComplete} onQuickAdd={setQuickAdd} onStartTour={() => setTourOpen(true)} />
           </div>
         </main>
       </div>
