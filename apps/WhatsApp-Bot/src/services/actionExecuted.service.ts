@@ -175,6 +175,7 @@ function gastoFields(data: Record<string, unknown>, display?: Record<string, str
     const moneda = data.moneda ? ` ${str(data.moneda)}` : "";
     campos.push(["Monto", `$${str(data.monto)}${moneda}`]);
   }
+  add(campos, "Fecha", data.fecha);
   add(campos, "Descripción", data.descripcion);
   if (data.rubro_id || data.rubro_nombre) {
     campos.push(["Rubro", named(display, "rubro_id", data.rubro_nombre ?? data.rubro_id)]);

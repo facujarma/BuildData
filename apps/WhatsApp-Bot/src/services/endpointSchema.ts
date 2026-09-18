@@ -320,6 +320,14 @@ export const ENDPOINTS: EndpointSchema[] = [
         prompt: "¿Cuánto gastaste?",
       },
       {
+        name: "fecha",
+        type: "string",
+        description:
+          "Fecha del gasto si el usuario la menciona (ej: 'ayer', 'el lunes'). En formato YYYY-MM-DD (ISO), interpretando fechas relativas usando la fecha de hoy.",
+        required: false,
+        source: "llm",
+      },
+      {
         name: "rubro_id",
         type: "string",
         description:

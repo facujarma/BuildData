@@ -11,6 +11,19 @@ function parseFechaDocumento(raw) {
   return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
 }
 
+// El LLM de texto libre emite la fecha en YYYY-MM-DD (ISO). Validamos que sea una fecha
+// real (rechaza 2026-02-30) y devolvemos null si no matchea (la columna usa CURRENT_DATE).
+function parseFechaISO(raw) {
+  if (typeof raw !== "string") return null;
+  const m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const fecha = `${m[1]}-${m[2]}-${m[3]}`;
+  const parsed = new Date(`${fecha}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== fecha
+    ? null
+    : fecha;
+}
+
 // vision.service.ts entrega montos como "$1.234,56" (formato argentino) — los convertimos a number
 // para las columnas NUMERIC. Devuelve null si no hay nada parseable.
 function parseMontoDocumento(raw) {
@@ -68,6 +81,7 @@ export async function crearGastoDesdeBot(req, res) {
     moneda,
     rubro_id,
     descripcion,
+    fecha,
     origen,
     comprobante_detalle,
   } = req.body;
@@ -75,7 +89,10 @@ export async function crearGastoDesdeBot(req, res) {
   if (!obra_id || monto === undefined || monto === null) {
     return res.status(400).json({ error: "obra_id y monto son requeridos" });
   }
-  if (typeof monto !== "number" || monto <= 0) {
+
+  // El LLM puede mandar el monto como string ("500") — lo coercionamos antes de validar.
+  const montoNumerico = typeof monto === "number" ? monto : Number(monto);
+  if (!Number.isFinite(montoNumerico) || montoNumerico <= 0) {
     return res.status(400).json({ error: "monto debe ser un número mayor a 0" });
   }
 
@@ -95,6 +112,14 @@ export async function crearGastoDesdeBot(req, res) {
     const d = esImagen ? comprobante_detalle : null;
     const fechaDocumento = d ? parseFechaDocumento(d.fecha) : null;
 
+    // Moneda: el OCR la saca del documento y el texto libre del LLM. Normalizamos a
+    // ARS/USD; cualquier otra cosa cae al default de la columna vía COALESCE.
+    const monedaNormalizada = moneda ? String(moneda).trim().toUpperCase() : null;
+    const monedaFinal = ["ARS", "USD"].includes(monedaNormalizada) ? monedaNormalizada : null;
+
+    // La fecha del documento tiene prioridad; si no hay, la que mencionó el usuario.
+    const fechaGasto = fechaDocumento ?? parseFechaISO(fecha);
+
     // rubro_id ya viene resuelto por el pipeline de resolución de entidades. Si no matchea
     // (o no existe), no bloqueamos la creación del gasto por esto — se guarda sin categoría.
     let rubroId = rubro_id || null;
@@ -109,7 +134,7 @@ export async function crearGastoDesdeBot(req, res) {
       `INSERT INTO gastos (obra_id, usuario_id, rubro_id, descripcion, monto, moneda, origen, revisado, fecha)
        VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'ARS'), $7, $8, COALESCE($9, CURRENT_DATE))
        RETURNING id, obra_id, monto, moneda, rubro_id, descripcion, origen, revisado, fecha, created_at`,
-      [obra_id, usuarioId, rubroId, descripcion || null, monto, moneda || null, origen || "bot_texto", !esImagen, fechaDocumento]
+      [obra_id, usuarioId, rubroId, descripcion || null, montoNumerico, monedaFinal, origen || "bot_texto", !esImagen, fechaGasto]
     );
     const gastoRow = gasto.rows[0];
 
