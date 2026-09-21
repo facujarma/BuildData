@@ -11,6 +11,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 | `npx turbo run dev --filter=frontend` | Solo frontend (Next.js) |
 | `bun --watch src/index.ts` | Modo dev directo del bot (hot reload) |
 | `bun test` | Tests con Bun (apps/WhatsApp-Bot) |
+| `bun test apps/Backend/services/chatbot/sqlGuard.service.test.js` | Tests del guard SQL del ChatBot AI (sin LLM) |
 | `bun run lint` | Lints solo Frontend (WhatsApp-Bot no tiene lint) |
 
 - **Backend no tiene package.json** → no funciona con `--filter=backend`. Correr manual: `node apps/Backend/server.js` (puerto 3001)
@@ -54,6 +55,19 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Regla**: todo write path que cree o cambie el nombre/título de una entidad llama `guardarEmbedding(s)` **después del commit** (nunca dentro de una transacción abierta). Hoy: materiales (`materialesController`, `botController.crearMaterialDesdeBot`, `pedidosController.crearPedidoWeb`), proveedores (`proveedoresController`, `pedidosController.resolverProveedor`), rubros (`rubrosController` create/update, `obrasController` create obra), tareas (`tareasController` crear, crearTareaDesdeBot, actualizarTarea). Al agregar un write path nuevo, sumarlo
 - Backfill/reproceso: `cd apps/Backend && node scripts/backfill_embeddings.js [--tipo=material|proveedor|rubro|tarea|all] [--obra=<uuid>] [--force]`
 
+## ChatBot AI (preguntas en lenguaje natural → SQL → respuesta)
+
+- **Endpoint**: `POST /chat/consultar` (`authMiddleware`, body `{ pregunta, obra_id }`). Valida membresía con `miembros_obra` (403 si no pertenece). **Una obra activa por consulta** (no compara obras)
+- **Pipeline** (`services/chatbot/chatbot.service.js`): `planner.service.js` descompone la pregunta en subpreguntas (máx 5, con período/agrupamiento/límite) → `sqlGenerator.service.js` genera un SELECT por subpregunta → `sqlGuard.service.js` valida y ejecuta → `narrator.service.js` redacta la respuesta final. El planner **no escribe SQL**; el SQL generator recibe solo su subpregunta
+- **Parámetros del SQL**: `$1` = `obra_id`; `$2`/`$3` = desde/hasta (solo si hay período). El SQL nunca interpola valores
+- **Guard + ejecución** (`sqlGuard.service.js`): una sola sentencia `SELECT|WITH`, sin comentarios/DDL/DML/esquemas del sistema, tablas de la whitelist, filtro `obra_id = $1` obligatorio (o `id = $1` para `obras`) y joins de detalle a su padre. Se ejecuta en `BEGIN; SET LOCAL TRANSACTION READ ONLY; statement_timeout=5s; ROLLBACK` con `LIMIT` ≤ 500. La validación es heurística: la barrera dura es la transacción read-only. Tests sin LLM: `bun test apps/Backend/services/chatbot/sqlGuard.service.test.js`
+- **`schemaContext.js`** es la fuente de verdad del chatbot: tablas permitidas, columnas reales, glosario y métricas derivadas (ej: disponible = total − ejecutado − comprometido). **Sacado de la DB real (`information_schema`)**, no de `outputs/migracion_final.sql` (desactualizado). Al agregar una tabla/columna relevante, actualizarlo
+- **Modelo**: Groq `openai/gpt-oss-120b` con `temperature=0`, `response_format: json_object` y `reasoning_effort: low`. Ojo: es modelo con razonamiento → `max_tokens` holgado o el contenido vuelve vacío
+- **Auditoría**: tabla `chat_consultas` (pregunta, plan, SQL, filas, error, ms). Migración manual: `apps/Backend/outputs/migracion_chatbot.sql`
+- **CLI de prueba**: `node apps/Backend/scripts/probar_planner.js --pregunta="..."` (solo descomposición) y `node apps/Backend/scripts/probar_chatbot.js --obra=<uuid> --pregunta="..."` (end-to-end). El CLI cae al `GROQ_API_KEY` de `apps/WhatsApp-Bot/.env` si el Backend no lo tiene
+- **Frontend**: el componente `ChatBubble` (Buildo, `app/[obraId]/dashboard/_components/ChatBubble.tsx`) está activo en el layout del dashboard y consulta `POST /chat/consultar` vía `services/chatbotService.ts` (JWT de Supabase + `obra_id`). El endpoint **no tiene memoria conversacional**: cada pregunta es independiente (no hay follow-ups tipo "y el mes pasado?")
+- Pendiente: rate limit por persona, rol Postgres read-only dedicado, memoria conversacional
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error
@@ -71,7 +85,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 ## Variables de entorno
 
 - **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`
-- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`)
+- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI)
 - NUNCA comitear `.env`
 
 ## Backend — rutas y flujo de tareas

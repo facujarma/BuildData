@@ -26,6 +26,7 @@ import reportesRoutes from "./routes/reportes.js";
 import obrerosRoutes from "./routes/obreros.js";
 import pedidosRoutes from "./routes/pedidos.js";
 import mensajesRoutes from "./routes/mensajes.js";
+import chatbotRoutes from "./routes/chatbot.js";
 import { verificarInactividad } from "./controllers/alertasController.js";
 
 dotenv.config();
@@ -97,6 +98,9 @@ app.use("/pedidos", pedidosRoutes);
 
 // Mensajes del bot (bandeja de WhatsApp)
 app.use("/mensajes", mensajesRoutes);
+
+// ChatBot AI (preguntas en lenguaje natural → SQL)
+app.use("/chat", chatbotRoutes);
 
 // Health check
 app.get("/", (req, res) => {

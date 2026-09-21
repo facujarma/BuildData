@@ -2,29 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Xmark, ArrowRight } from "@gravity-ui/icons";
+import { consultarChat } from "@/services/chatbotService";
 
 const SUGGESTED = [
-  "¿Cuántos pedidos tengo pendientes de aprobar?",
-  "¿Qué alertas críticas hay en Sector C?",
-  "Resumen del avance de hoy",
-  "¿Quién reportó la falla de la grúa?",
+  "¿Cómo viene la obra?",
+  "¿Cuánto gastamos este mes?",
+  "¿Qué materiales están bajo el stock mínimo?",
+  "¿Qué tareas tengo que entregar esta semana?",
 ];
 
-const SYSTEM = `Te llamás Buildo. Sos el asistente IA de BuildData, una plataforma de gestión de obra que organiza información que llega por WhatsApp.
+interface ChatBubbleProps {
+  obraId: string;
+  obraNombre?: string;
+}
 
-Contexto de la obra actual del usuario (Edificio Belgrano):
-- Avance total: 68%
-- Sectores: A (terminado), B (en curso), C (con incidentes), D (planificación)
-- Equipo: J. Méndez (director), C. Ríos, P. Salas, L. Benítez, M. Ortiz, A. Gómez
-- Alertas activas: 2 críticas — falla en Grúa Torre 2 (Sector C, P. Salas), faltante hierro 12mm (Sector B, L. Benítez)
-- Pedidos: 7 pendientes, 3 esperan aprobación (PED-0140 ladrillo cerámico marcado urgente)
-- Rubros: mampostería 88%, hormigón 62% (retrasado 3 días), eléctricas 46%, sanitarias 58%, terminaciones 24%, carpintería 12%
-- Hoy se completaron: hormigonado losa +3, 4 fotos de Sector C
-- Hora: ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
-
-Respondé en español rioplatense, conciso y útil. Si te piden datos que no tenés, sé honesto. Usá markdown simple (negritas con **) cuando ayude. Nunca inventes números — si no los tenés en el contexto, decilo. Máximo 4 oraciones por respuesta salvo que te pidan un resumen largo.`;
-
-export function ChatBubble() {
+export function ChatBubble({ obraId, obraNombre }: ChatBubbleProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: string; content: string; error?: boolean }[]>([]);
   const [input, setInput] = useState("");
@@ -41,7 +33,6 @@ export function ChatBubble() {
     if (open) {
       const el = inputRef.current;
       if (el) setTimeout(() => el.focus(), 100);
-      setUnread(false);
     }
   }, [open]);
 
@@ -49,24 +40,20 @@ export function ChatBubble() {
     const q = (text || input || "").trim();
     if (!q || thinking) return;
     setInput("");
-    const next = [...messages, { role: "user", content: q }];
-    setMessages(next);
+    setMessages((prev) => [...prev, { role: "user", content: q }]);
     setThinking(true);
     try {
-      const conversation = next.map((m) => ({ role: m.role, content: m.content }));
-      const answer = await (
-        window as unknown as { claude?: { complete: (opts: { system: string; messages: { role: string; content: string }[] }) => Promise<string> } }
-      ).claude?.complete({
-        system: SYSTEM,
-        messages: conversation,
-      });
-      setMessages([...next, { role: "assistant", content: answer || "No pude obtener respuesta." }]);
+      const resultado = await consultarChat(q, obraId);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: resultado.respuesta || "No pude obtener respuesta." },
+      ]);
     } catch {
-      setMessages([
-        ...next,
+      setMessages((prev) => [
+        ...prev,
         {
           role: "assistant",
-          content: "Ups, hubo un problema al consultar la IA. Probá de nuevo en un momento.",
+          content: "Ups, hubo un problema al consultar los datos de la obra. Probá de nuevo en un momento.",
           error: true,
         },
       ]);
@@ -95,7 +82,10 @@ export function ChatBubble() {
     <>
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            setUnread(false);
+          }}
           className="fixed bottom-6 right-6 z-[60] group"
           aria-label="Abrir Buildo"
         >
@@ -123,7 +113,7 @@ export function ChatBubble() {
               <div className="text-[13px] font-bold text-white leading-tight">Buildo</div>
               <div className="text-[11px] text-white/60 flex items-center gap-[6px]">
                 <span className="w-[6px] h-[6px] rounded-full bg-success" />
-                Asistente IA · Edificio Belgrano
+                Asistente IA · {obraNombre || "Obra"}
               </div>
             </div>
             <button
@@ -145,7 +135,7 @@ export function ChatBubble() {
                       <Sparkles width={12} height={12} />
                     </div>
                     <div className="text-[13px] text-slate-800 leading-snug">
-                      Hola Juan 👋 Soy <b>Buildo</b>, tu asistente de obra. Puedo responder sobre el avance, alertas, pedidos y reportes de <b>Edificio Belgrano</b>.
+                      Hola 👋 Soy <b>Buildo</b>, tu asistente de obra. Respondo con datos reales de <b>{obraNombre || "esta obra"}</b>: gastos, pedidos, tareas, stock y avance.
                     </div>
                   </div>
                 </div>

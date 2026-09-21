@@ -37,7 +37,7 @@ export default function DashboardLayout({
 function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string }) {
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
   const [toast, flash] = useToast();
-  const { setObraInfo, refreshDashboard } = useDashboardData();
+  const { setObraInfo, refreshDashboard, obraName } = useDashboardData();
 
   useEffect(() => {
     setObraInfo(obraId, "", 0);
@@ -72,7 +72,7 @@ function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string
         <QuickAddModal kind={quickAdd} obraId={obraId} onClose={() => setQuickAdd(null)} onDone={flash} />
       )}
       <DashToast msg={toast} />
-      {/* <ChatBubble /> */}
+      <ChatBubble obraId={obraId} obraNombre={obraName} />
     </>
   );
 }
