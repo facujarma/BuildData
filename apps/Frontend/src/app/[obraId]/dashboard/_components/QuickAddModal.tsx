@@ -1,77 +1,62 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Calendar,
-  CircleExclamation,
-  ChartBar,
-  Persons,
-  Check,
-  Xmark,
-  Plus,
-  Lock,
-} from "@gravity-ui/icons";
-import { QRCodeSVG } from "qrcode.react";
+import { CircleExclamation, Comment, Check, Xmark, Plus } from "@gravity-ui/icons";
+import { InviteTeamModal } from "../equipo/_components/InviteTeamModal";
+import { SupplierModal } from "./SupplierModal";
+import { UploadPhotosModal } from "./UploadPhotosModal";
+import { StockItemModal } from "../stock/_components/StockItemModal";
+import { CATEGORIES as STOCK_CATEGORIES, CAT_COLORS } from "../stock/data";
+import { ReceiptModal } from "../recibos/_components/ReceiptModal";
+import { CATEGORIES as RECEIPT_CATEGORIES } from "../recibos/data";
+import { NuevaTareaModal } from "../cronograma/_components/NuevaTareaModal";
+import { NewOrderModal } from "../pedidos/_components/NewOrderModal";
+import { CategoryModal } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
-import { createTask } from "@/services/tareasService";
+import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
+import { getRubrosDeObra } from "@/services/cronogramaService";
+import { addProveedor, nextProveedorId } from "@/services/mock/proveedoresService";
 import { createAlert } from "@/services/alertasService";
 import { createActividad } from "@/services/actividadService";
 
 interface FieldDef {
   id: string;
   label: string;
-  type: "text" | "select" | "textarea" | "date";
+  type: "text" | "select" | "textarea";
   placeholder?: string;
   required?: boolean;
   addable?: boolean;
-  disabled?: boolean;
-  source?: "rubros";
+  addPlaceholder?: string;
   options?: string[];
 }
 
 interface FormConfig {
   title: string;
-  icon: typeof Calendar;
+  icon: typeof CircleExclamation;
   accent: string;
+  hint?: string;
   done: (data: Record<string, string>) => string;
   fields: FieldDef[];
 }
 
 const QUICK_FORMS: Record<string, FormConfig> = {
-  tarea: {
-    title: "Nueva tarea", icon: Calendar, accent: "#0F4395",
-    done: (d) => `Tarea "${d.nombre}" agregada al cronograma`,
-    fields: [
-      { id: "nombre", label: "Nombre de la tarea", type: "text", placeholder: "Ej: Hormigonado losa +4", required: true },
-      { id: "rubro",  label: "Rubro", type: "select", addable: true, source: "rubros" },
-      { id: "who",    label: "Responsable", type: "select", disabled: true },
-      { id: "desc",   label: "Descripción breve", type: "textarea", placeholder: "Qué hay que hacer, cantidades, observaciones…" },
-    ],
-  },
   critico: {
     title: "Reportar crítico", icon: CircleExclamation, accent: "#EF4444",
-    done: (d) => `Alerta "${d.titulo}" reportada`,
+    done: (d) => `Alerta “${d.titulo}” reportada`,
     fields: [
       { id: "titulo", label: "Título del problema", type: "text", placeholder: "Ej: Falla en Grúa Torre 2", required: true },
       { id: "nivel",  label: "Nivel", type: "select", options: ["Crítico", "Importante", "Moderado"] },
+      { id: "cat",    label: "Categoría", type: "select", addable: true, addPlaceholder: "Nombre de la categoría", options: ["Equipos", "Materiales", "Seguridad", "Personal", "Logística", "Reportes"] },
       { id: "desc",   label: "Descripción", type: "textarea", placeholder: "Detalle de lo que pasó…" },
     ],
   },
   reporte: {
-    title: "Nueva actividad", icon: ChartBar, accent: "#3B82F6",
-    done: () => "Actividad registrada",
+    title: "Nueva actividad", icon: Comment, accent: "#3B82F6",
+    done: () => "Actividad registrada en la bitácora",
+    hint: "Usalo cuando algo pasó en la obra pero no entró por el bot: te lo dijeron en persona, el capataz estaba sin señal, o lo viste vos. Queda en la bitácora igual que los mensajes de WhatsApp, marcado como carga manual.",
     fields: [
       { id: "tipo", label: "Tipo", type: "select", options: ["Avance de tarea", "Foto", "Cierre de jornada", "Problema"] },
       { id: "texto", label: "Detalle", type: "textarea", placeholder: "Qué se hizo, cantidades, observaciones…", required: true },
-    ],
-  },
-  persona: {
-    title: "Invitar persona", icon: Persons, accent: "#22C55E",
-    done: (d) => `Enlace de invitación generado para ${d.nombre || "la persona"}`,
-    fields: [
-      { id: "nombre", label: "Nombre", type: "text", placeholder: "Ej: Marta Robles", required: true },
-      { id: "tel",    label: "WhatsApp", type: "text", placeholder: "+54 9 11 …" },
-      { id: "rol",    label: "Rol", type: "select", disabled: true },
     ],
   },
 };
@@ -83,64 +68,187 @@ interface Props {
   onDone: (msg: string) => void;
 }
 
-export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
-  const cfg = kind ? QUICK_FORMS[kind] : null;
-  const [data, setData] = useState<Record<string, string>>({});
+// ── Flujos por tipo (mismos modales que cada sección) ────────────────────────
+
+function QuickAddTarea({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const { refreshDashboard } = useDashboardData();
+  return (
+    <NuevaTareaModal
+      open
+      obraId={obraId}
+      onClose={onClose}
+      onCreate={() => {
+        onDone("Tarea agregada al cronograma");
+        refreshDashboard().catch(() => {});
+      }}
+    />
+  );
+}
+
+function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const { refreshDashboard } = useDashboardData();
+  const [members, setMembers] = useState<ObreroLite[]>([]);
+  const [rubros, setRubros] = useState<string[]>([]);
+
+  useEffect(() => {
+    getObreros(obraId).then(setMembers).catch(() => {});
+    getRubrosDeObra(obraId)
+      .then((r) => setRubros(r.map((x) => x.nombre)))
+      .catch(() => {});
+  }, [obraId]);
+
+  return (
+    <NewOrderModal
+      onClose={onClose}
+      members={members}
+      rubros={rubros}
+      onSubmit={async (payload) => {
+        await createPedido(obraId, payload);
+        onDone("Pedido creado");
+        refreshDashboard().catch(() => {});
+        onClose();
+      }}
+    />
+  );
+}
+
+function QuickAddMaterial({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+  return (
+    <StockItemModal
+      item={null}
+      cats={STOCK_CATEGORIES}
+      catColor={(cat) => CAT_COLORS[cat] || "#94A3B8"}
+      onClose={onClose}
+      onSave={(item) => {
+        onDone(`Material “${item.name}” agregado al stock`);
+        onClose();
+      }}
+    />
+  );
+}
+
+function QuickAddRecibo({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+  return (
+    <ReceiptModal
+      cats={RECEIPT_CATEGORIES}
+      onClose={onClose}
+      onSave={() => {
+        onDone("Comprobante cargado");
+        onClose();
+      }}
+    />
+  );
+}
+
+function QuickAddRubro({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+  const { data } = useDashboardData();
+  return (
+    <CategoryModal
+      open
+      initial={null}
+      availableTasks={data.tasks}
+      onClose={onClose}
+      onSave={(cat) => onDone(`Rubro “${cat.name}” creado`)}
+    />
+  );
+}
+
+function QuickAddProveedor({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const [rubros, setRubros] = useState<string[]>([]);
+
+  useEffect(() => {
+    getRubrosDeObra(obraId)
+      .then((r) => setRubros(r.map((x) => x.nombre)))
+      .catch(() => {});
+  }, [obraId]);
+
+  return (
+    <SupplierModal
+      initial={null}
+      scope="global"
+      rubros={rubros}
+      onClose={onClose}
+      onSave={(d) => {
+        addProveedor({
+          id: nextProveedorId(),
+          scope: "global",
+          fav: false,
+          name: d.name,
+          rubro: d.rubro,
+          cuit: d.cuit,
+          contact: d.contact,
+          role: d.role,
+          phone: d.phone,
+          wa: d.wa,
+          email: d.email,
+          web: d.web,
+          address: d.address,
+          pay: d.pay,
+          lead: d.lead,
+          desc: d.desc,
+          orders: 0,
+          spent: 0,
+        });
+        onDone(`Proveedor “${d.name}” agregado al catálogo`);
+        onClose();
+      }}
+    />
+  );
+}
+
+function QuickAddEquipo({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+  return (
+    <InviteTeamModal
+      open
+      onClose={onClose}
+      onSave={(raw) => {
+        const d = raw as { mode?: string; name?: string; email?: string };
+        onDone(d.mode === "obrero"
+          ? `Obrero ${d.name} invitado por WhatsApp`
+          : `Invitación enviada a ${d.name || d.email}`);
+      }}
+    />
+  );
+}
+
+// ── Formularios genéricos (alerta / actividad) ───────────────────────────────
+
+function QuickAddGeneric({ kind, obraId, onClose, onDone }: Omit<Props, "kind"> & { kind: string }) {
+  const cfg = QUICK_FORMS[kind];
+  const [data, setData] = useState<Record<string, string>>(() => {
+    const defaults: Record<string, string> = {};
+    if (cfg) {
+      for (const f of cfg.fields) {
+        if (f.type === "select" && f.options?.length) defaults[f.id] = f.options[0];
+      }
+    }
+    return defaults;
+  });
   const [extraOpts, setExtraOpts] = useState<Record<string, string[]>>({});
   const [adding, setAdding] = useState<string | null>(null);
   const [addVal, setAddVal] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [qrLink, setQrLink] = useState<string | null>(null);
-  const { data: lookup, refreshDashboard } = useDashboardData();
 
   useEffect(() => {
-    if (!kind) return;
-    const defaults: Record<string, string> = {};
-    const form = QUICK_FORMS[kind];
-    if (form) {
-      for (const f of form.fields) {
-        if (f.type === "select" && f.options?.length) {
-          defaults[f.id] = f.options[0];
-        }
-      }
-    }
-    setData(defaults);
-    setExtraOpts({});
-    setAdding(null);
-    setAddVal("");
-    setQrLink(null);
-  }, [kind]);
-
-  useEffect(() => {
-    if (!kind) return;
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { if (qrLink) setQrLink(null); else onClose(); } };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [kind, onClose, qrLink]);
+  }, [onClose]);
 
   if (!cfg) return null;
 
   const required = cfg.fields.filter((f) => f.required).map((f) => f.id);
   const canSave = required.every((id) => (data[id] || "").trim());
-
   const set = (id: string, v: string) => setData((p) => ({ ...p, [id]: v }));
 
   const submit = async () => {
     if (!canSave || submitting) return;
     setSubmitting(true);
     try {
-      if (kind === "tarea") await createTask(obraId, { ...data, rubro_id: lookup.rubroMap[data.rubro] || "" });
-      else if (kind === "critico") await createAlert(obraId, data);
+      if (kind === "critico") await createAlert(obraId, data);
       else if (kind === "reporte") await createActividad(obraId, data);
-      else if (kind === "persona") {
-        const phone = process.env.NEXT_PUBLIC_BOT_PHONE;
-        const msg = encodeURIComponent(`!iniciar ${data.nombre} ${obraId}`);
-        setQrLink(`https://wa.me/${phone}?text=${msg}`);
-        return;
-      }
       onDone(cfg.done(data));
       onClose();
-      refreshDashboard().catch(() => {});
     } catch (e: unknown) {
       onDone(e instanceof Error ? e.message : "Error al guardar");
     } finally {
@@ -149,50 +257,6 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
   };
 
   const Icon = cfg.icon;
-
-  const closeQr = () => { setQrLink(null); onClose(); };
-
-  const copyLink = async () => {
-    if (!qrLink) return;
-    try {
-      await navigator.clipboard.writeText(qrLink);
-      onDone("Enlace copiado al portapapeles");
-    } catch {
-      onDone("No se pudo copiar el enlace");
-    }
-  };
-
-  if (qrLink) {
-    return (
-      <div onClick={closeQr} className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
-        <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[380px] rounded-2xl shadow-big p-6 flex flex-col items-center gap-5 animate-modal-pop">
-          <div className="text-center">
-            <div className="text-[15px] font-extrabold">Invitación para {data.nombre}</div>
-            <div className="text-[11px] text-slate-500 mt-1">Escaneá el código o compartí el enlace</div>
-          </div>
-
-          <div className="bg-white p-3 rounded-xl border border-slate-200">
-            <QRCodeSVG value={qrLink} size={220} level="M" />
-          </div>
-
-          <div className="w-full text-[11px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2 truncate text-center select-all">
-            {qrLink}
-          </div>
-
-          <div className="flex gap-2 w-full">
-            <button onClick={copyLink}
-              className="flex-1 text-[12px] font-bold rounded-md px-4 py-[9px] bg-primary hover:bg-primary-700 text-white transition-colors">
-              Copiar enlace
-            </button>
-            <button onClick={closeQr}
-              className="flex-1 text-[12px] font-bold rounded-md px-4 py-[9px] border border-slate-200 text-slate-600 hover:text-slate-950 transition-colors">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
@@ -210,9 +274,14 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto">
+          {cfg.hint && (
+            <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <CircleExclamation width={13} height={13} className="text-slate-400 mt-[1px] flex-none" />
+              <span className="text-[11px] text-slate-600 leading-snug">{cfg.hint}</span>
+            </div>
+          )}
           {cfg.fields.map((f) => {
-            const sourceOpts = f.source === "rubros" ? lookup.rubros.map((r) => r.name) : [];
-            const opts = [...(f.options || []), ...sourceOpts, ...(extraOpts[f.id] || [])];
+            const opts = [...(f.options || []), ...(extraOpts[f.id] || [])];
             const commitAdd = () => {
               const v = addVal.trim();
               if (v) {
@@ -237,18 +306,10 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
                   <div className="flex gap-1">
                     <input autoFocus value={addVal} onChange={(e) => setAddVal(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") commitAdd(); else if (e.key === "Escape") setAdding(null); }}
-                      placeholder="Nuevo valor"
+                      placeholder={f.addPlaceholder || "Nuevo valor"}
                       className="flex-1 min-w-0 bg-white border border-primary rounded-md px-3 py-[9px] text-[13px] focus:outline-none" />
                     <button type="button" onClick={commitAdd} className="px-3 rounded-md bg-primary text-white flex items-center justify-center"><Check width={14} height={14} /></button>
                     <button type="button" onClick={() => setAdding(null)} className="px-2 rounded-md border border-slate-200 text-slate-500 flex items-center justify-center"><Xmark width={14} height={14} /></button>
-                  </div>
-                ) : f.disabled ? (
-                  <div className="relative">
-                    <select disabled value=""
-                      className="w-full bg-slate-100 border border-slate-200 rounded-md px-3 py-[9px] text-[13px] text-slate-400 cursor-not-allowed appearance-none">
-                      <option value="">No disponible aún</option>
-                    </select>
-                    <Lock width={12} height={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 ) : f.type === "select" ? (
                   <select value={data[f.id] || opts[0]} onChange={(e) => set(f.id, e.target.value)}
@@ -277,4 +338,31 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
       </div>
     </div>
   );
+}
+
+// ── Dispatcher ───────────────────────────────────────────────────────────────
+
+export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
+  if (!kind) return null;
+
+  switch (kind) {
+    case "tarea":
+      return <QuickAddTarea obraId={obraId} onClose={onClose} onDone={onDone} />;
+    case "pedido":
+      return <QuickAddPedido obraId={obraId} onClose={onClose} onDone={onDone} />;
+    case "material":
+      return <QuickAddMaterial onClose={onClose} onDone={onDone} />;
+    case "recibo":
+      return <QuickAddRecibo onClose={onClose} onDone={onDone} />;
+    case "rubro":
+      return <QuickAddRubro onClose={onClose} onDone={onDone} />;
+    case "proveedor":
+      return <QuickAddProveedor obraId={obraId} onClose={onClose} onDone={onDone} />;
+    case "equipo":
+      return <QuickAddEquipo onClose={onClose} onDone={onDone} />;
+    case "foto":
+      return <UploadPhotosModal obraId={obraId} onClose={onClose} onDone={onDone} />;
+    default:
+      return <QuickAddGeneric key={kind} kind={kind} obraId={obraId} onClose={onClose} onDone={onDone} />;
+  }
 }

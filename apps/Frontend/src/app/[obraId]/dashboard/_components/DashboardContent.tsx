@@ -86,6 +86,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
     reportes: `/registro?v=reportes`,
     pedidos: `/materiales?v=pedidos`,
     stock: `/materiales?v=stock`,
+    proveedores: `/materiales?v=proveedores`,
     recibos: `/costos?v=recibos`,
     presupuesto: `/costos?v=presupuesto`,
     bandeja: `/inbox`,

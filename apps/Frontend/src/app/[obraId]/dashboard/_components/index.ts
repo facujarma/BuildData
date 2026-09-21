@@ -13,6 +13,8 @@ export { BudgetCard } from "./BudgetCard";
 export { ActivityFeed } from "./ActivityFeed";
 export { TasksInProgressCard } from "./TasksInProgressCard";
 export { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
+export { SupplierModal } from "./SupplierModal";
+export { UploadPhotosModal } from "./UploadPhotosModal";
 export { CategoryModal } from "./CategoryModal";
 export type { CategoryFormData } from "./CategoryModal";
 export { AvatarMenu } from "@/components/ui/AvatarMenu";

@@ -10,6 +10,7 @@ import {
   Calendar,
   Box,
   Cubes3,
+  Car,
   ChartBar,
   Receipt,
   Clock,
@@ -63,8 +64,9 @@ function buildNavItems(obraId: string): NavEntry[] {
       kind: "group", id: "materiales", label: "Materiales", base: `${p}/materiales`,
       icon: <Box width={16} height={16} />,
       children: [
-        { id: "pedidos", label: "Pedidos", icon: <Box width={13} height={13} /> },
-        { id: "stock",   label: "Stock",   icon: <Cubes3 width={13} height={13} /> },
+        { id: "pedidos",     label: "Pedidos",     icon: <Box width={13} height={13} /> },
+        { id: "stock",       label: "Stock",       icon: <Cubes3 width={13} height={13} /> },
+        { id: "proveedores", label: "Proveedores", icon: <Car width={13} height={13} /> },
       ],
     },
     {

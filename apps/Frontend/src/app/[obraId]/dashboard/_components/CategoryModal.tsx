@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChartBar, Check, Xmark } from "@gravity-ui/icons";
+import { ChartBar, Check, CircleInfo, Xmark } from "@gravity-ui/icons";
 import type { TaskItem } from "@/types/dashboard";
 
 const CAT_COLORS = ["#0F4395", "#22C55E", "#3B82F6", "#F59E0B", "#94A3B8", "#8B5CF6", "#EF4444", "#14B8A6"];
@@ -18,6 +18,7 @@ export interface CategoryFormData {
   id: string;
   name: string;
   color: string;
+  desc?: string;
   taskIds: string[];
 }
 
@@ -27,17 +28,20 @@ interface Props {
   availableTasks: TaskItem[];
   onClose: () => void;
   onSave: (cat: CategoryFormData) => void;
+  onManage?: () => void;
 }
 
-export function CategoryModal({ open, initial, availableTasks, onClose, onSave }: Props) {
+export function CategoryModal({ open, initial, availableTasks, onClose, onSave, onManage }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(CAT_COLORS[0]);
+  const [desc, setDesc] = useState("");
   const [taskIds, setTaskIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (open) {
       setName(initial ? initial.name : "");
       setColor(initial ? initial.color : CAT_COLORS[0]);
+      setDesc(initial ? (initial.desc || "") : "");
       setTaskIds(initial ? [...initial.taskIds] : []);
     }
   }, [open, initial]);
@@ -61,7 +65,7 @@ export function CategoryModal({ open, initial, availableTasks, onClose, onSave }
       }, 0) / taskIds.length)
     : 0;
 
-  const canSave = name.trim().length >= 2 && taskIds.length > 0;
+  const canSave = name.trim().length >= 2;
 
   const submit = () => {
     if (!canSave) return;
@@ -69,6 +73,7 @@ export function CategoryModal({ open, initial, availableTasks, onClose, onSave }
       id: initial ? initial.id : "cat-" + Date.now().toString(36),
       name: name.trim(),
       color,
+      desc: desc.trim(),
       taskIds,
     });
     onClose();
@@ -110,6 +115,21 @@ export function CategoryModal({ open, initial, availableTasks, onClose, onSave }
             </div>
           </div>
 
+          <label className="flex flex-col gap-[6px]">
+            <span className="text-[11px] font-bold text-slate-700">Descripción</span>
+            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2}
+              placeholder="Qué trabajos incluye este rubro. Ej: losas, columnas y vigas de hormigón."
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[58px]" />
+          </label>
+
+          <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            <CircleInfo width={13} height={13} className="text-slate-400 mt-[1px] flex-none" />
+            <div className="text-[11px] text-slate-600 leading-snug">
+              <b className="text-slate-950">El avance del rubro se calcula solo</b>, con el promedio de las tareas que adjuntes acá.
+              El <b className="text-slate-950">presupuesto</b> no: se asigna por separado desde <b className="text-slate-950">Costos › Presupuesto</b>, así que este rubro arranca sin monto hasta que se lo cargues.
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-slate-700">Tareas del cronograma</span>
@@ -147,12 +167,17 @@ export function CategoryModal({ open, initial, availableTasks, onClose, onSave }
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
           <div className="text-[12px] text-slate-600">
             Progreso calculado: <b className="text-slate-950 tnum">{preview}%</b>
+            {onManage && (
+              <button type="button" onClick={() => { onClose(); onManage(); }} className="ml-3 text-[11px] font-bold text-primary hover:underline">
+                Administrar rubros →
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
             <button onClick={submit} disabled={!canSave}
               className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed")}>
-              {initial ? "Guardar" : "Crear rubro"} <Check width={14} height={14} />
+              {initial ? "Guardar" : "Crear categoría"} <Check width={14} height={14} />
             </button>
           </div>
         </div>

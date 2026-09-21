@@ -280,6 +280,14 @@ const CategoryModal = ({ open, initial, onClose, onSave, onManage }) => {
               className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[58px]" />
           </label>
 
+          <div className="flex items-start gap-2 bg-slate50 border border-slate200 rounded-lg p-3">
+            <Icon name="info" size={13} className="text-slate400 mt-[1px] flex-none" />
+            <div className="text-[11px] text-slate600 leading-snug">
+              <b className="text-slate950">El avance del rubro se calcula solo</b>, con el promedio de las tareas que adjuntes acá.
+              El <b className="text-slate950">presupuesto</b> no: se asigna por separado desde <b className="text-slate950">Costos › Presupuesto</b>, así que este rubro arranca sin monto hasta que se lo cargues.
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-slate700">Tareas del cronograma</span>
@@ -454,7 +462,7 @@ const useActivityStore = () => {
 // complete right from the dashboard (synced via TaskStore).
 const DashTareasComplete = ({ flash, compact = false, limit = 3 }) => {
   const store = useTaskStore();
-  const tasks = store.get().flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+  const tasks = store.get().flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
   const done = tasks.filter((t) => t.state === 'done').length;
   const pending = tasks.filter((t) => t.state !== 'done');
   const pct = Math.round((done / tasks.length) * 100);
@@ -1130,27 +1138,51 @@ const fmtDateLong = (d) => d.toLocaleDateString('es-AR', { day: '2-digit', month
 // Initial task data — original tasks were placed against S15. Re-anchor to
 // the new column system (S15 = column 7 in the new range).
 const TASK_OFFSET = 7; // shift original start indices forward by 7 cols
+
+// ── Medición del avance ────────────────────────────────────────────────────
+// El % de una tarea no se estima a ojo: sale de la cantidad ejecutada sobre
+// la prevista (el mismo criterio con el que se certifica avance en obra).
+//   measure: 'qty'   → pct = ejecutado / previsto   (obra con magnitud: m³, m², u)
+//   measure: 'steps' → pct = subtareas hechas / total (pruebas, trámites, montajes)
+//   measure: 'manual'→ pct estimado a mano            (último recurso)
+const taskPct = (t) => {
+  if (t.measure === 'qty' && t.total > 0) return Math.min(100, Math.round((t.done / t.total) * 100));
+  if (t.measure === 'steps' && (t.steps || []).length)
+    return Math.round((t.steps.filter((x) => x.ok).length / t.steps.length) * 100);
+  return t.pct != null ? t.pct : 0;
+};
+const MEASURE_LABEL = { qty: 'Por cantidad ejecutada', steps: 'Por subtareas', manual: 'Carga manual' };
+// Etiqueta legible: "28 / 45 m³"
+const taskQtyLabel = (t) => (t.measure === 'qty' && t.total > 0)
+  ? (t.done || 0).toLocaleString('es-AR') + ' / ' + t.total.toLocaleString('es-AR') + ' ' + (t.unit || '')
+  : null;
 const INITIAL_GROUPS = [
   { rubro: 'Movimiento de suelos', items: [
-    { id: 'mov-01', name: 'Excavación general',     who: 'C. Ríos',    start: 0 + TASK_OFFSET, span: 2, state: 'done',     pct: 100, desc: 'Retiro de 2.400 m³ de tierra del solar. Movimiento concluido sin imprevistos.', cost: 'AR$ 4,2 M', deps: [] },
-    { id: 'mov-02', name: 'Cimentación pilotes',    who: 'C. Ríos',    start: 1 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: '48 pilotes de hormigón armado, profundidad 12 m. Ensayos PIT aprobados.',     cost: 'AR$ 9,1 M', deps: ['mov-01'] },
+    { id: 'mov-01', measure: 'qty', unit: 'm³',     total: 2400, done: 2400, name: 'Excavación general',     who: 'C. Ríos',    start: 0 + TASK_OFFSET, span: 2, state: 'done',     pct: 100, desc: 'Retiro de 2.400 m³ de tierra del solar. Movimiento concluido sin imprevistos.', cost: 'AR$ 4,2 M', deps: [] },
+    { id: 'mov-02', measure: 'steps', steps: [
+      { t: 'Replanteo de ejes', ok: true }, { t: 'Perforación', ok: true },
+      { t: 'Colocación de armadura', ok: true }, { t: 'Hormigonado', ok: true }, { t: 'Ensayo PIT', ok: true },
+    ], name: 'Cimentación pilotes',    who: 'C. Ríos',    start: 1 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: '48 pilotes de hormigón armado, profundidad 12 m. Ensayos PIT aprobados.',     cost: 'AR$ 9,1 M', deps: ['mov-01'] },
   ]},
   { rubro: 'Hormigón armado', items: [
-    { id: 'horm-01', name: 'Hormigonado losa +1',   who: 'L. Benítez', start: 2 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +1, 22 m³ de hormigón H21. Probetas con resistencia 26 MPa.',       cost: 'AR$ 6,8 M', deps: ['mov-02'] },
-    { id: 'horm-02', name: 'Hormigonado losa +2',   who: 'L. Benítez', start: 3 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +2, 24 m³ H21. Curado completado sin fisuras.',                       cost: 'AR$ 7,3 M', deps: ['horm-01'] },
-    { id: 'horm-03', name: 'Hormigonado losa +3',   who: 'L. Benítez', start: 4 + TASK_OFFSET, span: 4, offs: 2, days: 23, state: 'progress', pct: 62,  desc: 'En curso · 28 m³ planeados, 17 m³ vertidos. Próximo paño previsto para el viernes.', cost: 'AR$ 8,1 M', deps: ['horm-02'] },
-    { id: 'horm-04', name: 'Columnas eje 4-6',      who: 'L. Benítez', start: 5 + TASK_OFFSET, span: 3, offs: 3, days: 16, state: 'late',     pct: 30,  desc: 'Retrasada 3 días por faltante de hierro 12 mm. Pedido PED-0141 sin aprobar.',     cost: 'AR$ 4,5 M', deps: ['horm-03'] },
+    { id: 'horm-01', measure: 'qty', unit: 'm³',     total: 22,   done: 22, name: 'Hormigonado losa +1',   who: 'L. Benítez', start: 2 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +1, 22 m³ de hormigón H21. Probetas con resistencia 26 MPa.',       cost: 'AR$ 6,8 M', deps: ['mov-02'] },
+    { id: 'horm-02', measure: 'qty', unit: 'm³',     total: 24,   done: 24, name: 'Hormigonado losa +2',   who: 'L. Benítez', start: 3 + TASK_OFFSET, span: 3, state: 'done',     pct: 100, desc: 'Losa nivel +2, 24 m³ H21. Curado completado sin fisuras.',                       cost: 'AR$ 7,3 M', deps: ['horm-01'] },
+    { id: 'horm-03', measure: 'qty', unit: 'm³',     total: 45,   done: 28, name: 'Hormigonado losa +3',   who: 'L. Benítez', start: 4 + TASK_OFFSET, span: 4, offs: 2, days: 23, state: 'progress', pct: 62,  desc: 'En curso · 28 m³ planeados, 17 m³ vertidos. Próximo paño previsto para el viernes.', cost: 'AR$ 8,1 M', deps: ['horm-02'] },
+    { id: 'horm-04', measure: 'qty', unit: 'u',      total: 30,   done: 9, name: 'Columnas eje 4-6',      who: 'L. Benítez', start: 5 + TASK_OFFSET, span: 3, offs: 3, days: 16, state: 'late',     pct: 30,  desc: 'Retrasada 3 días por faltante de hierro 12 mm. Pedido PED-0141 sin aprobar.',     cost: 'AR$ 4,5 M', deps: ['horm-03'] },
   ]},
   { rubro: 'Mampostería', items: [
-    { id: 'mamp-03', name: 'Replanteo de tabiques', who: 'P. Salas',   start: 5 + TASK_OFFSET, span: 2, offs: 1, days: 9,  state: 'progress', pct: 45,  desc: 'Marcado en piso de la tabiquería de planta 2.', cost: 'AR$ 1,1 M', deps: [] },
-    { id: 'mamp-01', name: 'Tabiquería interior',   who: 'P. Salas',   start: 6 + TASK_OFFSET, span: 4, offs: 3, days: 25, state: 'planned',  pct: 0,   desc: 'Tabiques 12 cm en ladrillo hueco. 1.200 m² previstos en 6 semanas.',              cost: 'AR$ 12,4 M', deps: ['horm-04'] },
-    { id: 'mamp-02', name: 'Cierres exteriores',    who: 'P. Salas',   start: 7 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Muros perimetrales 20 cm con aislación. Termina con revoque grueso exterior.',     cost: 'AR$ 9,9 M', deps: ['mamp-01'] },
+    { id: 'mamp-03', measure: 'qty', unit: 'm²',     total: 400,  done: 180, name: 'Replanteo de tabiques', who: 'P. Salas',   start: 5 + TASK_OFFSET, span: 2, offs: 1, days: 9,  state: 'progress', pct: 45,  desc: 'Marcado en piso de la tabiquería de planta 2.', cost: 'AR$ 1,1 M', deps: [] },
+    { id: 'mamp-01', measure: 'qty', unit: 'm²',     total: 1200, done: 0, name: 'Tabiquería interior',   who: 'P. Salas',   start: 6 + TASK_OFFSET, span: 4, offs: 3, days: 25, state: 'planned',  pct: 0,   desc: 'Tabiques 12 cm en ladrillo hueco. 1.200 m² previstos en 6 semanas.',              cost: 'AR$ 12,4 M', deps: ['horm-04'] },
+    { id: 'mamp-02', measure: 'qty', unit: 'm²',     total: 860,  done: 0, name: 'Cierres exteriores',    who: 'P. Salas',   start: 7 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Muros perimetrales 20 cm con aislación. Termina con revoque grueso exterior.',     cost: 'AR$ 9,9 M', deps: ['mamp-01'] },
   ]},
   { rubro: 'Instalaciones', items: [
-    { id: 'inst-03', name: 'Cañería embutida',      who: 'M. Ortiz',   start: 5 + TASK_OFFSET, span: 3, offs: 4, days: 12, state: 'progress', pct: 30,  desc: 'Corrugado en losa antes del colado.', cost: 'AR$ 2,4 M', deps: [] },
-    { id: 'inst-04', name: 'Prueba hidráulica',     who: 'M. Ortiz',   start: 6 + TASK_OFFSET, span: 1, offs: 2, days: 2,  state: 'planned',  pct: 0,   desc: 'Ensayo de presión en sanitarios de planta 1.', cost: 'AR$ 0,4 M', deps: [] },
-    { id: 'inst-01', name: 'Tendido eléctrico',     who: 'M. Ortiz',   start: 7 + TASK_OFFSET, span: 5, state: 'planned',  pct: 0,   desc: 'Cañería corrugada, cableado por sectores, tablero general en planta baja.',        cost: 'AR$ 11,2 M', deps: ['mamp-01'] },
-    { id: 'inst-02', name: 'Sanitarios',            who: 'M. Ortiz',   start: 8 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Provisión de agua fría/caliente, desagües, ventilaciones. Termotanques en azotea.', cost: 'AR$ 8,6 M', deps: ['mamp-01'] },
+    { id: 'inst-03', measure: 'qty', unit: 'm',      total: 520,  done: 156, name: 'Cañería embutida',      who: 'M. Ortiz',   start: 5 + TASK_OFFSET, span: 3, offs: 4, days: 12, state: 'progress', pct: 30,  desc: 'Corrugado en losa antes del colado.', cost: 'AR$ 2,4 M', deps: [] },
+    { id: 'inst-04', measure: 'steps', steps: [
+      { t: 'Llenado del sistema', ok: false }, { t: 'Presurizado a 6 bar', ok: false },
+      { t: 'Verificación de juntas', ok: false }, { t: 'Informe de ensayo', ok: false },
+    ], name: 'Prueba hidráulica',     who: 'M. Ortiz',   start: 6 + TASK_OFFSET, span: 1, offs: 2, days: 2,  state: 'planned',  pct: 0,   desc: 'Ensayo de presión en sanitarios de planta 1.', cost: 'AR$ 0,4 M', deps: [] },
+    { id: 'inst-01', measure: 'qty', unit: 'm',      total: 1800, done: 0, name: 'Tendido eléctrico',     who: 'M. Ortiz',   start: 7 + TASK_OFFSET, span: 5, state: 'planned',  pct: 0,   desc: 'Cañería corrugada, cableado por sectores, tablero general en planta baja.',        cost: 'AR$ 11,2 M', deps: ['mamp-01'] },
+    { id: 'inst-02', measure: 'qty', unit: 'u',      total: 36,   done: 0, name: 'Sanitarios',            who: 'M. Ortiz',   start: 8 + TASK_OFFSET, span: 4, state: 'planned',  pct: 0,   desc: 'Provisión de agua fría/caliente, desagües, ventilaciones. Termotanques en azotea.', cost: 'AR$ 8,6 M', deps: ['mamp-01'] },
   ]},
 ];
 
@@ -1158,12 +1190,12 @@ const INITIAL_GROUPS = [
 // Live tasks state lives in ScreenGantt; ALL_TASKS / TASK_BY_ID are derived
 // from GANTT_GROUPS for the initial render but the screen uses state for adds.
 let GANTT_GROUPS = INITIAL_GROUPS;
-let ALL_TASKS = GANTT_GROUPS.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+let ALL_TASKS = GANTT_GROUPS.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
 let TASK_BY_ID = Object.fromEntries(ALL_TASKS.map((t) => [t.id, t]));
 
 // Rebuild the derived collections whenever the group state changes.
 const recomputeDerived = (groups) => {
-  ALL_TASKS  = groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+  ALL_TASKS  = groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
   TASK_BY_ID = Object.fromEntries(ALL_TASKS.map((t) => [t.id, t]));
 };
 
@@ -1184,7 +1216,7 @@ const TaskStore = {
     const when = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
     TaskStore.set(TaskStore.groups.map((g) => ({
       ...g,
-      items: g.items.map((t) => t.id === id ? { ...t, state: 'done', pct: 100, completedBy: by, completedOn: when } : t),
+      items: g.items.map((t) => t.id === id ? { ...t, state: 'done', pct: 100, done: t.measure === 'qty' ? t.total : t.done, steps: t.steps ? t.steps.map((x) => ({ ...x, ok: true })) : t.steps, completedBy: by, completedOn: when } : t),
     })));
   },
   reopen(id) {
@@ -1201,6 +1233,44 @@ const TaskStore = {
         : t),
     })));
   },
+  // Registra cantidad ejecutada y recalcula estado/avance.
+  logProgress(id, doneQty) {
+    TaskStore.set(TaskStore.groups.map((g) => ({
+      ...g,
+      items: g.items.map((t) => {
+        if (t.id !== id) return t;
+        const done = Math.max(0, Math.min(t.total, Number(doneQty) || 0));
+        const pct = t.total > 0 ? Math.round((done / t.total) * 100) : t.pct;
+        const state = pct >= 100 ? 'done' : (t.state === 'planned' ? 'progress' : t.state);
+        return { ...t, done, pct, state,
+          completedBy: pct >= 100 ? 'J. Méndez' : undefined,
+          completedOn: pct >= 100 ? new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : undefined };
+      }),
+    })));
+  },
+  // Tilda/destilda una subtarea y recalcula el avance.
+  toggleStep(id, idx) {
+    TaskStore.set(TaskStore.groups.map((g) => ({
+      ...g,
+      items: g.items.map((t) => {
+        if (t.id !== id || !t.steps) return t;
+        const steps = t.steps.map((x, i) => i === idx ? { ...x, ok: !x.ok } : x);
+        const pct = Math.round((steps.filter((x) => x.ok).length / steps.length) * 100);
+        const state = pct >= 100 ? 'done' : pct > 0 ? (t.state === 'late' ? 'late' : 'progress') : t.state;
+        return { ...t, steps, pct, state,
+          completedBy: pct >= 100 ? 'J. Méndez' : undefined,
+          completedOn: pct >= 100 ? new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) : undefined };
+      }),
+    })));
+  },
+  setPct(id, pct) {
+    TaskStore.set(TaskStore.groups.map((g) => ({
+      ...g,
+      items: g.items.map((t) => t.id === id
+        ? { ...t, pct, state: pct >= 100 ? 'done' : pct > 0 && t.state === 'planned' ? 'progress' : t.state }
+        : t),
+    })));
+  },
   addTask(task) {
     const exists = TaskStore.groups.some((g) => g.rubro === task.rubro);
     if (exists) {
@@ -1214,7 +1284,7 @@ const TaskStore = {
   },
   // Reasignar rubro / responsable después, cuando ya existan.
   assign(id, patch) {
-    const all = TaskStore.groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+    const all = TaskStore.groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
     const task = all.find((t) => t.id === id);
     if (!task) return;
     const next = { ...task, ...patch };
@@ -1693,7 +1763,9 @@ const CalendarView = ({ tasks, onPick }) => {
 // Task detail panel
 // ──────────────────────────────────────────────────────────────────────────
 
-const TaskDetail = ({ taskId, onClose, onComplete, onReopen }) => {
+const TaskDetail = ({ taskId, onClose, onComplete, onReopen, onLog, onToggleStep, onSetPct }) => {
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [logQty, setLogQty] = React.useState('');
   const rubroNames = useRubroStore().names();
   const PEOPLE_ALL = ['C. Ríos', 'L. Benítez', 'P. Salas', 'M. Ortiz', 'A. Gómez'];
   if (!taskId) return null;
@@ -1728,12 +1800,75 @@ const TaskDetail = ({ taskId, onClose, onComplete, onReopen }) => {
         {/* Status + progress */}
         <div className="px-5 py-4 bg-slate50 border-b border-slate200">
           <div className="flex items-center justify-between mb-3">
-            <DPill tone={t.state === 'late' ? 'criticalSolid' : t.state === 'done' ? 'successSolid' : t.state === 'progress' ? 'primary' : 'info'}>{s.label}</DPill>
+            <div className="flex items-center gap-2">
+              <DPill tone={t.state === 'late' ? 'criticalSolid' : t.state === 'done' ? 'successSolid' : t.state === 'progress' ? 'primary' : 'info'}>{s.label}</DPill>
+              <span className="text-[9px] font-bold text-slate500 bg-slate100 rounded px-[6px] py-[2px]">{MEASURE_LABEL[t.measure] || MEASURE_LABEL.manual}</span>
+            </div>
             <div className="text-[20px] font-extrabold tnum display-tight">{t.pct}%</div>
           </div>
           <div className="h-[8px] bg-slate200 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${t.pct}%`, background: s.dot }} />
           </div>
+
+          {/* De dónde sale el porcentaje */}
+          {t.measure === 'steps' && (t.steps || []).length > 0 ? (
+            <div className="mt-3 bg-white border border-slate200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500">Avance por subtareas</span>
+                <span className="text-[11px] font-bold text-slate700 tnum">{t.steps.filter((x) => x.ok).length} / {t.steps.length}</span>
+              </div>
+              <div className="space-y-1">
+                {t.steps.map((st, i) => (
+                  <button key={i} onClick={() => onToggleStep && onToggleStep(t.id, i)}
+                    className="w-full flex items-center gap-2 px-2 py-[6px] rounded-md hover:bg-slate50 text-left transition-colors">
+                    <span className={"w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center flex-none " + (st.ok ? 'bg-success border-success text-white' : 'border-slate300 bg-white')}>
+                      {st.ok && <Icon name="check" size={11} />}
+                    </span>
+                    <span className={"text-[12px] flex-1 min-w-0 truncate " + (st.ok ? 'text-slate400 line-through' : 'font-semibold text-slate800')}>{st.t}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : t.measure === 'qty' && t.total > 0 ? (
+            <div className="mt-3 bg-white border border-slate200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500">Avance medido por cantidad</span>
+                <span className="text-[11px] font-bold text-slate700 tnum">{taskQtyLabel(t)}</span>
+              </div>
+              {t.state !== 'done' && (
+                logOpen ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate600 flex-none">Ejecutado</span>
+                    <input autoFocus type="number" min="0" max={t.total} value={logQty}
+                      onChange={(e) => setLogQty(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { onLog && onLog(t.id, logQty); setLogOpen(false); } if (e.key === 'Escape') setLogOpen(false); }}
+                      className="w-[90px] bg-white border border-primary rounded-md px-2 py-[6px] text-[12px] tnum focus:outline-none" />
+                    <span className="text-[11px] text-slate500 flex-none">de {t.total} {t.unit}</span>
+                    <div className="flex-1" />
+                    <button onClick={() => { onLog && onLog(t.id, logQty); setLogOpen(false); }}
+                      className="px-3 py-[6px] rounded-md bg-primary text-white text-[12px] font-bold">Guardar</button>
+                    <button onClick={() => setLogOpen(false)} className="px-2 text-slate400 hover:text-slate700"><Icon name="x" size={13} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setLogQty(String(t.done || 0)); setLogOpen(true); }}
+                    className="w-full flex items-center justify-center gap-[6px] text-[11px] font-bold text-primary border border-dashed border-slate300 hover:border-primary hover:bg-primary-50/40 rounded-md py-[7px] transition-colors">
+                    <Icon name="plus" size={11} /> Registrar cantidad ejecutada
+                  </button>
+                )
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 bg-white border border-slate200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate500">Avance estimado a mano</span>
+                <span className="text-[11px] font-bold text-slate700 tnum">{t.pct}%</span>
+              </div>
+              <input type="range" min="0" max="100" step="5" value={t.pct}
+                onChange={(e) => onSetPct && onSetPct(t.id, Number(e.target.value))}
+                className="w-full accent-primary" />
+              <div className="text-[10px] text-slate400 mt-1">Sin magnitud medible ni subtareas: lo estima el responsable.</div>
+            </div>
+          )}
           {t.state === 'late' && (
             <div className="mt-3 flex items-start gap-2 bg-critical50 text-[#B91C1C] text-[11px] rounded p-2">
               <Icon name="alert" size={12} className="mt-[1px] flex-none" />
@@ -2135,7 +2270,7 @@ const ScreenGantt = ({ onNav }) => {
   const [newTaskOpen, setNewTaskOpen] = React.useState(false);
 
   // Derived task list — single source of truth for List + Calendar.
-  const flatTasks = groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro })));
+  const flatTasks = groups.flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
 
   const addTask = (task) => store.addTask(task);
 
@@ -2191,7 +2326,7 @@ const ScreenGantt = ({ onNav }) => {
       {view === 'list'     && <ListView     tasks={flatTasks}   onPick={setPick} />}
       {view === 'calendar' && <CalendarView tasks={flatTasks}   onPick={setPick} />}
 
-      <TaskDetail taskId={pick} onClose={() => setPick(null)} onComplete={(id) => store.markComplete(id)} onReopen={(id) => store.reopen(id)} />
+      <TaskDetail taskId={pick} onClose={() => setPick(null)} onComplete={(id) => store.markComplete(id)} onReopen={(id) => store.reopen(id)} onLog={(id, q) => store.logProgress(id, q)} onToggleStep={(id, i) => store.toggleStep(id, i)} onSetPct={(id, p) => store.setPct(id, p)} />
       <NuevaTareaModal open={newTaskOpen} onClose={() => setNewTaskOpen(false)} onCreate={addTask} onManageRubros={() => onNav && onNav('rubros')} />
     </>
   );
@@ -2690,7 +2825,7 @@ const ScreenMaterials = ({ onNav }) => {
       {/* Detail drawer */}
       {pick && <OrderDrawer order={pick} STATE={STATE} fmt={fmt} onClose={() => setPick(null)} onApprove={approve} onCancel={cancelOrder} onDeliver={(id) => setDeliverFor(orders.find((o) => o.id === id))} />}
       {/* New order modal */}
-      {newOpen && <NewOrderModal STATE={STATE} fmt={fmt} onClose={() => setNewOpen(false)} onSave={addOrder} count={orders.length} onManageRubros={() => onNav && onNav('rubros')} onManageSuppliers={() => onNav && onNav('proveedores')} />}
+      {newOpen && <NewOrderModal STATE={STATE} fmt={fmt} onClose={() => setNewOpen(false)} onSave={addOrder} count={orders.length} onManageRubros={() => onNav && onNav('rubros')} onManageSuppliers={() => onNav && onNav('proveedores')} onManageUnits={() => onNav && onNav('config')} />}
       {/* Delivery reception modal */}
       {deliverFor && <DeliveryModal order={deliverFor} onClose={() => setDeliverFor(null)} onSave={(del) => markDelivered(deliverFor.id, del)} />}
 
@@ -2918,15 +3053,23 @@ const OrderDrawer = ({ order, STATE, fmt, onClose, onApprove, onCancel, onDelive
   );
 };
 
-const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onManageSuppliers }) => {
+const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onManageSuppliers, onManageUnits }) => {
   const rubroStore = useRubroStore();
   const cats = rubroStore.names();
   const [d, setD] = React.useState({ mat: '', prov: '', cat: rubroStore.names()[0] || '', qty: '', unit: 'bolsas', total: '', date: '', who: 'L. Benítez', urgent: false });
   const [addingCat, setAddingCat] = React.useState(false);
   const [newCat, setNewCat] = React.useState('');
-  const [units, setUnits] = React.useState(['bolsas', 'u', 'm³', 'm', 'm²', 'kg', 't', 'L', 'barras', 'cajas', 'rollos', 'global']);
+  const catStore = useCatStore();
+  const units = catStore.get('unidades');
+  const [unitOpen, setUnitOpen] = React.useState(false);
   const [addingUnit, setAddingUnit] = React.useState(false);
   const [newUnit, setNewUnit] = React.useState('');
+  const unitRef = React.useRef(null);
+  React.useEffect(() => {
+    const h = (e) => { if (unitRef.current && !unitRef.current.contains(e.target)) { setUnitOpen(false); setAddingUnit(false); } };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
   React.useEffect(() => {
     const k = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k);
@@ -2942,8 +3085,8 @@ const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onM
   };
   const confirmUnit = () => {
     const v = newUnit.trim();
-    if (v) { if (!units.includes(v)) setUnits((p) => [...p, v]); set({ unit: v }); }
-    setAddingUnit(false); setNewUnit('');
+    if (v) { catStore.add('unidades', v); set({ unit: v }); }
+    setAddingUnit(false); setNewUnit(''); setUnitOpen(false);
   };
   const submit = () => {
     if (!canSave) return;
@@ -2985,9 +3128,9 @@ const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onM
                 className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
                 <option value="">Sin proveedor asignado</option>
                 {SupplierStore.get()
-                  .filter((p) => p.scope === 'global' || p.owner === 'J. Méndez')
+                  .filter((p) => p.scope === 'global' || p.obraId === 'belgrano')
                   .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0))
-                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'private' ? ' (privado)' : '')}</option>)}
+                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'obra' ? ' (solo esta obra)' : '')}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-[6px]">
@@ -3001,34 +3144,15 @@ const NewOrderModal = ({ STATE, fmt, onClose, onSave, count, onManageRubros, onM
                 {cats.map((c) => <option key={c}>{c}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-[6px]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate700">Cantidad</span>
-                {!addingUnit && (
-                  <button type="button" onClick={() => { setAddingUnit(true); setNewUnit(''); }}
-                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]"><Icon name="plus" size={10} /> Unidad</button>
-                )}
-              </div>
+            <div className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate700">Cantidad</span>
               <div className="flex gap-2">
                 <input type="number" min="0" value={d.qty} onChange={(e) => set({ qty: e.target.value })} placeholder="0"
                   className="w-[90px] bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
-                {addingUnit ? (
-                  <div className="flex gap-1 flex-1 min-w-0">
-                    <input autoFocus value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') confirmUnit(); else if (e.key === 'Escape') setAddingUnit(false); }}
-                      placeholder="Nueva unidad"
-                      className="flex-1 min-w-0 bg-white border border-primary rounded-md px-2 py-[9px] text-[13px] focus:outline-none" />
-                    <button type="button" onClick={confirmUnit} className="px-2 rounded-md bg-primary text-white flex items-center justify-center"><Icon name="check" size={14} /></button>
-                    <button type="button" onClick={() => setAddingUnit(false)} className="px-2 rounded-md border border-slate200 text-slate500 flex items-center justify-center"><Icon name="x" size={14} /></button>
-                  </div>
-                ) : (
-                  <select value={d.unit} onChange={(e) => set({ unit: e.target.value })}
-                    className="flex-1 min-w-0 bg-white border border-slate200 rounded-md px-2 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                    {units.map((u) => <option key={u}>{u}</option>)}
-                  </select>
-                )}
+
+                <UnitPicker value={d.unit} onChange={(u) => set({ unit: u })} onManage={onManageUnits} className="flex-1 min-w-0" />
               </div>
-            </label>
+            </div>
             <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate700">Total</span>
               <MoneyInput value={d.total} onChange={(v) => set({ total: v })} />
@@ -3203,22 +3327,32 @@ const TEAM_PEOPLE = [
 
 const TEAM_ROLES_DEF = [
   { name: 'Director de obra', locked: true,  color: '#0F4395', desc: 'Acceso total. Aprueba pedidos, gestiona el equipo y la configuración.',
-    perms: { cronograma: [1,1], pedidos: [1,1], stock: [1,1], recibos: [1,1], presupuesto: [1,1], alertas: [1,1], equipo: [1,1], config: [1,1] } },
+    perms: { bandeja: [1,1], cronograma: [1,1], pedidos: [1,1], stock: [1,1], proveedores: [1,1], presupuesto: [1,1], recibos: [1,1], alertas: [1,1], galeria: [1,1], actividad: [1,1], reportes: [1,1], equipo: [1,1], config: [1,1] } },
   { name: 'Capataz', locked: false, color: '#22C55E', desc: 'Opera en obra: reporta avances, resuelve alertas y ajusta stock.',
-    perms: { cronograma: [1,1], pedidos: [1,0], stock: [1,1], recibos: [0,0], presupuesto: [0,0], alertas: [1,1], equipo: [1,0], config: [0,0] } },
+    perms: { bandeja: [1,1], cronograma: [1,1], pedidos: [1,0], stock: [1,1], proveedores: [1,0], presupuesto: [0,0], recibos: [0,0], alertas: [1,1], galeria: [1,1], actividad: [1,1], reportes: [1,0], equipo: [1,0], config: [0,0] } },
   { name: 'Compras', locked: false, color: '#F59E0B', desc: 'Gestiona pedidos, proveedores y comprobantes de gasto.',
-    perms: { cronograma: [1,0], pedidos: [1,1], stock: [1,1], recibos: [1,1], presupuesto: [1,0], alertas: [1,0], equipo: [1,0], config: [0,0] } },
+    perms: { bandeja: [1,1], cronograma: [1,0], pedidos: [1,1], stock: [1,1], proveedores: [1,1], presupuesto: [1,0], recibos: [1,1], alertas: [1,0], galeria: [1,0], actividad: [1,0], reportes: [1,0], equipo: [1,0], config: [0,0] } },
   { name: 'Arquitecta', locked: false, color: '#3B82F6', desc: 'Consulta avance, planos y fotos. No modifica datos operativos.',
-    perms: { cronograma: [1,0], pedidos: [1,0], stock: [1,0], recibos: [0,0], presupuesto: [1,0], alertas: [1,0], equipo: [1,0], config: [0,0] } },
+    perms: { bandeja: [1,0], cronograma: [1,0], pedidos: [1,0], stock: [1,0], proveedores: [1,0], presupuesto: [1,0], recibos: [0,0], alertas: [1,0], galeria: [1,1], actividad: [1,0], reportes: [1,0], equipo: [1,0], config: [0,0] } },
   { name: 'Cliente / propietario', locked: false, color: '#94A3B8', desc: 'Solo lectura del avance y del presupuesto.',
-    perms: { cronograma: [1,0], pedidos: [0,0], stock: [0,0], recibos: [0,0], presupuesto: [1,0], alertas: [0,0], equipo: [0,0], config: [0,0] } },
+    perms: { bandeja: [0,0], cronograma: [1,0], pedidos: [0,0], stock: [0,0], proveedores: [0,0], presupuesto: [1,0], recibos: [0,0], alertas: [0,0], galeria: [1,0], actividad: [0,0], reportes: [1,0], equipo: [0,0], config: [0,0] } },
 ];
 
+// Un área = una sección del dashboard. Se mantiene en línea con SCREENS.
 const TEAM_AREAS = [
-  { id: 'cronograma', label: 'Cronograma' }, { id: 'pedidos', label: 'Pedidos' },
-  { id: 'stock', label: 'Stock' },           { id: 'recibos', label: 'Recibos' },
-  { id: 'presupuesto', label: 'Presupuesto' },{ id: 'alertas', label: 'Alertas' },
-  { id: 'equipo', label: 'Equipo' },         { id: 'config', label: 'Configuración' },
+  { id: 'bandeja',     label: 'Bandeja' },
+  { id: 'cronograma',  label: 'Cronograma' },
+  { id: 'pedidos',     label: 'Pedidos' },
+  { id: 'stock',       label: 'Stock' },
+  { id: 'proveedores', label: 'Proveedores' },
+  { id: 'presupuesto', label: 'Presupuesto' },
+  { id: 'recibos',     label: 'Comprobantes' },
+  { id: 'alertas',     label: 'Alertas' },
+  { id: 'galeria',     label: 'Galería' },
+  { id: 'actividad',   label: 'Actividad' },
+  { id: 'reportes',    label: 'Reportes' },
+  { id: 'equipo',      label: 'Equipo' },
+  { id: 'config',      label: 'Configuración' },
 ];
 
 const TEAM_LOG = [
@@ -3413,8 +3547,8 @@ const ScreenTeam = ({ onNav }) => {
           {TEAM_ROLES_DEF.map((r) => {
             const holders = TEAM_PEOPLE.filter((p) => p.role === r.name);
             const open = roleOpen === r.name;
-            const edits = TEAM_AREAS.filter((a) => r.perms[a.id][1]).length;
-            const views = TEAM_AREAS.filter((a) => r.perms[a.id][0]).length;
+            const edits = TEAM_AREAS.filter((a) => (r.perms[a.id] || [])[1]).length;
+            const views = TEAM_AREAS.filter((a) => (r.perms[a.id] || [])[0]).length;
             return (
               <div key={r.name} className="bg-white border border-slate200 rounded-lg overflow-hidden">
                 <button onClick={() => setRoleOpen(open ? null : r.name)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate50 text-left">
@@ -3459,7 +3593,7 @@ const ScreenTeam = ({ onNav }) => {
                           <span className="text-[9px] tracking-[0.06em] uppercase font-bold text-slate500 text-center">Editar</span>
                         </div>
                         {TEAM_AREAS.map((a, i) => {
-                          const [v, e] = r.perms[a.id];
+                          const [v, e] = r.perms[a.id] || [0, 0];
                           const Cell = ({ on, tone }) => (
                             <div className="flex justify-center">
                               <span className={"w-[22px] h-[22px] rounded-md inline-flex items-center justify-center " +
@@ -3630,7 +3764,7 @@ const PersonDrawer = ({ person: p, onClose, flash }) => {
                 </thead>
                 <tbody>
                   {TEAM_AREAS.map((a) => {
-                    const [v, e] = rd.perms[a.id];
+                    const [v, e] = rd.perms[a.id] || [0, 0];
                     const Dot = ({ on }) => (
                       <span className={"inline-flex w-5 h-5 rounded-full items-center justify-center " + (on ? 'bg-success50 text-[#15803D]' : 'bg-slate100 text-slate300')}>
                         <Icon name={on ? 'check' : 'x'} size={11} />
@@ -3798,7 +3932,8 @@ const STOCK_SEED = [
 ];
 const StockStore = makeStore(STOCK_SEED);
 
-const ScreenStock = () => {
+const ScreenStock = ({ onNav }) => {
+  const onManageUnits = () => onNav && onNav('config');
   const stockStore = useStore(StockStore);
   const items = stockStore.get();
   const setItems = (fn) => stockStore.set(typeof fn === 'function' ? fn(stockStore.get()) : fn);
@@ -3992,7 +4127,7 @@ const ScreenStock = () => {
       )}
 
       {/* Edit / add material modal */}
-      {editItem && <StockItemModal item={editItem} cats={cats} catColor={catColor} onClose={() => setEditItem(null)} onSave={saveItem} onDelete={delItem} />}
+      {editItem && <StockItemModal item={editItem} cats={cats} catColor={catColor} onClose={() => setEditItem(null)} onSave={saveItem} onDelete={delItem} onAddCat={() => setCatModal(true)} onManageUnits={onManageUnits} />}
       {/* New category modal */}
       {catModal && <NewCategoryModal onClose={() => setCatModal(false)} onSave={addCat} existing={cats} />}
 
@@ -4005,7 +4140,82 @@ const ScreenStock = () => {
   );
 };
 
-const StockItemModal = ({ item, cats, catColor, onClose, onSave, onDelete }) => {
+// ── Selector de unidad de medida, reutilizable ─────────────────────────────
+// Lee las unidades del store central (Configuración › Rubros y categorías),
+// permite crear una nueva al vuelo y saltar a administrarlas.
+const UnitPicker = ({ value, onChange, onManage, className = '' }) => {
+  const catStore = useCatStore();
+  const units = catStore.get('unidades');
+  const [open, setOpen] = React.useState(false);
+  const [adding, setAdding] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setAdding(false); } };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const confirm = () => {
+    const v = draft.trim();
+    if (v) { catStore.add('unidades', v); onChange(v); }
+    setAdding(false); setDraft(''); setOpen(false);
+  };
+
+  return (
+    <div className={"relative " + className} ref={ref}>
+      <button type="button" onClick={() => { setOpen((o) => !o); setAdding(false); }}
+        className={"w-full flex items-center gap-2 bg-white border rounded-md px-3 py-[9px] text-[13px] text-left transition-colors " + (open ? 'border-primary' : 'border-slate200 hover:border-slate300')}>
+        <span className={"flex-1 min-w-0 truncate " + (value ? 'font-semibold text-slate950' : 'text-slate400')}>{value || 'Elegí una unidad'}</span>
+        <Icon name="chevron-down" size={12} className={"text-slate400 flex-none transition-transform " + (open ? 'rotate-180' : '')} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-[44px] z-50 w-[230px] bg-white border border-slate200 rounded-lg shadow-pop overflow-hidden animate-fade-task">
+          <div className="px-3 py-2 text-[9px] tracking-[0.08em] uppercase font-bold text-slate400 border-b border-slate100">Unidad de medida</div>
+          <div className="p-2 grid grid-cols-3 gap-1 max-h-[180px] overflow-y-auto">
+            {units.map((u) => {
+              const on = value === u;
+              return (
+                <button key={u} type="button" onClick={() => { onChange(u); setOpen(false); }}
+                  className={"text-[12px] font-semibold rounded-md px-2 py-[7px] border transition-colors truncate " +
+                    (on ? 'bg-primary text-white border-primary' : 'bg-white text-slate700 border-slate200 hover:border-slate300')}>
+                  {u}
+                </button>
+              );
+            })}
+          </div>
+          <div className="border-t border-slate100 p-2">
+            {adding ? (
+              <div className="flex gap-1">
+                <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirm(); else if (e.key === 'Escape') setAdding(false); }}
+                  placeholder="Ej: palets"
+                  className="flex-1 min-w-0 bg-white border border-primary rounded-md px-2 py-[6px] text-[12px] focus:outline-none" />
+                <button type="button" onClick={confirm} className="px-2 rounded-md bg-primary text-white flex items-center justify-center"><Icon name="check" size={12} /></button>
+                <button type="button" onClick={() => setAdding(false)} className="px-2 rounded-md text-slate400 hover:bg-slate100 flex items-center justify-center"><Icon name="x" size={12} /></button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => { setAdding(true); setDraft(''); }}
+                  className="flex-1 flex items-center justify-center gap-[5px] text-[11px] font-bold text-primary hover:bg-primary-50 rounded-md py-[6px] transition-colors">
+                  <Icon name="plus" size={11} /> Nueva unidad
+                </button>
+                {onManage && (
+                  <button type="button" onClick={() => { setOpen(false); onManage(); }}
+                    className="text-[11px] font-bold text-slate500 hover:text-primary px-2 py-[6px]">Administrar</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StockItemModal = ({ item, cats, catColor, onClose, onSave, onDelete, onAddCat, onManageUnits }) => {
   const [d, setD] = React.useState({ ...item });
   const fileRef = React.useRef(null);
   React.useEffect(() => {
@@ -4075,11 +4285,10 @@ const StockItemModal = ({ item, cats, catColor, onClose, onSave, onDelete }) => 
                 {cats.map((c) => <option key={c}>{c}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-[6px]">
+            <div className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate700">Unidad</span>
-              <input value={d.unit} onChange={(e) => set({ unit: e.target.value })} placeholder="bolsas, m³, u…"
-                className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-            </label>
+              <UnitPicker value={d.unit} onChange={(u) => set({ unit: u })} onManage={onManageUnits} />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <label className="flex flex-col gap-[6px]">
@@ -4160,16 +4369,20 @@ const NewCategoryModal = ({ onClose, onSave, existing, title = 'Nueva categoría
 // Screen: RECIBOS (receipts)
 // ============================================================================
 
-const ScreenReceipts = () => {
-  const SEED = [
+const RECEIPTS_SEED = [
     { id: 'r1', concept: 'Cemento × 120 bolsas',  prov: 'Cementos del Plata', cat: 'Materiales',  date: '15 May', amount: 480000,  status: 'pagado',     file: 'recibo-0142.pdf' },
     { id: 'r2', concept: 'Hierro 12 mm × 2,5 t',   prov: 'Aceros Norte',       cat: 'Materiales',  date: '12 May', amount: 1250000, status: 'pendiente',  file: 'factura-A-883.pdf' },
     { id: 'r3', concept: 'Alquiler grúa torre',    prov: 'GruasSur SRL',       cat: 'Equipos',     date: '10 May', amount: 890000,  status: 'pagado',     file: 'recibo-grua-05.pdf' },
     { id: 'r4', concept: 'Jornales cuadrilla S19', prov: 'Nómina interna',     cat: 'Mano de obra', date: '08 May', amount: 1640000, status: 'pagado',     file: 'liquidacion-s19.pdf' },
     { id: 'r5', concept: 'Flete áridos',           prov: 'Transportes Río',    cat: 'Logística',   date: '06 May', amount: 220000,  status: 'pendiente',  file: 'remito-3920.pdf' },
-    { id: 'r6', concept: 'Pintura látex × 40 L',   prov: 'Pinturas Capital',   cat: 'Materiales',  date: '03 May', amount: 145000,  status: 'pagado',     file: 'recibo-0138.pdf' },
-  ];
-  const [receipts, setReceipts] = React.useState(SEED);
+  { id: 'r6', concept: 'Pintura látex × 40 L',   prov: 'Pinturas Capital',   cat: 'Materiales',  date: '03 May', amount: 145000,  status: 'pagado',     file: 'recibo-0138.pdf' },
+];
+const ReceiptStore = makeStore(RECEIPTS_SEED);
+
+const ScreenReceipts = ({ onNav }) => {
+  const recStore = useStore(ReceiptStore);
+  const receipts = recStore.get();
+  const setReceipts = (fn) => recStore.set(typeof fn === 'function' ? fn(recStore.get()) : fn);
   const [filter, setFilter] = React.useState('Todos');
   const [addOpen, setAddOpen] = React.useState(false);
   const [toast, setToast] = React.useState(null);
@@ -4281,7 +4494,7 @@ const ScreenReceipts = () => {
         </div>
       </DCard>
 
-      {addOpen && <ReceiptModal cats={cats} onClose={() => setAddOpen(false)} onSave={addReceipt} onAddCat={() => setCatModal(true)} />}
+      {addOpen && <ReceiptModal cats={cats} onClose={() => setAddOpen(false)} onSave={addReceipt} onAddCat={() => setCatModal(true)} onManageSuppliers={() => onNav && onNav('proveedores')} />}
       {catModal && <NewCategoryModal onClose={() => setCatModal(false)} onSave={addCat} existing={cats}
         title="Nueva categoría de gasto" label="Nombre de la categoría*" placeholder="Ej: Alquiler de equipos" />}
 
@@ -4294,7 +4507,7 @@ const ScreenReceipts = () => {
   );
 };
 
-const ReceiptModal = ({ cats, onClose, onSave, onAddCat }) => {
+const ReceiptModal = ({ cats, onClose, onSave, onAddCat, onManageSuppliers }) => {
   const [d, setD] = React.useState({ concept: '', prov: '', cat: cats[0], date: '', amount: '', status: 'pendiente', file: '' });
   const [dragOver, setDragOver] = React.useState(false);
   React.useEffect(() => {
@@ -4353,9 +4566,9 @@ const ReceiptModal = ({ cats, onClose, onSave, onAddCat }) => {
                 className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
                 <option value="">Sin proveedor asignado</option>
                 {SupplierStore.get()
-                  .filter((p) => p.scope === 'global' || p.owner === 'J. Méndez')
+                  .filter((p) => p.scope === 'global' || p.obraId === 'belgrano')
                   .sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0))
-                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'private' ? ' (privado)' : '')}</option>)}
+                  .map((p) => <option key={p.id} value={p.name}>{(p.fav ? '★ ' : '') + p.name + (p.scope === 'obra' ? ' (solo esta obra)' : '')}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-[6px]">
@@ -4415,9 +4628,10 @@ const ScreenReports = () => {
     { id: 'presupuesto',label: 'Presupuesto',         sub: 'Ejecutado, comprometido y disponible',     icon: 'dollar' },
     { id: 'cronograma', label: 'Cronograma',          sub: 'Tareas completas, en curso y atrasadas',   icon: 'calendar' },
     { id: 'alertas',    label: 'Alertas e incidentes',sub: 'Problemas críticos del período',           icon: 'alert' },
-    { id: 'pedidos',    label: 'Pedidos de material', sub: 'Compras y entregas',                       icon: 'package' },
+    { id: 'pedidos',    label: 'Pedidos de material', sub: 'Compras y entregas',                       icon: 'truck' },
     { id: 'stock',      label: 'Stock de materiales', sub: 'Inventario y niveles bajos',               icon: 'box' },
-    { id: 'recibos',    label: 'Recibos y gastos',    sub: 'Comprobantes y pagos',                     icon: 'receipt' },
+    { id: 'recibos',    label: 'Comprobantes y gastos', sub: 'Facturas, recibos y pagos',              icon: 'receipt' },
+    { id: 'galeria',    label: 'Galería de obra',     sub: 'Fotos por tarea y fecha',                  icon: 'photo' },
     { id: 'equipo',     label: 'Equipo',              sub: 'Personas y productividad',                 icon: 'users' },
     { id: 'actividad',  label: 'Bitácora de actividad',sub: 'Detalle día a día (extenso)',             icon: 'message' },
   ];
@@ -5190,6 +5404,7 @@ const CAT_GROUPS_SEED = {
   recibos: { label: 'Recibos y gastos',    icon: 'receipt', tint: 'bg-attention50 text-[#A16207]', desc: 'Clasifican en qué se gastó el dinero.',         items: ['Materiales', 'Mano de obra', 'Equipos', 'Logística', 'Servicios'] },
   alertas: { label: 'Alertas',             icon: 'alert',   tint: 'bg-critical50 text-[#B91C1C]',  desc: 'Tipifican el origen del problema reportado.',   items: ['Equipos', 'Materiales', 'Seguridad', 'Personal', 'Logística', 'Reportes'] },
   archivos:{ label: 'Archivos',            icon: 'database',tint: 'bg-info50 text-[#1D4ED8]',      desc: 'Ordenan los documentos de la obra.',            items: ['Planos y documentos', 'Planillas y cálculos', 'Contratos y textos', 'Fotos de obra'] },
+  unidades:{ label: 'Unidades de medida',  icon: 'box',     tint: 'bg-primary-50 text-primary',    desc: 'Se usan al cargar pedidos y stock.',            items: ['bolsas', 'u', 'm³', 'm', 'm²', 'kg', 't', 'L', 'barras', 'cajas', 'rollos', 'global'] },
 };
 const CAT_LISTENERS = new Set();
 const CatStore = {
@@ -6491,14 +6706,14 @@ const SUPPLIERS_SEED = [
     address: 'Perón 1877, CABA', pay: '30 días', lead: '5 días',
     desc: 'Cable, caños, tableros y llaves térmicas. Asesoramiento técnico.',
     orders: 2, spent: 0.4 },
-  // Agenda privada del usuario actual (J. Méndez)
-  { id: 'PV-06', scope: 'private', owner: 'J. Méndez', fav: true, name: 'Hormigonera Sur', rubro: 'Hormigón armado', cuit: '30-70554433-2',
+  // Proveedores propios de ESTA obra (no están en el catálogo de la empresa)
+  { id: 'PV-06', scope: 'obra', obraId: 'belgrano', fav: true, name: 'Hormigonera Sur', rubro: 'Hormigón armado', cuit: '30-70554433-2',
     contact: 'Raúl Ibáñez', role: 'Dueño', phone: '+54 11 4667 8820', wa: '+54 9 11 4667 8820',
     email: 'raul@hormigonerasur.com.ar', web: '',
     address: 'Colectora Oeste 2280, Boulogne', pay: 'Contado', lead: '1 día',
-    desc: 'Contacto propio. Hormigón elaborado para urgencias, responde fuera de horario.',
+    desc: 'Conseguido para esta obra. Hormigón elaborado para urgencias, responde fuera de horario.',
     orders: 0, spent: 0 },
-  { id: 'PV-07', scope: 'private', owner: 'J. Méndez', fav: false, name: 'Carpintería Lomas', rubro: 'Terminaciones', cuit: '',
+  { id: 'PV-07', scope: 'obra', obraId: 'belgrano', fav: false, name: 'Carpintería Lomas', rubro: 'Terminaciones', cuit: '',
     contact: 'Sergio Duarte', role: 'Titular', phone: '+54 11 5520 7734', wa: '+54 9 11 5520 7734',
     email: '', web: '',
     address: 'Lomas de Zamora', pay: '50% anticipo', lead: '20 días',
@@ -6519,6 +6734,7 @@ const ScreenSuppliers = ({ onNav }) => {
   const rubroStore = useRubroStore();
   const all = supStore.get();
   const ME = 'J. Méndez';
+  const OBRA_ID = 'belgrano';
 
   const [scope, setScope] = React.useState('global'); // global | private
   const [q, setQ] = React.useState('');
@@ -6528,7 +6744,7 @@ const ScreenSuppliers = ({ onNav }) => {
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2200); };
 
   const globals = all.filter((p) => p.scope === 'global');
-  const privates = all.filter((p) => p.scope === 'private' && p.owner === ME);
+  const privates = all.filter((p) => p.scope === 'obra' && p.obraId === OBRA_ID);
   const inScope = scope === 'global' ? globals : privates;
 
   const shown = inScope.filter((p) => !q || (p.name + ' ' + p.contact + ' ' + p.rubro + ' ' + p.desc).toLowerCase().includes(q.toLowerCase()));
@@ -6546,13 +6762,13 @@ const ScreenSuppliers = ({ onNav }) => {
     if (d.id) { supStore.update(d.id, d); flash('Proveedor actualizado'); }
     else {
       const id = 'PV-' + String(all.length + 1).padStart(2, '0');
-      supStore.add({ ...d, id, scope, owner: scope === 'private' ? ME : undefined, fav: false, orders: 0, spent: 0 });
+      supStore.add({ ...d, id, scope, obraId: scope === 'obra' ? OBRA_ID : undefined, fav: false, orders: 0, spent: 0 });
       setSel(id);
-      flash(scope === 'global' ? 'Proveedor agregado a la obra' : 'Proveedor agregado a tu agenda');
+      flash(scope === 'global' ? 'Agregado al catálogo de la empresa' : 'Agregado a esta obra');
     }
     setEdit(null);
   };
-  const promote = (p) => { supStore.update(p.id, { scope: 'global', owner: undefined }); setScope('global'); flash('Compartido con la obra'); };
+  const promote = (p) => { supStore.update(p.id, { scope: 'global', obraId: undefined }); setScope('global'); flash('Agregado al catálogo de la empresa'); };
 
   const Star = ({ on, onClick, size = 13 }) => (
     <button onClick={onClick} className="p-1 -m-1 flex-none" title={on ? 'Quitar de frecuentes' : 'Marcar como frecuente'}>
@@ -6580,7 +6796,7 @@ const ScreenSuppliers = ({ onNav }) => {
           <div className="text-[10px] text-slate500 truncate">{p.contact || 'Sin contacto'} · {p.rubro}</div>
         </div>
         {p.orders > 0 && <span className="text-[10px] font-bold text-slate500 tnum flex-none">{p.orders} ped.</span>}
-        {p.scope === 'private' && <span className="text-[9px] font-bold text-[#A16207] bg-attention50 rounded px-[5px] py-[2px] flex-none">Privado</span>}
+        {p.scope === 'obra' && <span className="text-[9px] font-bold text-[#A16207] bg-attention50 rounded px-[5px] py-[2px] flex-none">Esta obra</span>}
       </div>
     );
   };
@@ -6596,8 +6812,8 @@ const ScreenSuppliers = ({ onNav }) => {
       {/* Selector de ámbito — dos listas separadas, no un filtro más */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         {[
-          { id: 'global',  ico: 'users',  t: 'De la obra',      s: 'Visibles para todo el equipo con acceso a Pedidos', n: globals.length },
-          { id: 'private', ico: 'clock',  t: 'Mi agenda',       s: 'Solo los ves vos · contactos propios sin compartir', n: privates.length },
+          { id: 'global',  ico: 'database', t: 'Catálogo de la empresa', s: 'Compartidos entre todas las obras · los usa cualquier equipo', n: globals.length },
+          { id: 'obra',    ico: 'box',      t: 'Solo esta obra',         s: 'Conseguidos para Edificio Belgrano · no aparecen en otras', n: privates.length },
         ].map((x) => {
           const on = scope === x.id;
           return (
@@ -6605,7 +6821,7 @@ const ScreenSuppliers = ({ onNav }) => {
               className={"text-left rounded-lg border p-4 transition-all " + (on ? 'bg-white border-primary ring-1 ring-primary/20 shadow-card' : 'bg-slate50/60 border-slate200 hover:border-slate300')}>
               <div className="flex items-start gap-3">
                 <span className={"w-9 h-9 rounded-lg flex items-center justify-center flex-none " + (on ? 'bg-primary text-white' : 'bg-white border border-slate200 text-slate500')}>
-                  <Icon name={x.id === 'private' ? 'users' : 'truck'} size={16} />
+                  <Icon name={x.ico} size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -6666,22 +6882,22 @@ const ScreenSuppliers = ({ onNav }) => {
                     <div className="text-[13px] font-bold text-slate700">Sin resultados</div>
                     <div className="text-[11px] text-slate500 mt-1 leading-snug">
                       Ningún proveedor coincide con “<b className="text-slate700">{q}</b>”
-                      {scope === 'global' ? ' en la obra.' : ' en tu agenda.'}
+                      {scope === 'global' ? ' en el catálogo.' : ' en esta obra.'}
                     </div>
-                    <button onClick={() => { setScope(scope === 'global' ? 'private' : 'global'); }}
+                    <button onClick={() => { setScope(scope === 'global' ? 'obra' : 'global'); }}
                       className="text-[11px] font-bold text-primary hover:underline mt-3">
-                      Buscar en {scope === 'global' ? 'mi agenda' : 'la obra'}
+                      Buscar en {scope === 'global' ? 'esta obra' : 'el catálogo'}
                     </button>
                   </>
                 ) : (
                   <>
                     <div className="text-[13px] font-bold text-slate700">
-                      {scope === 'private' ? 'Tu agenda está vacía' : 'Sin proveedores'}
+                      {scope === 'obra' ? 'Sin proveedores propios' : 'Catálogo vacío'}
                     </div>
                     <div className="text-[11px] text-slate500 mt-1 leading-snug">
-                      {scope === 'private'
-                        ? 'Guardá contactos propios que todavía no querés compartir con el equipo.'
-                        : 'Cargá los proveedores con los que trabaja la obra.'}
+                      {scope === 'obra'
+                        ? 'Acá van los que conseguiste solo para esta obra, sin sumarlos al catálogo de la empresa.'
+                        : 'Cargá los proveedores que usa la empresa en todas sus obras.'}
                     </div>
                   </>
                 )}
@@ -6692,7 +6908,7 @@ const ScreenSuppliers = ({ onNav }) => {
           <div className="p-2 border-t border-slate200 bg-slate50">
             <button onClick={() => setEdit({ initial: null })}
               className="w-full flex items-center justify-center gap-2 text-[12px] font-bold text-primary py-[7px] rounded-md hover:bg-primary-50 transition-colors">
-              <Icon name="plus" size={12} /> Agregar a {scope === 'global' ? 'la obra' : 'mi agenda'}
+              <Icon name="plus" size={12} /> Agregar {scope === 'global' ? 'al catálogo' : 'a esta obra'}
             </button>
           </div>
         </DCard>
@@ -6721,9 +6937,9 @@ const ScreenSuppliers = ({ onNav }) => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-[20px] font-extrabold display-tight text-slate950 leading-tight">{current.name}</h3>
                       <Star on={current.fav} onClick={() => toggleFav(current.id, current.fav)} size={16} />
-                      {current.scope === 'private'
-                        ? <span className="text-[9px] font-bold text-[#A16207] bg-attention50 border border-[#FDE68A] rounded px-[6px] py-[2px]">SOLO VOS</span>
-                        : <span className="text-[9px] font-bold text-primary bg-primary-50 rounded px-[6px] py-[2px]">TODA LA OBRA</span>}
+                      {current.scope === 'obra'
+                        ? <span className="text-[9px] font-bold text-[#A16207] bg-attention50 border border-[#FDE68A] rounded px-[6px] py-[2px]">SOLO ESTA OBRA</span>
+                        : <span className="text-[9px] font-bold text-primary bg-primary-50 rounded px-[6px] py-[2px]">TODAS LAS OBRAS</span>}
                     </div>
                     <div className="text-[12px] text-slate500 mt-1 flex items-center gap-[6px]">
                       <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: RUBRO_COLORS[current.rubro] || '#94A3B8' }} />
@@ -6747,8 +6963,8 @@ const ScreenSuppliers = ({ onNav }) => {
                     className="inline-flex items-center gap-[6px] text-[12px] font-bold text-slate700 bg-white border border-slate200 hover:border-primary rounded-md px-3 py-[8px] transition-colors">
                     <Icon name="mic" size={13} /> Llamar</a>}
                   <div className="flex-1" />
-                  {current.scope === 'private' && (
-                    <DButton variant="secondary" size="sm" icon={<Icon name="users" size={12} />} onClick={() => promote(current)}>Compartir con la obra</DButton>
+                  {current.scope === 'obra' && (
+                    <DButton variant="secondary" size="sm" icon={<Icon name="database" size={12} />} onClick={() => promote(current)}>Sumar al catálogo</DButton>
                   )}
                 </div>
               </div>
@@ -6854,7 +7070,7 @@ const SupplierModal = ({ initial, scope, rubros, onClose, onSave }) => {
   }, [onClose]);
   const set = (patch) => setD((p) => ({ ...p, ...patch }));
   const canSave = (d.name || '').trim().length >= 2;
-  const isPrivate = (initial ? initial.scope : scope) === 'private';
+  const isPrivate = (initial ? initial.scope : scope) === 'obra';
   const inp = SUP_INP;
   const F = SupField;
 
@@ -6866,7 +7082,7 @@ const SupplierModal = ({ initial, scope, rubros, onClose, onSave }) => {
             <div className="w-9 h-9 rounded-md bg-primary-50 text-primary flex items-center justify-center"><Icon name="truck" size={16} /></div>
             <div>
               <div className="text-[15px] font-extrabold display-tight">{initial ? 'Editar proveedor' : 'Nuevo proveedor'}</div>
-              <div className="text-[11px] text-slate500">{isPrivate ? 'Se guarda en tu agenda privada' : 'Visible para todo el equipo de la obra'}</div>
+              <div className="text-[11px] text-slate500">{isPrivate ? 'Queda solo en esta obra' : 'Queda en el catálogo de la empresa'}</div>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-md hover:bg-slate100 text-slate500 hover:text-slate950 flex items-center justify-center"><Icon name="x" size={16} /></button>
@@ -6874,11 +7090,11 @@ const SupplierModal = ({ initial, scope, rubros, onClose, onSave }) => {
 
         {!initial && (
           <div className={"px-6 py-3 flex items-start gap-2 border-b " + (isPrivate ? 'bg-attention50 border-[#FDE68A]' : 'bg-primary-50 border-primary/15')}>
-            <Icon name={isPrivate ? 'clock' : 'users'} size={13} className={(isPrivate ? 'text-[#A16207]' : 'text-primary') + ' mt-[2px] flex-none'} />
+            <Icon name={isPrivate ? 'box' : 'database'} size={13} className={(isPrivate ? 'text-[#A16207]' : 'text-primary') + ' mt-[2px] flex-none'} />
             <span className="text-[11px] text-slate700 leading-snug">
               {isPrivate
-                ? 'Solo vos vas a ver este contacto. Podés compartirlo con la obra más adelante desde su ficha.'
-                : 'Cualquier persona con acceso a Pedidos va a poder ver y usar este proveedor.'}
+                ? 'Va a estar disponible solo en esta obra. Podés sumarlo al catálogo de la empresa más adelante desde su ficha.'
+                : 'Va a quedar disponible en todas las obras de la empresa, para cualquier equipo.'}
             </span>
           </div>
         )}
@@ -7097,13 +7313,202 @@ const DashSidebar = ({ current, onNav, items = SCREENS, subRoute, onSubNav, proj
   </aside>
 );
 
+// Subir fotos a la galería (mismo flujo que el botón de la sección Galería).
+const UploadPhotosModal = ({ onClose, onDone }) => {
+  const taskStore = useTaskStore();
+  const tasks = taskStore.get().flatMap((g) => g.items.map((t) => ({ ...t, rubro: g.rubro, pct: taskPct(t) })));
+  const [files, setFiles] = React.useState([]);
+  const [task, setTask] = React.useState('');
+  const [note, setNote] = React.useState('');
+  const [drag, setDrag] = React.useState(false);
+  const [taskOpen, setTaskOpen] = React.useState(false);
+  const [taskQ, setTaskQ] = React.useState('');
+  const taskRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') { if (taskOpen) setTaskOpen(false); else onClose(); } };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose, taskOpen]);
+
+  React.useEffect(() => {
+    const h = (e) => { if (taskRef.current && !taskRef.current.contains(e.target)) setTaskOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const addFake = (nm) => setFiles((p) => [...p, nm || ('IMG_' + Math.floor(Math.random() * 9000 + 1000) + '.jpg')]);
+  const canSave = files.length > 0;
+
+  const submit = () => {
+    if (!canSave) return;
+    const t = tasks.find((x) => x.id === task);
+    const now = new Date();
+    files.forEach((f, i) => {
+      PhotoStore.add({
+        id: 'F-' + Date.now().toString(36).slice(-4) + i,
+        task: t ? t.name : 'Sin tarea asignada',
+        rubro: t ? t.rubro : 'Sin rubro',
+        who: 'J. Méndez',
+        date: 'Hoy',
+        time: now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+        tone: (t && RUBRO_COLORS[t.rubro]) || '#94A3B8',
+        note: note.trim(),
+      });
+    });
+    onDone(files.length + (files.length === 1 ? ' foto subida' : ' fotos subidas') + ' a la galería');
+    onClose();
+  };
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate950/60 backdrop-blur-sm animate-fade-task">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[520px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
+        <div className="px-6 py-4 border-b border-slate200 flex items-center justify-between flex-none">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-info50 text-[#1D4ED8] flex items-center justify-center"><Icon name="photo" size={16} /></div>
+            <div>
+              <div className="text-[15px] font-extrabold display-tight">Subir fotos</div>
+              <div className="text-[11px] text-slate500">Quedan asociadas a la tarea, el rubro y la fecha</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-md hover:bg-slate100 text-slate500 hover:text-slate950 flex items-center justify-center"><Icon name="x" size={16} /></button>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); Array.from(e.dataTransfer.files).forEach((f) => addFake(f.name)); }}
+            onClick={() => addFake()}
+            className={"border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors " + (drag ? 'border-primary bg-primary-50/40' : 'border-slate300 hover:border-slate400')}>
+            <div className="w-10 h-10 rounded-full bg-slate100 text-slate500 flex items-center justify-center mx-auto mb-2"><Icon name="upload" size={18} /></div>
+            <div className="text-[13px] font-bold text-slate700">Arrastrá las fotos acá</div>
+            <div className="text-[11px] text-slate500 mt-1">JPG o PNG · o hacé clic para elegir</div>
+          </div>
+
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {files.map((f, i) => (
+                <span key={i} className="inline-flex items-center gap-[6px] bg-slate50 border border-slate200 rounded-lg pl-2 pr-1 py-[5px]">
+                  <Icon name="photo" size={12} className="text-slate500" />
+                  <span className="text-[11px] font-semibold text-slate700 max-w-[140px] truncate">{f}</span>
+                  <button onClick={() => setFiles((p) => p.filter((_, k) => k !== i))} className="text-slate400 hover:text-[#B91C1C] p-1"><Icon name="x" size={11} /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-[6px]">
+            <span className="text-[11px] font-bold text-slate700">Tarea asociada</span>
+            <div className="relative" ref={taskRef}>
+              {(() => {
+                const sel = tasks.find((t) => t.id === task);
+                return (
+                  <button type="button" onClick={() => { setTaskOpen((o) => !o); setTaskQ(''); }}
+                    className={"w-full flex items-center gap-2 bg-white border rounded-md px-3 py-[9px] text-[13px] text-left transition-colors " + (taskOpen ? 'border-primary' : 'border-slate200 hover:border-slate300')}>
+                    {sel ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full flex-none" style={{ background: RUBRO_COLORS[sel.rubro] || '#94A3B8' }} />
+                        <span className="flex-1 min-w-0 truncate font-semibold text-slate950">{sel.name}</span>
+                        <span className="text-[11px] text-slate500 flex-none hidden sm:block">{sel.rubro}</span>
+                      </>
+                    ) : (
+                      <span className="flex-1 text-slate500">Sin tarea asignada</span>
+                    )}
+                    <Icon name="chevron-down" size={12} className={"text-slate400 flex-none transition-transform " + (taskOpen ? 'rotate-180' : '')} />
+                  </button>
+                );
+              })()}
+
+              {taskOpen && (() => {
+                const filtered = tasks.filter((t) => !taskQ || (t.name + ' ' + t.rubro).toLowerCase().includes(taskQ.toLowerCase()));
+                const grouped = filtered.reduce((acc, t) => { (acc[t.rubro] = acc[t.rubro] || []).push(t); return acc; }, {});
+                return (
+                  <div className="absolute left-0 right-0 top-[44px] z-50 bg-white border border-slate200 rounded-lg shadow-pop overflow-hidden animate-fade-task">
+                    <div className="p-2 border-b border-slate100">
+                      <div className="flex items-center gap-2 bg-slate50 border border-slate200 rounded-md px-2 py-[6px] focus-within:border-primary transition-colors">
+                        <Icon name="search" size={13} className="text-slate400 flex-none" />
+                        <input autoFocus value={taskQ} onChange={(e) => setTaskQ(e.target.value)} placeholder="Buscar tarea…"
+                          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[12px] text-slate950 placeholder:text-slate400" />
+                      </div>
+                    </div>
+                    <div className="max-h-[220px] overflow-y-auto">
+                      <button type="button" onClick={() => { setTask(''); setTaskOpen(false); }}
+                        className={"w-full flex items-center gap-2 px-3 py-[8px] text-left hover:bg-slate50 " + (!task ? 'bg-primary-50' : '')}>
+                        <span className="w-2 h-2 rounded-full border border-slate300 flex-none" />
+                        <span className="text-[12px] font-semibold text-slate600">Sin tarea asignada</span>
+                      </button>
+                      {Object.entries(grouped).map(([rubro, items]) => (
+                        <div key={rubro}>
+                          <div className="px-3 pt-2 pb-1 text-[9px] tracking-[0.08em] uppercase font-bold text-slate400 flex items-center gap-[6px] sticky top-0 bg-white">
+                            <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: RUBRO_COLORS[rubro] || '#94A3B8' }} />
+                            {rubro}
+                          </div>
+                          {items.map((t) => {
+                            const st = TASK_STATE_MAP[t.state];
+                            const on = task === t.id;
+                            return (
+                              <button key={t.id} type="button" onClick={() => { setTask(t.id); setTaskOpen(false); }}
+                                className={"w-full flex items-center gap-2 px-3 py-[8px] text-left hover:bg-slate50 " + (on ? 'bg-primary-50' : '')}>
+                                <span className="w-[6px] h-[6px] rounded-full flex-none" style={{ background: st.dot }} />
+                                <span className="flex-1 min-w-0 text-[12px] font-semibold text-slate900 truncate">{t.name}</span>
+                                <span className="text-[10px] font-bold text-slate400 tnum flex-none">{t.pct}%</span>
+                                {on && <Icon name="check" size={12} className="text-primary flex-none" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                      {filtered.length === 0 && (
+                        <div className="px-3 py-6 text-center text-[12px] text-slate400">Sin resultados</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          <label className="flex flex-col gap-[6px]">
+            <span className="text-[11px] font-bold text-slate700">Nota</span>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+              placeholder="Qué muestran las fotos, observaciones…"
+              className="bg-white border border-slate200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none resize-y min-h-[58px]" />
+          </label>
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate200 bg-slate50 flex items-center justify-end gap-2 flex-none">
+          <button onClick={onClose} className="text-[12px] font-bold text-slate600 hover:text-slate950 px-3 py-[8px]">Cancelar</button>
+          <button onClick={submit} disabled={!canSave}
+            className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? 'bg-primary hover:bg-primary-700 text-white' : 'bg-slate200 text-slate500 cursor-not-allowed')}>
+            <Icon name="check" size={14} /> Subir {files.length > 0 ? files.length : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Quick-add: dropdown menu + per-kind modal ──────────────────────────────
-const QUICK_ADD_TYPES = [
-  { kind: 'tarea',    label: 'Tarea',         sub: 'Sumá una tarea al cronograma', icon: 'calendar', tint: 'bg-primary-50 text-primary' },
-  { kind: 'critico',  label: 'Crítico / alerta', sub: 'Reportá un problema en obra', icon: 'alert',  tint: 'bg-critical50 text-[#B91C1C]' },
-  { kind: 'pedido',   label: 'Pedido',        sub: 'Pedí material a un proveedor',  icon: 'package',  tint: 'bg-attention50 text-[#A16207]' },
-  { kind: 'reporte',  label: 'Actividad',     sub: 'Registrá un avance manual',     icon: 'chart',    tint: 'bg-info50 text-[#1D4ED8]' },
-  { kind: 'equipo',   label: 'Invitar equipo', sub: 'Sumá un miembro u obrero',     icon: 'users',    tint: 'bg-success50 text-[#15803D]' },
+const QUICK_ADD_GROUPS = [
+  { g: 'Obra', items: [
+    { kind: 'tarea',   label: 'Tarea',          sub: 'Sumala al cronograma',            icon: 'calendar', tint: 'bg-primary-50 text-primary' },
+    { kind: 'critico', label: 'Alerta',         sub: 'Reportá un problema de obra',     icon: 'alert',    tint: 'bg-critical50 text-[#B91C1C]' },
+    { kind: 'reporte', label: 'Actividad',      sub: 'Algo que no llegó por WhatsApp',  icon: 'message',  tint: 'bg-info50 text-[#1D4ED8]' },
+    { kind: 'foto',    label: 'Fotos',          sub: 'Subilas a la galería',            icon: 'photo',    tint: 'bg-info50 text-[#1D4ED8]' },
+  ]},
+  { g: 'Materiales', items: [
+    { kind: 'pedido',    label: 'Pedido',       sub: 'Pedí material a un proveedor',    icon: 'truck',    tint: 'bg-attention50 text-[#A16207]' },
+    { kind: 'material',  label: 'Material',     sub: 'Cargalo al stock de la obra',     icon: 'box',      tint: 'bg-success50 text-[#15803D]' },
+    { kind: 'proveedor', label: 'Proveedor',    sub: 'Con sus datos y contactos',       icon: 'truck',    tint: 'bg-slate100 text-slate700' },
+  ]},
+  { g: 'Costos', items: [
+    { kind: 'recibo', label: 'Comprobante',     sub: 'Cargá una factura o recibo',      icon: 'receipt',  tint: 'bg-attention50 text-[#A16207]' },
+  ]},
+  { g: 'Equipo y config.', items: [
+    { kind: 'equipo', label: 'Invitar al equipo', sub: 'Sumá un miembro u obrero',      icon: 'users',    tint: 'bg-success50 text-[#15803D]' },
+    { kind: 'rubro',  label: 'Rubro',            sub: 'Agrupa tareas, costos y pedidos', icon: 'layers',   tint: 'bg-primary-50 text-primary' },
+  ]},
 ];
 
 const QuickAddMenu = ({ onPick }) => {
@@ -7122,17 +7527,22 @@ const QuickAddMenu = ({ onPick }) => {
         <Icon name="chevron-down" size={12} className={"transition-transform " + (open ? 'rotate-180' : '')} />
       </button>
       {open && (
-        <div className="absolute right-0 top-[42px] w-[268px] bg-white border border-slate200 rounded-lg shadow-pop overflow-hidden z-50 animate-fade-task">
-          <div className="px-4 py-2 text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 border-b border-slate100">Agregar rápido</div>
-          {QUICK_ADD_TYPES.map((t) => (
-            <button key={t.kind} onClick={() => { setOpen(false); onPick(t.kind); }}
-              className="w-full flex items-center gap-3 px-3 py-[10px] hover:bg-slate50 text-left transition-colors">
-              <span className={"w-8 h-8 rounded-md flex items-center justify-center flex-none " + t.tint}><Icon name={t.icon} size={15} /></span>
-              <span className="min-w-0">
-                <span className="block text-[13px] font-bold text-slate950">{t.label}</span>
-                <span className="block text-[11px] text-slate500 truncate">{t.sub}</span>
-              </span>
-            </button>
+        <div className="absolute right-0 top-[42px] w-[290px] max-h-[70vh] overflow-y-auto bg-white border border-slate200 rounded-lg shadow-pop z-50 animate-fade-task">
+          <div className="px-4 py-2 text-[10px] tracking-[0.06em] uppercase font-bold text-slate500 border-b border-slate100 sticky top-0 bg-white">Agregar rápido</div>
+          {QUICK_ADD_GROUPS.map((grp, gi) => (
+            <div key={grp.g} className={gi > 0 ? 'border-t border-slate100' : ''}>
+              <div className="px-4 pt-2 pb-1 text-[9px] tracking-[0.08em] uppercase font-bold text-slate400">{grp.g}</div>
+              {grp.items.map((t) => (
+                <button key={t.kind} onClick={() => { setOpen(false); onPick(t.kind); }}
+                  className="w-full flex items-center gap-3 px-3 py-[9px] hover:bg-slate50 text-left transition-colors">
+                  <span className={"w-8 h-8 rounded-md flex items-center justify-center flex-none " + t.tint}><Icon name={t.icon} size={15} /></span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-bold text-slate950">{t.label}</span>
+                    <span className="block text-[11px] text-slate500 truncate">{t.sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}
@@ -7170,7 +7580,8 @@ const QUICK_FORMS = {
     ],
   },
   reporte: {
-    title: 'Nueva actividad', icon: 'chart', accent: '#3B82F6', done: () => 'Actividad registrada',
+    title: 'Nueva actividad', icon: 'message', accent: '#3B82F6', done: () => 'Actividad registrada en la bitácora',
+    hint: 'Usalo cuando algo pasó en la obra pero no entró por el bot: te lo dijeron en persona, el capataz estaba sin señal, o lo viste vos. Queda en la bitácora igual que los mensajes de WhatsApp, marcado como carga manual.',
     fields: [
       { id: 'tipo', label: 'Tipo', type: 'select', options: ['Avance de tarea', 'Foto', 'Cierre de jornada', 'Problema'] },
       { id: 'texto', label: 'Detalle', type: 'textarea', placeholder: 'Qué se hizo, cantidades, observaciones…', required: true },
@@ -7327,6 +7738,40 @@ const QuickAddModal = ({ kind, onClose, onDone }) => {
   if (kind === 'equipo') {
     return <InviteTeamModal onClose={onClose} onDone={onDone} />;
   }
+  // Proveedor → mismo modal que la sección Proveedores.
+  if (kind === 'proveedor') {
+    return <SupplierModal initial={null} scope="global" rubros={RubroStore.names()} onClose={onClose}
+      onSave={(d) => {
+        SupplierStore.add({ ...d, id: 'PV-' + Date.now().toString(36).slice(-4).toUpperCase(), scope: 'global', fav: false, orders: 0, spent: 0 });
+        onDone('Proveedor “' + d.name + '” agregado al catálogo'); onClose();
+      }} />;
+  }
+  // Material de stock → mismo modal que la sección Stock.
+  if (kind === 'material') {
+    return <StockItemModal item={{ name: '', cat: CatStore.get('stock')[0] || '', unit: 'u', qty: 0, min: 0, loc: '', photo: null }}
+      cats={CatStore.get('stock')} onClose={onClose} onDelete={onClose}
+      onSave={(d) => {
+        StockStore.add({ ...d, id: 'i-' + Date.now().toString(36) });
+        onDone('Material “' + d.name + '” agregado al stock'); onClose();
+      }} />;
+  }
+  // Comprobante → mismo modal que la sección Recibos.
+  if (kind === 'recibo') {
+    return <ReceiptModal cats={CatStore.get('recibos')} onClose={onClose}
+      onSave={(d) => {
+        ReceiptStore.add({ ...d, id: 'r-' + Date.now().toString(36) });
+        onDone('Comprobante cargado'); onClose();
+      }} />;
+  }
+  // Rubro → mismo modal que Configuración › Rubros.
+  if (kind === 'rubro') {
+    return <CategoryModal open={true} initial={null} onClose={onClose}
+      onSave={(cat) => { onDone('Rubro “' + cat.name + '” creado'); onClose(); }} />;
+  }
+  // Fotos → se sube desde la Galería.
+  if (kind === 'foto') {
+    return <UploadPhotosModal onClose={onClose} onDone={onDone} />;
+  }
   // "Tarea" reuses the full Cronograma modal so both flows are identical.
   if (kind === 'tarea') {
     return (
@@ -7380,6 +7825,12 @@ const QuickAddModal = ({ kind, onClose, onDone }) => {
           <button onClick={onClose} className="w-8 h-8 rounded-md hover:bg-slate100 text-slate500 hover:text-slate950 flex items-center justify-center"><Icon name="x" size={16} /></button>
         </div>
         <div className="p-6 space-y-4 overflow-y-auto">
+          {cfg.hint && (
+            <div className="flex items-start gap-2 bg-slate50 border border-slate200 rounded-lg p-3">
+              <Icon name="info" size={13} className="text-slate400 mt-[1px] flex-none" />
+              <span className="text-[11px] text-slate600 leading-snug">{cfg.hint}</span>
+            </div>
+          )}
           {cfg.fields.map((f) => {
             const opts = [...(f.options || []), ...(extraOpts[f.id] || [])];
             const commitAdd = () => {

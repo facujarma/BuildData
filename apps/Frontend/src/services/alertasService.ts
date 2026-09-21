@@ -21,6 +21,7 @@ interface ApiAlerta {
 
 function mapNivelToSeverity(nivel: string): string {
   if (nivel === "Crítico") return "critical";
+  if (nivel === "Moderado") return "moderate";
   return "attention";
 }
 
@@ -99,6 +100,7 @@ export async function createAlert(obraId: string, data: Record<string, string>) 
     obra_id: obraId,
     titulo: data.titulo,
     subtitulo: data.desc || "",
+    tipo: data.cat || null,
     severity: mapNivelToSeverity(data.nivel || "attention"),
   };
 

@@ -9,6 +9,7 @@ import { DAvatar } from "@/components/ui/DAvatar";
 import { DPill } from "@/components/ui/DPill";
 import Button from "@/components/ui/Button";
 import { getEquipo, type EquipoData } from "@/services/equipoService";
+import { useToast, DashToast } from "../../_components/useToast";
 import { InviteTeamModal } from "./InviteTeamModal";
 
 export function ScreenEquipo() {
@@ -16,10 +17,10 @@ export function ScreenEquipo() {
   const [data, setData] = useState<EquipoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [toast, flash] = useToast();
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     getEquipo(obraId).then((d) => {
       if (!cancelled) {
         setData(d);
@@ -120,8 +121,15 @@ export function ScreenEquipo() {
       <InviteTeamModal
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
-        onSave={(d) => console.log("Invite data:", d)}
+        onSave={(raw) => {
+          const d = raw as { mode?: string; name?: string; email?: string };
+          flash(d.mode === "obrero"
+            ? `Obrero ${d.name} invitado por WhatsApp`
+            : `Invitación enviada a ${d.name || d.email}`);
+        }}
       />
+
+      <DashToast msg={toast} />
     </>
   );
 }
