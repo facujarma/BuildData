@@ -3,11 +3,7 @@
 import { Plus, Xmark } from "@gravity-ui/icons";
 import { WField } from "./WField";
 import { WInput } from "./WInput";
-
-const fmtMoney = (n: number | string) => {
-  const v = Number(n) || 0;
-  return v.toLocaleString("es-AR");
-};
+import { formatNumber } from "@/lib/format";
 
 export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: any) => void; errors?: Record<string, string> }) {
   const total = Number(data.budgetTotal) || 0;
@@ -82,17 +78,17 @@ export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: 
         <div className={`mt-4 rounded-lg border p-4 ${over ? "bg-critical-50 border-[#FECACA]" : "bg-paper border-slate-200"}`}>
           <div className="flex items-center justify-between text-[12px] mb-2">
             <span className="text-slate-600">Suma de rubros</span>
-            <span className={`font-extrabold tnum ${over ? "text-[#B91C1C]" : "text-slate-950"}`}>AR$ {fmtMoney(subtotal)}</span>
+            <span className={`font-extrabold tnum ${over ? "text-[#B91C1C]" : "text-slate-950"}`}>AR$ {formatNumber(subtotal)}</span>
           </div>
           <div className="flex items-center justify-between text-[12px] mb-2">
             <span className="text-slate-600">Presupuesto total</span>
-            <span className="font-bold tnum text-slate-950">AR$ {fmtMoney(total)}</span>
+            <span className="font-bold tnum text-slate-950">AR$ {formatNumber(total)}</span>
           </div>
           <div className="h-px bg-slate-200 my-2" />
           <div className="flex items-center justify-between text-[12px]">
             <span className="text-slate-600">{remaining >= 0 ? "Sin asignar" : "Excedente"}</span>
             <span className={`font-extrabold tnum ${over ? "text-[#B91C1C]" : remaining === 0 ? "text-[#15803D]" : "text-slate-950"}`}>
-              AR$ {fmtMoney(Math.abs(remaining))}
+              AR$ {formatNumber(Math.abs(remaining))}
             </span>
           </div>
 
@@ -109,7 +105,7 @@ export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: 
                 <path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.535a1.876 1.876 0 0 0 1.626 2.874h16.234a1.876 1.876 0 0 0 1.626-2.874L13.637 3.59a1.876 1.876 0 0 0-3.274 0z" />
                 <path d="M12 17h.01" />
               </svg>
-              La suma de rubros supera el presupuesto total por AR$ {fmtMoney(subtotal - total)}.
+              La suma de rubros supera el presupuesto total por AR$ {formatNumber(subtotal - total)}.
             </div>
           )}
         </div>

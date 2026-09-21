@@ -1,5 +1,5 @@
-export type ObraTipo = "edificio" | "vivienda" | "refaccion" | "comercial";
-export type ObraEstado = "planificacion" | "en-curso" | "pausada" | "finalizada";
+type ObraTipo = "edificio" | "vivienda" | "refaccion" | "comercial";
+type ObraEstado = "planificacion" | "en-curso" | "pausada" | "finalizada";
 
 export interface ObraSettings {
   nombre: string;

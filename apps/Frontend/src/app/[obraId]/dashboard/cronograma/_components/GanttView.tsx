@@ -10,9 +10,9 @@ import {
   FALLBACK_RUBRO_COLOR,
   weekDate,
   todayColumn,
-  fmtDate,
   isoWeek,
 } from "../data";
+import { formatDateShort, formatMonthYear } from "@/lib/format";
 
 interface Props {
   groups: TaskGroup[];
@@ -60,7 +60,7 @@ export function GanttView({ groups, timeline, onPick }: Props) {
       } else {
         out.push({
           key,
-          label: d.toLocaleDateString("es-AR", { month: "long", year: "2-digit" }),
+          label: formatMonthYear(d, true),
           span: 1,
         });
       }
@@ -93,7 +93,7 @@ export function GanttView({ groups, timeline, onPick }: Props) {
         </button>
 
         <div className="text-[11px] text-slate-500 ml-2 flex-1 truncate">
-          {fmtDate(weekDate(timeline, 0))} → {fmtDate(weekDate(timeline, weekCount - 1, 6))} · {weekCount} semanas
+          {formatDateShort(weekDate(timeline, 0))} → {formatDateShort(weekDate(timeline, weekCount - 1, 6))} · {weekCount} semanas
         </div>
 
         <div className="flex bg-white border border-slate-200 rounded-md p-[2px] gap-[2px]">
@@ -144,7 +144,7 @@ export function GanttView({ groups, timeline, onPick }: Props) {
                   }`}
                 >
                   <div className="leading-tight">S{isoWeek(d)}</div>
-                  <div className="text-[9px] font-medium text-slate-400">{fmtDate(d)}</div>
+                  <div className="text-[9px] font-medium text-slate-400">{formatDateShort(d)}</div>
                 </div>
               );
             })}

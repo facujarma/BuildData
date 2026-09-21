@@ -20,6 +20,7 @@ import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
 import { getReportesData, type ReportesData } from "@/services/mock/reportesService";
 import { SECTION_DEFS, RANGE_LABELS } from "../data";
+import { formatDateLong } from "@/lib/format";
 
 const SECTION_ICONS: Record<string, typeof ChartBar> = {
   resumen: ChartBar,
@@ -102,11 +103,7 @@ export function ScreenReportes() {
     setTimeout(() => setToast(null), 2400);
   };
 
-  const genDate = new Date().toLocaleDateString("es-AR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const genDate = formatDateLong(new Date());
 
   return (
     <>

@@ -11,7 +11,7 @@ import type {
   ConfiguracionPlan,
 } from "@/app/[obraId]/dashboard/configuracion/data";
 
-export interface ConfiguracionData {
+interface ConfiguracionData {
   obra: ObraSettings;
   integraciones: IntegracionItem[];
   sesiones: SesionActiva[];

@@ -9,6 +9,7 @@ import {
   Xmark,
 } from "@gravity-ui/icons";
 import { CURRENCIES, formatMoney, rubroColor, type BudgetLine, type CurrencyKey } from "../data";
+import { formatDateTime } from "@/lib/format";
 
 export interface BudgetAuditEntry {
   at: string;
@@ -80,10 +81,7 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
     if (!canCommit) return;
     onCommit(draft.map((l) => ({ ...l, cap: parseFloat(String(l.cap)) || 0 })));
     onLog({
-      at:
-        new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short" }) +
-        " " +
-        new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      at: formatDateTime(new Date()),
       by: "J. Méndez",
       what:
         changes.length === 1

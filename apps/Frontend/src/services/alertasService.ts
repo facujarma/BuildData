@@ -1,9 +1,11 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { AlertaItem, AlertaLvl } from "@/app/[obraId]/dashboard/alertas/data";
 
+import { formatRelative } from "@/lib/format";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export interface AlertasData {
+interface AlertasData {
   alerts: AlertaItem[];
 }
 
@@ -36,18 +38,6 @@ function mapTipoToCat(tipo: string | null): string {
   return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 }
 
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "ahora";
-  if (minutes < 60) return `hace ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "ayer";
-  return `hace ${days} días`;
-}
-
 function mapAlerta(row: ApiAlerta): AlertaItem {
   return {
     id: row.id,
@@ -56,7 +46,7 @@ function mapAlerta(row: ApiAlerta): AlertaItem {
     cat: mapTipoToCat(row.tipo),
     title: row.titulo || row.mensaje || "Alerta",
     who: row.destinatario || "Sistema",
-    time: formatRelativeTime(row.created_at),
+    time: formatRelative(row.created_at),
     desc: row.subtitulo || row.mensaje || "",
   };
 }

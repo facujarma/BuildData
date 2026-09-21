@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Xmark } from "@gravity-ui/icons";
 import type { PedidoItem } from "../data";
+import { todayISO } from "@/lib/format";
 
 interface DeliveryData {
   date: string;
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export function DeliveryModal({ order, onClose, onSave }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("");
   const [loc, setLoc] = useState("");

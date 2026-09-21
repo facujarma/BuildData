@@ -1,7 +1,7 @@
 import { PHOTO_SEED } from "@/app/[obraId]/dashboard/registro/data";
 import type { GalleryPhoto } from "@/types/gallery";
 
-export interface GaleriaData {
+interface GaleriaData {
   photos: GalleryPhoto[];
 }
 

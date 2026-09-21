@@ -8,7 +8,7 @@ export interface Rubro {
   tasksTotal: number;
 }
 
-export interface RubroCategoria {
+interface RubroCategoria {
   id: string;
   name: string;
   itemCount: number;
@@ -19,11 +19,6 @@ export interface CategoriaSeccion {
   label: string;
   items: RubroCategoria[];
 }
-
-export const CAT_COLORS = [
-  "#0F4395", "#1D4ED8", "#3B82F6", "#22C55E",
-  "#F59E0B", "#EF4444", "#8B5CF6", "#14B8A6",
-];
 
 export const RUBROS_SEED: Rubro[] = [
   { name: "Movimiento de suelos", color: "#94A3B8", desc: "Excavaciones, relleno y nivelación del terreno.", budgetM: 18, spentM: 15, tasksDone: 6, tasksTotal: 6 },

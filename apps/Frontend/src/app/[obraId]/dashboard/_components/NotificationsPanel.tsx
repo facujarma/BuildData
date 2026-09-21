@@ -33,7 +33,7 @@ const KIND_TINT: Record<NotifKind, string> = {
   activity: "bg-success-50 text-[#15803D]",
 };
 
-export function ItemIcon({ n, size = 34 }: { n: NotifItem; size?: number }) {
+function ItemIcon({ n, size = 34 }: { n: NotifItem; size?: number }) {
   return (
     <span
       style={{ width: size, height: size }}

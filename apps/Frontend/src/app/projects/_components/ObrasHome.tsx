@@ -5,6 +5,7 @@ import { LayoutHeaderCellsLarge, FileArrowDown, Plus } from "@gravity-ui/icons";
 import type { Obra } from "@/types/projects";
 import { STATUS } from "@/types/projects";
 import { getObras } from "@/services/projectsService";
+import { formatWeekdayDate } from "@/lib/format";
 import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
 import { WelcomeHero } from "./ObraWelcome";
@@ -99,11 +100,7 @@ export function ObrasHome({
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
-  const dateLabel = new Date().toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const dateLabel = formatWeekdayDate(new Date());
 
   if (obrasLoading) {
     return (

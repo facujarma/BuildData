@@ -1,7 +1,7 @@
 import { BUDGET_LINES } from "@/app/[obraId]/dashboard/presupuesto/data";
 import type { BudgetLine } from "@/app/[obraId]/dashboard/presupuesto/data";
 
-export interface PresupuestoData {
+interface PresupuestoData {
   lines: BudgetLine[];
 }
 

@@ -4,7 +4,6 @@ import { use, useState, useEffect, type ReactNode } from "react";
 import { DashSidebar } from "@/app/[obraId]/dashboard/_components/DashSidebar";
 import { DashTopBar } from "@/app/[obraId]/dashboard/_components/DashTopBar";
 import { DashboardDataProvider, useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
-import { QuickAddProvider } from "@/app/[obraId]/dashboard/_components/QuickAddContext";
 import { QuickAddModal } from "@/app/[obraId]/dashboard/_components/QuickAddModal";
 import { ChatBubble } from "@/app/[obraId]/dashboard/_components/ChatBubble";
 import { useToast, DashToast } from "@/app/[obraId]/dashboard/_components/useToast";
@@ -22,11 +21,9 @@ export default function DashboardLayout({
   return (
     <ProtectedRoute>
       <DashboardDataProvider>
-      <QuickAddProvider>
         <LayoutInner obraId={obraId}>
           {children}
         </LayoutInner>
-      </QuickAddProvider>
       </DashboardDataProvider>
     </ProtectedRoute>
   );

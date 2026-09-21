@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { InboxKind, InboxMessage, InboxState } from "@/types/inbox";
 
+import { formatMessageTime } from "@/lib/format";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 interface ActionExecutedRow {
@@ -28,7 +30,7 @@ interface MensajeRow {
   rol: string | null;
 }
 
-export interface InboxData {
+interface InboxData {
   items: InboxMessage[];
 }
 
@@ -41,36 +43,6 @@ function kindFromTipo(tipo: string | null): InboxKind {
   if (t === "audio") return "audio";
   if (t === "imagen" || t === "foto") return "photo";
   return "text";
-}
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = new Date();
-  const diffMin = Math.floor((now.getTime() - date.getTime()) / 60_000);
-  if (diffMin < 1) return "ahora";
-  if (diffMin < 60) return `hace ${diffMin} min`;
-
-  const hhmm = date.toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const sameDay =
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear();
-  if (sameDay) return `hoy ${hhmm}`;
-
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
-  if (isYesterday) return `ayer ${hhmm}`;
-
-  return `${date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })} ${hhmm}`;
 }
 
 // Un mensaje puede tener varias acciones ejecutadas (ej: pedido + stock).
@@ -114,7 +86,7 @@ function toInboxMessage(row: MensajeRow): InboxMessage {
     kind,
     from: row.usuario_nombre ?? "Desconocido",
     role: row.rol ?? "",
-    time: formatTime(row.created_at),
+    time: formatMessageTime(row.created_at),
     raw: row.contenido ?? "",
     state,
     mapped: [],
@@ -137,7 +109,7 @@ function toInboxMessage(row: MensajeRow): InboxMessage {
   if (kind === "photo") message.photos = 1;
   if (state === "confirmed") {
     message.by = "Bot";
-    message.at = formatTime(row.created_at);
+    message.at = formatMessageTime(row.created_at);
   }
 
   return message;

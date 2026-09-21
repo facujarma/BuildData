@@ -16,10 +16,6 @@ export function updateProveedor(id: string, patch: Partial<Proveedor>): void {
   SUPPLIERS = SUPPLIERS.map((p) => (p.id === id ? { ...p, ...patch } : p));
 }
 
-export function removeProveedor(id: string): void {
-  SUPPLIERS = SUPPLIERS.filter((p) => p.id !== id);
-}
-
 export function nextProveedorId(): string {
   const n = SUPPLIERS.length + 1;
   return "PV-" + String(n).padStart(2, "0");

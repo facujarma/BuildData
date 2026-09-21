@@ -1,3 +1,5 @@
+import { formatNumber } from "@/lib/format";
+
 export interface BudgetLine {
   name: string;
   cap: number;
@@ -23,11 +25,11 @@ export type CurrencyKey = keyof typeof CURRENCIES;
 
 export function formatMoney(millonesArs: number, cur: CurrencyKey): string {
   const c = CURRENCIES[cur];
-  if (cur === 'ARS') return `${c.sym} ${Math.round(millonesArs)} M`;
-  return `${c.sym} ${(millonesArs * c.rate).toLocaleString('es-AR', { maximumFractionDigits: 2 })} M`;
+  if (cur === 'ARS') return `${c.sym} ${formatNumber(millonesArs)} M`;
+  return `${c.sym} ${formatNumber(millonesArs * c.rate, 2)} M`;
 }
 
-export const RUBRO_COLORS: Record<string, string> = {
+const RUBRO_COLORS: Record<string, string> = {
   'Hormigón armado':     '#0F4395',
   'Mampostería':         '#F59E0B',
   'Instalaciones':       '#22C55E',
@@ -35,7 +37,7 @@ export const RUBRO_COLORS: Record<string, string> = {
   'Movimiento de suelos': '#3B82F6',
 };
 
-export const RUBRO_FALLBACK = ['#0F4395', '#F59E0B', '#22C55E', '#EF4444', '#3B82F6'];
+const RUBRO_FALLBACK = ['#0F4395', '#F59E0B', '#22C55E', '#EF4444', '#3B82F6'];
 
 export function rubroColor(name: string, idx = 0): string {
   return RUBRO_COLORS[name] ?? RUBRO_FALLBACK[idx % RUBRO_FALLBACK.length];
@@ -47,9 +49,3 @@ export const FORECAST_ITEMS = [
   { month: 'Ago', label: 'En 2 meses', items: ['Terminaciones arranca (mayor desembolso)'], amount: 28 },
 ];
 
-export const RANGE_LABELS: Record<string, string> = {
-  semana: 'Última semana',
-  mes: 'Último mes',
-  trim: 'Último trimestre',
-  total: 'Toda la obra',
-};

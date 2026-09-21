@@ -5,10 +5,7 @@ import { Magnifier, Layers, ChartBar, Calendar, TriangleExclamation } from "@gra
 import { DPageHeader } from "../../_components/DPageHeader";
 import { getRubros } from "@/services/mock/rubrosService";
 import type { Rubro, CategoriaSeccion } from "../../configuracion/data/rubros";
-
-function fmtM(v: number) {
-  return `$${v}M`;
-}
+import { formatARSCompact } from "@/lib/format";
 
 export function ScreenRubros() {
   const [rubros, setRubros] = useState<Rubro[]>([]);
@@ -83,7 +80,7 @@ export function ScreenRubros() {
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] tracking-wide uppercase font-bold text-slate-400">Presupuesto</span>
-                      <span className={`text-[11px] font-semibold ${over ? "text-critical" : "text-slate-600"}`}>{fmtM(r.spentM)} de {fmtM(r.budgetM)}</span>
+                      <span className={`text-[11px] font-semibold ${over ? "text-critical" : "text-slate-600"}`}>{formatARSCompact(r.spentM * 1_000_000)} de {formatARSCompact(r.budgetM * 1_000_000)}</span>
                     </div>
                     <div className="h-[5px] rounded-full bg-slate-100 overflow-hidden">
                       <div className={`h-full ${over ? "bg-critical" : mPct >= 85 ? "bg-accent" : "bg-success"} transition-all`} style={{ width: `${Math.min(100, mPct)}%` }} />
@@ -93,7 +90,7 @@ export function ScreenRubros() {
 
                 {over && (
                   <div className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-700">
-                    <TriangleExclamation width={13} height={13} /> Superó el tope en {fmtM(r.spentM - r.budgetM)}
+                    <TriangleExclamation width={13} height={13} /> Superó el tope en {formatARSCompact((r.spentM - r.budgetM) * 1_000_000)}
                   </div>
                 )}
               </div>

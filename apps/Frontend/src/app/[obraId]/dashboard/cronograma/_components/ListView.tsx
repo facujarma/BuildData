@@ -4,12 +4,11 @@ import type { TaskItem } from "../data";
 import { DPill, type PillTone } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
 import {
-  fmtDate,
-  parseDate,
   RUBRO_COLORS,
   FALLBACK_RUBRO_COLOR,
   TASK_STATE_MAP,
 } from "../data";
+import { formatDateShort, parseLocalDate } from "@/lib/format";
 
 interface Props {
   tasks: TaskItem[];
@@ -47,8 +46,8 @@ export function ListView({ tasks, onPick }: Props) {
 
       {tasks.map((t, i) => {
         const sm = TASK_STATE_MAP[t.state] || TASK_STATE_MAP.planned;
-        const startD = parseDate(t.startDate);
-        const endD = parseDate(t.dueDate) ?? startD;
+        const startD = parseLocalDate(t.startDate);
+        const endD = parseLocalDate(t.dueDate) ?? startD;
         return (
           <div
             key={t.id}
@@ -83,8 +82,8 @@ export function ListView({ tasks, onPick }: Props) {
               <span className="text-slate-700 truncate">{t.who}</span>
             </div>
 
-            <div className="text-[12px] text-slate-700 tnum truncate">{startD ? fmtDate(startD) : "—"}</div>
-            <div className="text-[12px] text-slate-700 tnum truncate">{endD ? fmtDate(endD) : "—"}</div>
+            <div className="text-[12px] text-slate-700 tnum truncate">{startD ? formatDateShort(startD) : "—"}</div>
+            <div className="text-[12px] text-slate-700 tnum truncate">{endD ? formatDateShort(endD) : "—"}</div>
 
             <div className="flex justify-end">
               <DPill tone={STATE_TONE[t.state] || "slate"}>{sm.label}</DPill>

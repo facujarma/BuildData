@@ -1,4 +1,4 @@
-export type InboxDir = "in" | "out";
+type InboxDir = "in" | "out";
 export type InboxKind = "audio" | "photo" | "text";
 export type InboxState = "pending" | "confirmed" | "discarded" | "sent";
 
@@ -7,7 +7,7 @@ export interface InboxLooseFragment {
   why: string;
 }
 
-export interface InboxParse {
+interface InboxParse {
   tipo: string;
   destino: string;
   campos: [string, string][];

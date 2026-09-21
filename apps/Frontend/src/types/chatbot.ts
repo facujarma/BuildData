@@ -1,9 +1,9 @@
-export interface ChatPeriodo {
+interface ChatPeriodo {
   desde: string;
   hasta: string;
 }
 
-export interface ChatSubpregunta {
+interface ChatSubpregunta {
   id: string;
   descripcion: string;
   tipo: string;

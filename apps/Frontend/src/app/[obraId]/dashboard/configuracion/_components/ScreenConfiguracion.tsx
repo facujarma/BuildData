@@ -23,6 +23,7 @@ import { DPageHeader } from "../../_components/DPageHeader";
 import DButton from "@/components/ui/Button";
 import { getConfiguracion } from "@/services/mock/configuracionService";
 import { getRubros } from "@/services/mock/rubrosService";
+import { formatARS } from "@/lib/format";
 import type { ObraSettings, IntegracionItem, SesionActiva, ConfiguracionPlan } from "../../configuracion/data";
 import { PLAN_FIXTURE } from "../../configuracion/data";
 import type { Rubro, CategoriaSeccion } from "../../configuracion/data/rubros";
@@ -316,7 +317,7 @@ export function ScreenConfiguracion() {
               <div className="text-[12px] text-slate-500">{plan.detalle}</div>
             </div>
             <div className="text-right">
-              <div className="text-[16px] font-bold text-slate-950">AR$ {plan.precioMensual.toLocaleString("es-AR")}</div>
+              <div className="text-[16px] font-bold text-slate-950">{formatARS(plan.precioMensual)}</div>
               <div className="text-[11px] text-slate-500">por mes</div>
             </div>
           </div>

@@ -1,7 +1,7 @@
-import type { Obra, FileItem } from "@/types/projects";
+import type { Obra } from "@/types/projects";
 import { supabase } from "@/lib/supabaseClient";
 
-export interface CreateObraInput {
+interface CreateObraInput {
   tipo: string;
   plantilla: string;
   nombre: string;
@@ -82,18 +82,6 @@ export async function getObras(): Promise<Obra[]> {
     starred: o.starred || false,
     color: "#0F4395",
   }));
-}
-
-export async function getFiles(): Promise<FileItem[]> {
-  // TODO: Reemplazar con llamada real a la API
-  return [
-    { name: "Cronograma_Belgrano_v3.xlsx", kind: "xlsx", obra: "Edificio Belgrano", when: "hace 2 h", size: "1.2 MB" },
-    { name: "Plano Sector C - planta 4.pdf", kind: "pdf", obra: "Edificio Belgrano", when: "ayer", size: "4.8 MB" },
-    { name: "IMG_2034.jpg", kind: "img", obra: "Torre Palermo Norte", when: "hoy 10:15", size: "2.1 MB" },
-    { name: "Pedido_PED-0142.pdf", kind: "pdf", obra: "Edificio Belgrano", when: "ayer 17:30", size: "180 KB" },
-    { name: "Memoria descriptiva.docx", kind: "doc", obra: "Casa Villa Urquiza", when: "12 May", size: "420 KB" },
-    { name: "Reporte_semanal_S20.pdf", kind: "pdf", obra: "Oficinas Pilar", when: "11 May", size: "900 KB" },
-  ];
 }
 
 export async function createObra(input: CreateObraInput): Promise<any> {

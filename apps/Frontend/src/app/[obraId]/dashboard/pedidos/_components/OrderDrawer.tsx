@@ -13,7 +13,8 @@ import {
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
 import type { PedidoItem } from "../data";
-import { STATE_MAP, fmtCurrency } from "../data";
+import { STATE_MAP } from "../data";
+import { formatARS } from "@/lib/format";
 
 interface Props {
   order: PedidoItem;
@@ -70,7 +71,7 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onDeliver, on
           <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <DPill tone={st.tone}>{st.label}</DPill>
             <div className="text-right">
-              <div className="text-[20px] font-extrabold tnum text-slate-950 leading-none">{fmtCurrency(order.total)}</div>
+              <div className="text-[20px] font-extrabold tnum text-slate-950 leading-none">{formatARS(order.total)}</div>
               <div className="text-[10px] text-slate-500 mt-[2px]">{order.unit || "—"}</div>
             </div>
           </div>

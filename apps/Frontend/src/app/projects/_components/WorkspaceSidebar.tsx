@@ -57,7 +57,7 @@ function PlusIcon() {
   );
 }
 
-export interface SidebarTheme {
+interface SidebarTheme {
   aside: string;
   brand: string;
   newBtn: string;

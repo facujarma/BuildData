@@ -10,7 +10,7 @@ const PALETTE: Record<string, string> = {
   MR: "from-primary to-accent",
 };
 
-export function getInitials(name?: string | null): string {
+function getInitials(name?: string | null): string {
   if (!name) return "?";
   return name
     .split(" ")

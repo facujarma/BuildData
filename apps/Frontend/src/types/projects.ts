@@ -15,14 +15,6 @@ export interface Obra {
   color: string;
 }
 
-export interface FileItem {
-  name: string;
-  kind: "xlsx" | "pdf" | "img" | "doc";
-  obra: string;
-  when: string;
-  size: string;
-}
-
 export const STATUS: Record<string, { label: string; tone: string; dot: string }> = {
   "en-curso":       { label: "En curso",       tone: "successSolid", dot: "#22C55E" },
   "planificacion":  { label: "Planificación",  tone: "info",         dot: "#3B82F6" },

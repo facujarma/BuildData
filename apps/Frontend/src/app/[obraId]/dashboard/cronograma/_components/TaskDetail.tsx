@@ -10,9 +10,8 @@ import {
   TASK_STATE_MAP,
   RUBRO_COLORS,
   FALLBACK_RUBRO_COLOR,
-  fmtDateLong,
-  parseDate,
 } from "../data";
+import { formatDateLong, parseLocalDate } from "@/lib/format";
 
 interface Props {
   taskId: string | null;
@@ -56,8 +55,8 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Pr
 
   const sm = TASK_STATE_MAP[task.state] || TASK_STATE_MAP.planned;
   const rubroColor = RUBRO_COLORS[task.rubro] || FALLBACK_RUBRO_COLOR;
-  const startD = parseDate(task.startDate);
-  const endD = parseDate(task.dueDate) ?? startD;
+  const startD = parseLocalDate(task.startDate);
+  const endD = parseLocalDate(task.dueDate) ?? startD;
   const isLate = task.state === "late";
   const isDone = task.state === "done";
 
@@ -109,7 +108,7 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Pr
               <TriangleExclamation width={12} height={12} className="mt-[1px] flex-none" />
               <span>
                 <b>Tarea retrasada</b>
-                {endD ? ` · prevista para el ${fmtDateLong(endD)}.` : "."}
+                {endD ? ` · prevista para el ${formatDateLong(endD)}.` : "."}
               </span>
             </div>
           )}
@@ -135,11 +134,11 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Pr
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-1">Inicio</div>
-              <div className="text-[12px] font-semibold text-slate-950">{startD ? fmtDateLong(startD) : "—"}</div>
+              <div className="text-[12px] font-semibold text-slate-950">{startD ? formatDateLong(startD) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-1">Fin estimado</div>
-              <div className="text-[12px] font-semibold text-slate-950">{endD ? fmtDateLong(endD) : "—"}</div>
+              <div className="text-[12px] font-semibold text-slate-950">{endD ? formatDateLong(endD) : "—"}</div>
             </div>
             <div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-1">Duración</div>

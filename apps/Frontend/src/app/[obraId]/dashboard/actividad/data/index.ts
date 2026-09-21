@@ -1,4 +1,4 @@
-export interface ActivityItem {
+interface ActivityItem {
   who: string;
   name: string;
   role: string;
@@ -13,18 +13,6 @@ export interface ActivityGroup {
   d: string;
   items: ActivityItem[];
 }
-
-export const ACTIVITY_GROUPS: ActivityGroup[] = [
-  { d: 'Hoy', items: [
-    { who: 'JM', name: 'J. Méndez',  role: 'Director', time: '08:42', kind: 'avance',   text: 'Hormigonado losa +3 completado. Volumen final 28 m³.', tags: ['Hormigón'] },
-    { who: 'CR', name: 'C. Ríos',    role: 'Capataz',  time: '10:15', kind: 'foto',     text: 'Subió 4 fotos — armado de columnas.',     tags: ['Foto'] },
-    { who: 'PS', name: 'P. Salas',   role: 'Capataz',  time: '12:48', kind: 'problema', text: 'Falla en Grúa Torre 2. Motor no responde.',           tags: ['Crítico'], severity: 'critical' },
-  ]},
-  { d: 'Ayer', items: [
-    { who: 'LB', name: 'L. Benítez', role: 'Compras', time: '17:30', kind: 'pedido',   text: 'Pedido de cemento aprobado y enviado al proveedor.', tags: ['PED-0142', 'Compras'] },
-    { who: 'MO', name: 'M. Ortiz',   role: 'Capataz', time: '18:05', kind: 'cierre',   text: 'Cierre de jornada — 6 personas, 0 incidentes.', tags: ['Cierre'] },
-  ]},
-];
 
 export const KIND_ICONS: Record<string, { ico: string; tint: string }> = {
   avance:   { ico: 'check',    tint: 'bg-success-50 text-[#15803D]' },

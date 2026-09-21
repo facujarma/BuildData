@@ -11,7 +11,7 @@ export interface ApiDashboardResponse {
   orders: ApiOrderItem[];
 }
 
-export interface ApiTaskItem {
+interface ApiTaskItem {
   id: string;
   titulo: string;
   estado: string;
@@ -21,13 +21,13 @@ export interface ApiTaskItem {
   fecha_limite: string;
 }
 
-export interface ApiOrderItemDetail {
+interface ApiOrderItemDetail {
   material_id: string;
   cantidad: number;
   precio_unitario: number;
 }
 
-export interface ApiOrderItem {
+interface ApiOrderItem {
   id: string;
   estado: string;
   aprobado: boolean;
@@ -36,12 +36,12 @@ export interface ApiOrderItem {
   items: ApiOrderItemDetail[];
 }
 
-export interface ApiObraInfo {
+interface ApiObraInfo {
   name: string;
   lastUpdate: string; // ISO 8601 — ej: "2025-05-20T10:32:00Z"
 }
 
-export interface ApiDashboardStats {
+interface ApiDashboardStats {
   avanceTotal: number;        // 0-100
   avanceDeltaPct: number;     // ej: 4 (el front formatea como "+4% esta semana")
   alertasCriticas: number;
@@ -52,7 +52,7 @@ export interface ApiDashboardStats {
   tareasTotal: number;
 }
 
-export interface ApiBudgetOverview {
+interface ApiBudgetOverview {
   total: number;              // en centavos o unidad mínima de la moneda
   ejecutado: number;
   disponible: number;
@@ -62,21 +62,21 @@ export interface ApiBudgetOverview {
   updatedAt: string;          // ISO 8601
 }
 
-export interface ApiBudgetItem {
+interface ApiBudgetItem {
   name: string;
   spent: number;
   cap: number;
   // "over" y "overPct" los calcula el FRONT (spent > cap), no los manda el back
 }
 
-export interface ApiTradeProgress {
+interface ApiTradeProgress {
   id: string;                // BudgetCategory.id
   name: string;
   pct: number;               // 0-100
   // "color" lo asigna el FRONT según el rubro, no lo manda el back
 }
 
-export interface ApiActivityFeedItem {
+interface ApiActivityFeedItem {
   initials: string;
   name: string;
   action: string;
@@ -85,7 +85,7 @@ export interface ApiActivityFeedItem {
   timestamp: string;
 }
 
-export interface ApiAlertItem {
+interface ApiAlertItem {
   id: string;
   title: string;
   subtitle: string;

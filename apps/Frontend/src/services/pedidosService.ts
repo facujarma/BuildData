@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
+import { formatARS, formatDateShort, formatNumber } from "@/lib/format";
 
 export interface NewPedidoPayload {
   proveedor_nombre: string;
@@ -53,18 +54,8 @@ const ESTADO_DB_UI: Record<string, string> = {
   entregado: "delivered",
 };
 
-function shortFecha(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
-  return `${day} ${month[0].toUpperCase()}${month.slice(1)}`;
-}
-
 function fmtUnit(precio: number | null, unidad: string | null): string {
-  const n = Number(precio) || 0;
-  const base = "AR$ " + n.toLocaleString("es-AR");
+  const base = formatARS(precio);
   return unidad ? `${base}/${unidad}` : base;
 }
 
@@ -77,13 +68,13 @@ function mapRawToItem(row: RawPedido): PedidoItem {
     id: row.id,
     mat: first?.material || "",
     qty: first && (Number(first.cantidad) || 0) !== 0
-      ? `${Number(first.cantidad).toLocaleString("es-AR")} ${first.unidad || ""}`.trim()
+      ? `${formatNumber(first.cantidad)} ${first.unidad || ""}`.trim()
       : "",
     prov: row.proveedor_nombre || "",
     cat: row.categoria || "",
-    date: shortFecha(row.fecha_llegada_estimada),
+    date: formatDateShort(row.fecha_llegada_estimada),
     dateISO: row.fecha_llegada_estimada,
-    ordered: shortFecha(row.fecha),
+    ordered: formatDateShort(row.fecha),
     state: ESTADO_DB_UI[row.estado] || row.estado || "draft",
     total,
     unit: first ? fmtUnit(first.precio_unitario, first.unidad) : "",

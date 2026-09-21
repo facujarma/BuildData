@@ -1,3 +1,5 @@
+import { parseLocalDate } from "@/lib/format";
+
 export const TASK_STATE_MAP: Record<string, { bg: string; fg: string; label: string; tint: string; dot: string; border?: string }> = {
   done:     { bg: '#22C55E', fg: '#fff',     label: 'Completado',  tint: 'bg-success-50 text-[#15803D]',  dot: '#22C55E' },
   progress: { bg: '#0F4395', fg: '#fff',     label: 'En curso',    tint: 'bg-primary-50 text-primary',   dot: '#0F4395' },
@@ -13,14 +15,6 @@ export const RUBRO_COLORS: Record<string, string> = {
 };
 
 export const FALLBACK_RUBRO_COLOR = '#94A3B8';
-
-export function fmtDate(d: Date) {
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-}
-
-export function fmtDateLong(d: Date) {
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
-}
 
 // Número de semana ISO 8601 (1-53) para el header del Gantt.
 export function isoWeek(date: Date): number {
@@ -41,16 +35,8 @@ export interface Timeline {
   weekCount: number;
 }
 
-export const MIN_WEEK_COUNT = 12;
-export const BUFFER_WEEKS = 4;
-
-// Convierte 'yyyy-mm-dd' a Date local (evita el offset UTC de new Date(iso))
-export function parseDate(iso?: string | null): Date | null {
-  if (!iso) return null;
-  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
+const MIN_WEEK_COUNT = 12;
+const BUFFER_WEEKS = 4;
 
 function toMonday(d: Date): Date {
   const m = new Date(d);
@@ -75,9 +61,9 @@ export function computeTimeline(tasks: { startDate?: string | null; dueDate?: st
   let maxMs: number | null = null;
 
   for (const t of tasks) {
-    const s = parseDate(t.startDate)?.getTime() ?? null;
+    const s = parseLocalDate(t.startDate)?.getTime() ?? null;
     if (s !== null && (minMs === null || s < minMs)) minMs = s;
-    const e = parseDate(t.dueDate)?.getTime() ?? null;
+    const e = parseLocalDate(t.dueDate)?.getTime() ?? null;
     if (e !== null && (maxMs === null || e > maxMs)) maxMs = e;
   }
 

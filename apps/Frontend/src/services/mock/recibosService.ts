@@ -1,7 +1,7 @@
 import { RECEIPTS } from "@/app/[obraId]/dashboard/recibos/data";
 import type { ReciboItem } from "@/app/[obraId]/dashboard/recibos/data";
 
-export interface RecibosData {
+interface RecibosData {
   receipts: ReciboItem[];
 }
 

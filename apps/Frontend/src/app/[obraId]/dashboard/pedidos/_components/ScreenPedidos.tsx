@@ -11,7 +11,8 @@ import { getPedidos, createPedido, aprobarPedido, rechazarPedido, getObreros } f
 import { getRubrosDeObra } from "@/services/cronogramaService";
 import type { NewPedidoPayload, ObreroLite } from "@/services/pedidosService";
 import type { PedidoItem } from "../data";
-import { STATE_MAP, FILTERS, fmtCurrency } from "../data";
+import { STATE_MAP, FILTERS } from "../data";
+import { formatARS, formatDate } from "@/lib/format";
 import { OrderDrawer } from "./OrderDrawer";
 import { NewOrderModal } from "./NewOrderModal";
 import { DeliveryModal } from "./DeliveryModal";
@@ -82,9 +83,7 @@ export function ScreenPedidos() {
 
   const handleDeliverSave = (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
     if (!deliverFor) return;
-    const dateLabel = delivery.date
-      ? new Date(`${delivery.date}T00:00:00`).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
-      : "";
+    const dateLabel = delivery.date ? formatDate(delivery.date) : "";
     const displayDate = `${dateLabel}${delivery.time ? ` · ${delivery.time}` : ""}`;
     const patch = { state: "delivered", delivery: { date: displayDate, loc: delivery.loc, receiver: delivery.receiver, doc: delivery.doc } };
     setOrders((prev) => prev.map((o) => (o.id === deliverFor.id ? { ...o, ...patch } : o)));
@@ -139,8 +138,7 @@ export function ScreenPedidos() {
         <DStatTile
           tone="success"
           label="Total del mes"
-          value={monthTotal.toLocaleString("es-AR")}
-          suffix="AR$"
+          value={formatARS(monthTotal)}
           icon={<CircleDollar width={16} height={16} />}
         />
       </div>
@@ -210,7 +208,7 @@ export function ScreenPedidos() {
                   </div>
                   <div className="text-right">
                     <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-slate-400">Total</div>
-                    <div className="text-[13px] font-extrabold text-slate-950 tnum">{fmtCurrency(o.total)}</div>
+                    <div className="text-[13px] font-extrabold text-slate-950 tnum">{formatARS(o.total)}</div>
                   </div>
                 </div>
 

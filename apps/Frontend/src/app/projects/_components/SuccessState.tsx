@@ -2,11 +2,7 @@
 
 import { ArrowRight } from "@gravity-ui/icons";
 import { TYPES } from "@/app/projects/data/wizard";
-
-const fmtMoney = (n: number | string) => {
-  const v = Number(n) || 0;
-  return v.toLocaleString("es-AR");
-};
+import { formatNumber } from "@/lib/format";
 
 export function SuccessState({ data, onClose }: { data: any; onClose: () => void }) {
   return (
@@ -31,7 +27,7 @@ export function SuccessState({ data, onClose }: { data: any; onClose: () => void
           <div className="text-slate-500">Ubicación</div><div className="font-bold text-slate-950 text-right truncate">{data.address ? `${data.address}${data.city ? ", " + data.city : ""}` : "—"}</div>
           <div className="text-slate-500">Equipo</div><div className="font-bold text-slate-950 text-right">{data.team.length} persona{data.team.length === 1 ? "" : "s"}</div>
           <div className="text-slate-500">Cliente</div><div className="font-bold text-slate-950 text-right truncate">{data.client?.name || "—"}</div>
-          <div className="text-slate-500">Presupuesto</div><div className="font-bold text-slate-950 text-right tnum">AR$ {fmtMoney(data.budgetTotal)}</div>
+          <div className="text-slate-500">Presupuesto</div><div className="font-bold text-slate-950 text-right tnum">AR$ {formatNumber(data.budgetTotal)}</div>
         </div>
       </div>
 

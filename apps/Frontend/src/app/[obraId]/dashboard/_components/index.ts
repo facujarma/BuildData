@@ -20,5 +20,4 @@ export type { CategoryFormData } from "./CategoryModal";
 export { AvatarMenu } from "@/components/ui/AvatarMenu";
 export { QuickAddMenu } from "./QuickAddMenu";
 export { QuickAddModal } from "./QuickAddModal";
-export { QuickAddProvider, useQuickAdd } from "./QuickAddContext";
 export { DashboardDataProvider, useDashboardData } from "./DashboardDataContext";

@@ -11,12 +11,12 @@ export interface DashboardData {
 }
 
 
-export interface ObraInfo {
+interface ObraInfo {
   name: string;
   lastUpdate: string;
 }
 
-export interface DashboardStats {
+interface DashboardStats {
   avanceTotal: number;
   avanceDelta: string;
   alertasCriticas: number;
@@ -79,7 +79,7 @@ export interface TaskItem {
   dueDate: string;
 }
 
-export interface OrderItemDetail {
+interface OrderItemDetail {
   materialId: string;
   quantity: number;
   unitPrice: number;

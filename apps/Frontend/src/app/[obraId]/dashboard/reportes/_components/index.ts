@@ -1,1 +1,0 @@
-export { ScreenReportes } from "./ScreenReportes";

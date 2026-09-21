@@ -19,6 +19,7 @@ import {
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DStatTile } from "../../_components/DStatTile";
 import { DashToast, useToast } from "../../_components/useToast";
+import { formatDayTime } from "@/lib/format";
 import DButton from "@/components/ui/Button";
 import { DAvatar } from "@/components/ui/DAvatar";
 import { getInbox } from "@/services/mensajesService";
@@ -82,7 +83,7 @@ export function ScreenInbox() {
     patch(id, {
       state: "confirmed",
       by: "J. Méndez",
-      at: "hoy " + new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      at: formatDayTime(new Date()),
       applied: it?.parse ? [it.parse.destino] : undefined,
     });
     setPick(null);

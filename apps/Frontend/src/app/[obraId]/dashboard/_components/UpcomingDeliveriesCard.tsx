@@ -5,6 +5,7 @@ import { DCard } from "@/components/ui/DCard";
 import { DPill, type PillTone } from "@/components/ui/DPill";
 import { getPedidos } from "@/services/pedidosService";
 import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
+import { toDate } from "@/lib/format";
 
 const STATE_MAP: Record<string, { label: string; tone: PillTone; dot: string }> = {
   late:     { label: "DEMORADO",   tone: "criticalSolid",  dot: "#EF4444" },
@@ -18,7 +19,7 @@ const LIMIT = 4;
 
 function sortKey(order: PedidoItem): number {
   if (!order.dateISO) return Number.MAX_SAFE_INTEGER;
-  const t = new Date(order.dateISO).getTime();
+  const t = toDate(order.dateISO)?.getTime() ?? Infinity;
   return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
 }
 

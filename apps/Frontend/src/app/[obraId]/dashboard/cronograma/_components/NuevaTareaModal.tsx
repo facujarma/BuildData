@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Check, Plus, Xmark } from "@gravity-ui/icons";
-import { parseDate, fmtDateLong } from "../data";
+import { parseLocalDate, formatDateLong, todayISO } from "@/lib/format";
 import { getRubrosDeObra, getMiembrosDeObra, type OptionItem } from "@/services/cronogramaService";
 import { createTask } from "@/services/tareasService";
 
@@ -21,11 +21,6 @@ const PRIORIDADES = [
   { value: "alta", label: "Alta" },
   { value: "urgente", label: "Urgente" },
 ];
-
-function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
   const [name, setName] = useState("");
@@ -73,15 +68,15 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
   }, [open, onClose, submitting]);
 
   const duracionSemanas = useMemo(() => {
-    const s = parseDate(fechaInicio);
-    const e = parseDate(fechaLimite);
+    const s = parseLocalDate(fechaInicio);
+    const e = parseLocalDate(fechaLimite);
     if (!s) return null;
     if (!e || e < s) return 1;
     return Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (7 * 86_400_000)));
   }, [fechaInicio, fechaLimite]);
 
-  const startDate = useMemo(() => parseDate(fechaInicio), [fechaInicio]);
-  const endDate = useMemo(() => parseDate(fechaLimite), [fechaLimite]);
+  const startDate = useMemo(() => parseLocalDate(fechaInicio), [fechaInicio]);
+  const endDate = useMemo(() => parseLocalDate(fechaLimite), [fechaLimite]);
   const rubroName = rubros?.find((r) => r.id === rubroId)?.nombre || "Sin rubro";
 
   const canSave = !submitting && name.trim().length > 0 && fechaInicio.trim().length > 0;
@@ -144,7 +139,7 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
               <b className="text-slate-950">{successName}</b> · {rubroName}
             </p>
             <p className="text-[12px] text-slate-500 mb-6">
-              {startDate ? fmtDateLong(startDate) : "—"} → {endDate ? fmtDateLong(endDate) : "—"}
+              {startDate ? formatDateLong(startDate) : "—"} → {endDate ? formatDateLong(endDate) : "—"}
             </p>
             <div className="flex gap-2 justify-center">
               <button
@@ -280,8 +275,8 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
                 <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Rango</span>
                   <span className="font-semibold text-slate-950">
-                    {fmtDateLong(startDate)}
-                    {endDate ? ` → ${fmtDateLong(endDate)}` : ""}
+                    {formatDateLong(startDate)}
+                    {endDate ? ` → ${formatDateLong(endDate)}` : ""}
                     {duracionSemanas ? <span className="text-slate-500"> · {duracionSemanas} sem.</span> : null}
                   </span>
                 </div>

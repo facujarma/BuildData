@@ -3,12 +3,12 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
 import type { TaskItem } from "@/types/dashboard";
 
-export interface RubroInfo {
+interface RubroInfo {
   id: string;
   name: string;
 }
 
-export interface LookupData {
+interface LookupData {
   rubros: RubroInfo[];
   rubroMap: Record<string, string>;
   tasks: TaskItem[];

@@ -1,7 +1,7 @@
 import { RUBROS_SEED, CATEGORIES_SEED } from "@/app/[obraId]/dashboard/configuracion/data/rubros";
 import type { Rubro, CategoriaSeccion } from "@/app/[obraId]/dashboard/configuracion/data/rubros";
 
-export interface RubrosData {
+interface RubrosData {
   rubros: Rubro[];
   categorias: CategoriaSeccion[];
 }

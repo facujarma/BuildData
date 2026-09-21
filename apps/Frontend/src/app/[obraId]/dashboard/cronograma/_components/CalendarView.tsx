@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { ChevronRight } from "@gravity-ui/icons";
 import type { TaskItem } from "../data";
-import { TASK_STATE_MAP, parseDate, fmtDateLong } from "../data";
+import { TASK_STATE_MAP } from "../data";
+import { parseLocalDate, formatDateLong, formatMonthYear } from "@/lib/format";
 
 interface Props {
   tasks: TaskItem[];
@@ -38,8 +39,8 @@ function buildGrid(tasks: TaskItem[], cursor: Date): { monthLabel: string; days:
     const dMs = d.getTime();
 
     const activeTasks = tasks.filter((t) => {
-      const s = parseDate(t.startDate)?.getTime();
-      const e = parseDate(t.dueDate)?.getTime() ?? s;
+      const s = parseLocalDate(t.startDate)?.getTime();
+      const e = parseLocalDate(t.dueDate)?.getTime() ?? s;
       return s !== undefined && e !== undefined && dMs >= s && dMs <= e;
     });
 
@@ -52,7 +53,7 @@ function buildGrid(tasks: TaskItem[], cursor: Date): { monthLabel: string; days:
   }
 
   return {
-    monthLabel: cursor.toLocaleDateString("es-AR", { month: "long", year: "numeric" }),
+    monthLabel: formatMonthYear(cursor),
     days,
   };
 }
@@ -146,7 +147,7 @@ export function CalendarView({ tasks, onPick }: Props) {
                       }}
                       style={{ background: s.bg, color: s.fg, borderLeft: `3px solid ${s.dot}` }}
                       className="text-left text-[9.5px] font-bold px-[6px] py-[2px] rounded-sm truncate hover:opacity-80 transition-opacity"
-                      title={`${t.name} · ${fmtDateLong(day.date)}`}
+                      title={`${t.name} · ${formatDateLong(day.date)}`}
                     >
                       {t.name}
                     </button>

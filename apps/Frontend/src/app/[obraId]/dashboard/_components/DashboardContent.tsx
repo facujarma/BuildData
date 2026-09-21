@@ -27,12 +27,7 @@ import { useToast, DashToast } from "./useToast";
 import { CategoryModal, type CategoryFormData } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
 import type { DashboardData, TaskItem } from "@/types/dashboard";
-
-function formatCurrency(n: number): string {
-  if (n >= 1_000_000) return `AR$ ${Math.round(n / 1_000_000)} M`;
-  if (n >= 1_000) return `AR$ ${Math.round(n / 1_000)} K`;
-  return `AR$ ${n}`;
-}
+import { formatARSCompact } from "@/lib/format";
 
 const STATE_MAP: Record<string, { dot: string; label: string }> = {
   completada:   { dot: "#22C55E", label: "Completada" },
@@ -470,7 +465,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
             { l: "Disponible", v: budget.disponible },
           ].map((m) => (
             <div key={m.l} className="border border-slate-200 rounded-lg p-3">
-              <div className="text-[18px] font-extrabold tnum text-slate-950 leading-tight">{formatCurrency(m.v)}</div>
+              <div className="text-[18px] font-extrabold tnum text-slate-950 leading-tight">{formatARSCompact(m.v)}</div>
               <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mt-1">{m.l}</div>
             </div>
           ))}
@@ -494,8 +489,8 @@ export function DashboardContent({ data, onNavigate }: Props) {
                   <div style={{ width: compPct + "%" }} className="h-full bg-primary/40" />
                 </div>
                 <div className="flex items-center justify-between mt-2 text-[11px] text-slate-600 tnum">
-                  <span>Ejecutado <b className={over ? "text-[#B91C1C]" : "text-slate-950"}>{formatCurrency(r.spent)}</b></span>
-                  <span className="text-slate-400">Presupuesto {formatCurrency(r.cap)}</span>
+                  <span>Ejecutado <b className={over ? "text-[#B91C1C]" : "text-slate-950"}>{formatARSCompact(r.spent)}</b></span>
+                  <span className="text-slate-400">Presupuesto {formatARSCompact(r.cap)}</span>
                 </div>
               </div>
             );

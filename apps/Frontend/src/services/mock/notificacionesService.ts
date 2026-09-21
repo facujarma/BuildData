@@ -1,6 +1,6 @@
 import { NOTIF_SEED, type NotifItem } from "@/app/[obraId]/dashboard/_components/data/notificaciones";
 
-export interface NotificacionesData {
+interface NotificacionesData {
   items: NotifItem[];
 }
 

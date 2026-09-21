@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { TaskGroup, TaskItem, Timeline } from "@/app/[obraId]/dashboard/cronograma/data";
-import { computeTimeline, weekIndexOf, parseDate } from "@/app/[obraId]/dashboard/cronograma/data";
+import { computeTimeline, weekIndexOf } from "@/app/[obraId]/dashboard/cronograma/data";
+import { formatARSCompact, formatDate, parseLocalDate } from "@/lib/format";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -57,25 +58,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 // ─── Transformación API → UI ──────────────────────────────────────────────────
 
-function formatCost(n: number): string {
-  if (!Number.isFinite(n)) return "—";
-  if (n >= 1_000_000) return `AR$ ${Math.round(n / 1_000_000)} M`;
-  if (n >= 1_000) return `AR$ ${Math.round(n / 1_000)} K`;
-  return `AR$ ${n}`;
-}
-
-function fmtCompletedOn(iso: string): string {
-  const d = parseDate(iso);
-  return d
-    ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" })
-    : "";
-}
-
 function mapState(row: ApiTarea): string | null {
   if (row.estado === "completada") return "done";
   // 'cancelada' no tiene representación en el cronograma: se excluye.
   if (row.estado === "cancelada") return null;
-  const due = parseDate(row.fecha_limite);
+  const due = parseLocalDate(row.fecha_limite);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (due && due < today) return "late";
@@ -95,9 +82,9 @@ function transformCronograma(rows: ApiTarea[]): CronogramaData {
     const state = mapState(row);
     if (!state) continue;
 
-    const startIdx = Math.max(0, weekIndexOf(timeline, parseDate(row.fecha_inicio) ?? new Date()));
+    const startIdx = Math.max(0, weekIndexOf(timeline, parseLocalDate(row.fecha_inicio) ?? new Date()));
     let span = 1;
-    const due = parseDate(row.fecha_limite);
+  const due = parseLocalDate(row.fecha_limite);
     if (due) span = Math.max(1, weekIndexOf(timeline, due) - startIdx + 1);
 
     const pctRaw = Number(row.porcentaje_avance ?? 0);
@@ -112,13 +99,13 @@ function transformCronograma(rows: ApiTarea[]): CronogramaData {
       state,
       pct,
       desc: row.descripcion || "",
-      cost: row.costo_estimado != null ? formatCost(Number(row.costo_estimado)) : "—",
+      cost: row.costo_estimado != null ? formatARSCompact(Number(row.costo_estimado)) : "—",
       deps: Array.isArray(row.dependencias) ? row.dependencias : [],
       rubro: row.rubro_nombre || "Sin rubro",
       startDate: row.fecha_inicio,
       dueDate: row.fecha_limite,
       completedBy: row.completada_por_nombre || undefined,
-      completedOn: row.fecha_completada ? fmtCompletedOn(row.fecha_completada) : undefined,
+      completedOn: row.fecha_completada ? formatDate(row.fecha_completada) : undefined,
     };
 
     if (!byRubro.has(item.rubro)) {

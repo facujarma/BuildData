@@ -1,10 +1,10 @@
-export interface PerfilPermiso {
+interface PerfilPermiso {
   label: string;
   on: boolean;
   area: string;
 }
 
-export interface PerfilActividad {
+interface PerfilActividad {
   icon: string;
   tint: string;
   text: string;

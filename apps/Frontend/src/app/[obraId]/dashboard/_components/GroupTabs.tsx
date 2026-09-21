@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-export interface GroupTab {
+interface GroupTab {
   id: string;
   label: string;
   icon: ReactNode;

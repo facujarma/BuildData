@@ -1,7 +1,7 @@
 import { ITEMS, CATEGORIES } from "@/app/[obraId]/dashboard/stock/data";
 import type { StockItem } from "@/app/[obraId]/dashboard/stock/data";
 
-export interface StockData {
+interface StockData {
   items: StockItem[];
   categories: string[];
 }

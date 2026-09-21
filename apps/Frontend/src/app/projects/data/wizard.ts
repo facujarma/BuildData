@@ -40,11 +40,4 @@ export const STEPS = [
   { id: 6, label: "Presupuesto", sub: "Total y rubros" },
 ];
 
-export const ROLES = [
-  { id: "director", label: "Director de obra", sub: "Ve todo. Aprueba pedidos." },
-  { id: "arquitecto", label: "Arquitecto/a", sub: "Revisa avance y fotos." },
-  { id: "compras", label: "Compras", sub: "Gestiona pedidos." },
-  { id: "capataz", label: "Capataz", sub: "Reporta desde obra." },
-];
-
 export const PERSON_MAP: Record<string, { name: string; role: string }> = {};

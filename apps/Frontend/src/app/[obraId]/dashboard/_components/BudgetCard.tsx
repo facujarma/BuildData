@@ -3,12 +3,7 @@
 import { ChartBar, FileArrowDown } from "@gravity-ui/icons";
 import Button from "@/components/ui/Button";
 import type { BudgetOverview, BudgetItem } from "@/types/dashboard";
-
-function formatCurrency(n: number): string {
-  if (n >= 1_000_000) return `AR$ ${Math.round(n / 1_000_000)} M`;
-  if (n >= 1_000) return `AR$ ${Math.round(n / 1_000)} K`;
-  return `AR$ ${n}`;
-}
+import { formatARSCompact } from "@/lib/format";
 
 interface Props {
   budget: BudgetOverview;
@@ -18,7 +13,6 @@ interface Props {
 }
 
 export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport }: Props) {
-  console.log("BudgetCard render", budget, budgetBreakdown);
   const ejecutadoPct = budget.total > 0 ? Math.round((budget.ejecutado / budget.total) * 100) : 0;
   const comprometidoPct = 0;
   const librePct = budget.total > 0 ? Math.round((budget.disponible / budget.total) * 100) : 0;
@@ -40,7 +34,7 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
             Total
           </div>
           <div className="text-[18px] font-extrabold display-tight tnum text-white leading-tight">
-            {formatCurrency(budget.total)}
+            {formatARSCompact(budget.total)}
           </div>
         </div>
         <div>
@@ -48,7 +42,7 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
             Ejecutado
           </div>
           <div className="text-[18px] font-extrabold display-tight tnum text-white leading-tight">
-            {formatCurrency(budget.ejecutado)}
+            {formatARSCompact(budget.ejecutado)}
           </div>
           <div className="text-[10px] font-semibold text-white/60">
             {ejecutadoPct} %
@@ -59,7 +53,7 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
             Disponible
           </div>
           <div className="text-[18px] font-extrabold display-tight tnum text-accent leading-tight">
-            {formatCurrency(budget.disponible)}
+            {formatARSCompact(budget.disponible)}
           </div>
           <div className="text-[10px] font-semibold text-accent/80">
             {librePct} %
@@ -103,11 +97,11 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
             <div className="text-white/85 truncate">{r.name}</div>
             <div className="tnum font-semibold">
               <span className={r.over ? "text-critical" : "text-white"}>
-                {formatCurrency(r.spent)}
+                {formatARSCompact(r.spent)}
               </span>
               <span className="text-white/45">
                 {" "}
-                / {formatCurrency(r.cap)}
+                / {formatARSCompact(r.cap)}
               </span>
               {r.over && (
                 <span className="ml-2 text-[9px] font-bold tracking-wider text-critical bg-critical/20 px-[5px] py-[1px] rounded">

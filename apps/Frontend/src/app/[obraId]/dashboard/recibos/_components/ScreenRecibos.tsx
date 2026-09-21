@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Plus, FileArrowDown, Check } from "@gravity-ui/icons";
 import { getRecibos } from "@/services/mock/recibosService";
 import type { ReciboItem } from "@/app/[obraId]/dashboard/recibos/data";
-import { CATEGORIES, CAT_TINT, FILTERS, fmtCurrency } from "@/app/[obraId]/dashboard/recibos/data";
+import { CATEGORIES, FILTERS } from "@/app/[obraId]/dashboard/recibos/data";
+import { formatARS, formatDateShort } from "@/lib/format";
 import { DCard } from "@/components/ui/DCard";
 import { DPill } from "@/components/ui/DPill";
 import Button from "@/components/ui/Button";
@@ -101,13 +102,13 @@ export function ScreenRecibos() {
         <DStatTile
           tone="primary"
           label="Total del mes"
-          value={fmtCurrency(totalMes)}
+          value={formatARS(totalMes)}
           icon={<Check width={16} height={16} />}
         />
         <DStatTile
           tone="attention"
           label="Pendiente de pago"
-          value={fmtCurrency(pendingTotal)}
+          value={formatARS(pendingTotal)}
           icon={<Check width={16} height={16} />}
         />
         <DStatTile
@@ -164,8 +165,8 @@ export function ScreenRecibos() {
                 <td className="px-4 py-3">
                   <DPill tone={(CAT_TO_TONE[r.cat] || "slate") as "slate"}>{r.cat}</DPill>
                 </td>
-                <td className="px-4 py-3 text-slate-500 tnum">{r.date}</td>
-                <td className="px-4 py-3 text-right font-bold tnum text-slate-900">{fmtCurrency(r.amount)}</td>
+                <td className="px-4 py-3 text-slate-500 tnum">{formatDateShort(r.date)}</td>
+                <td className="px-4 py-3 text-right font-bold tnum text-slate-900">{formatARS(r.amount)}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => toggleStatus(r.id)}>
                     <DPill tone={r.status === "pagado" ? "successSolid" : "attentionSolid"}>

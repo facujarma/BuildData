@@ -1,35 +1,14 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { ActivityGroup } from "@/app/[obraId]/dashboard/actividad/data";
 
+import { formatDayLabel, formatTime } from "@/lib/format";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function getDateLabel(iso: string): string {
-  const now = new Date();
-  const date = new Date(iso);
-  const diff = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.floor(diff / 86_400_000);
-  if (days === 0) return "Hoy";
-  if (days === 1) return "Ayer";
-  return date.toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
 }
 
 function mapTipoToKind(tipo: string | null): string {
@@ -57,7 +36,7 @@ function transformActividad(items: any[]): { groups: ActivityGroup[] } {
 
   const groupsMap = new Map<string, { who: string; name: string; time: string; kind: string; text: string }[]>();
   for (const item of sorted) {
-    const label = getDateLabel(item.created_at);
+    const label = formatDayLabel(item.created_at);
     if (!groupsMap.has(label)) groupsMap.set(label, []);
     groupsMap.get(label)!.push({
       who: getInitials(item.usuario_nombre || ""),
