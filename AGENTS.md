@@ -77,6 +77,18 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Pedidos**: `PATCH /pedidos/:id/estado` (`en_camino`|`demorado`) y `PATCH /pedidos/:id/entregar` (estado `entregado` + fecha/lugar/receptor/documento + entrada de stock por cada ítem con material). Ambos exigen estado `aprobado`/`en_camino`/`demorado` (409 si no). `fecha_entrega` sale de `getPedidos` como texto `YYYY-MM-DDTHH:MM` (sin corrimiento de zona horaria)
 - `/materiales` y `/pedidos` validan membresía a la obra (`services/obraAccess.service.js`, 403 si no pertenece)
 
+## Proveedores (catálogo global + agenda por obra)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_proveedores.sql` (`scope`/`obra_id`/`activo`/`empresa_id` y demás columnas en `proveedores`, tabla `proveedores_favoritos`, índices únicos parciales por ámbito reemplazando `proveedores_nombre_unique`)
+- Un proveedor es `scope='global'` (`obra_id` NULL, catálogo de toda la empresa) o `scope='obra'` (propio de una obra). El nombre es único por ámbito (`lower(nombre)`), así que un proveedor de obra puede llamarse igual que uno global
+- `PATCH /proveedores/:id` nunca cambia `scope`/`obra_id`; eso lo hace únicamente `POST /proveedores/:id/promover` (de obra → global), que rechaza con 409 si ya existe un global con ese nombre
+- Favoritos son por persona (`proveedores_favoritos`, PK `persona_id, proveedor_id`), no una propiedad del proveedor: `PATCH /proveedores/:id/favorito`
+- `DELETE /proveedores/:id` es soft delete (`activo=false`); todo GET filtra `activo`, igual que `materiales`
+- `GET /proveedores` requiere `obra_id` (membresía + ahí se calculan `pedidos_count`/`spent` de esa obra vía `pedidos_materiales`/`pedidos_items`) y acepta `scope=global|obra` (default global) y `q` (busca por nombre/rubro/contacto/descripción)
+- `pedidosController.resolverProveedor` busca primero en la obra, después en el global, y si no existe lo crea como global (`ON CONFLICT (lower(nombre)) WHERE scope = 'global' DO NOTHING` + re-select, apunta al índice parcial — no vale `ON CONFLICT (nombre)`)
+- `entitySearch` trata `proveedor` igual que `material`: `(obra_id = obra OR obra_id IS NULL) AND activo`
+- `empresa_id` existe en la tabla (nullable, sin FK) para cuando haya soporte multi-empresa; hoy ningún endpoint lo usa ni lo filtra
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error

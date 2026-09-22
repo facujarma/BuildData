@@ -30,6 +30,7 @@ export async function getPedidos(req, res) {
          pm.urgente,
          pm.nota,
          pm.categoria,
+         pm.proveedor_id,
          to_char(pm.fecha_entrega, 'YYYY-MM-DD"T"HH24:MI') AS fecha_entrega, -- texto: sin corrimiento de zona horaria
          pm.ubicacion_entrega,
          pm.recibido_por,
@@ -66,20 +67,37 @@ export async function getPedidos(req, res) {
   }
 }
 
-async function resolverProveedor(client, nombre) {
-  const existente = await client.query(
-    `SELECT * FROM proveedores WHERE lower(nombre) = lower($1) LIMIT 1`,
+// Busca primero en la agenda de la obra, después en el catálogo global; si no
+// existe, lo crea como global (mismo comportamiento que antes de separar
+// ámbitos). Requiere los índices únicos parciales de migracion_proveedores.sql.
+async function resolverProveedor(client, obraId, nombre) {
+  const propio = await client.query(
+    `SELECT * FROM proveedores WHERE scope = 'obra' AND obra_id = $1 AND lower(nombre) = lower($2) AND activo LIMIT 1`,
+    [obraId, nombre]
+  );
+  if (propio.rows[0]) return { ...propio.rows[0], creado: false };
+
+  const global_ = await client.query(
+    `SELECT * FROM proveedores WHERE scope = 'global' AND lower(nombre) = lower($1) AND activo LIMIT 1`,
     [nombre]
   );
-  if (existente.rows[0]) return { ...existente.rows[0], creado: false };
-  // Requiere el índice único proveedores_nombre_unique (migración)
+  if (global_.rows[0]) return { ...global_.rows[0], creado: false };
+
+  // ON CONFLICT apunta al índice parcial proveedores_global_nombre_unique
+  // (misma expresión y WHERE); ante una carrera, no inserta y re-consultamos.
   const creado = await client.query(
-    `INSERT INTO proveedores (nombre) VALUES ($1)
-     ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
+    `INSERT INTO proveedores (scope, nombre) VALUES ('global', $1)
+     ON CONFLICT (lower(nombre)) WHERE scope = 'global' DO NOTHING
      RETURNING *`,
     [nombre]
   );
-  return { ...creado.rows[0], creado: true };
+  if (creado.rows[0]) return { ...creado.rows[0], creado: true };
+
+  const reconsulta = await client.query(
+    `SELECT * FROM proveedores WHERE scope = 'global' AND lower(nombre) = lower($1) AND activo LIMIT 1`,
+    [nombre]
+  );
+  return { ...reconsulta.rows[0], creado: false };
 }
 
 // POST /pedidos — crear pedido desde la web (usuario autenticado)
@@ -119,7 +137,7 @@ export async function crearPedidoWeb(req, res) {
   try {
     await client.query("BEGIN");
 
-    const proveedor = await resolverProveedor(client, proveedor_nombre.trim());
+    const proveedor = await resolverProveedor(client, obra_id, proveedor_nombre.trim());
     const proveedor_id = proveedor.id;
 
     const itemsFinal = [];

@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Database, Box, Car, Plus, Magnifier, Xmark, Pencil, Comment, Envelope, Microphone } from "@gravity-ui/icons";
+import { Database, Box, Car, Plus, Magnifier, Xmark, Pencil, Comment, Envelope, Microphone, TrashBin } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import { DAvatar } from "@/components/ui/DAvatar";
 import Button from "@/components/ui/Button";
 import { DashToast, useToast } from "../../_components/useToast";
 import { SupplierModal, type SupplierData } from "../../_components/SupplierModal";
-import { getProveedores, addProveedor, updateProveedor, nextProveedorId } from "@/services/mock/proveedoresService";
+import { getProveedores, createProveedor, updateProveedor, setFavorito, promoverProveedor, deleteProveedor } from "@/services/proveedoresService";
 import { getPedidos } from "@/services/pedidosService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
 import { RUBRO_COLORS, FALLBACK_RUBRO_COLOR } from "../../cronograma/data";
@@ -39,17 +39,19 @@ export function ScreenProveedores() {
   const [edit, setEdit] = useState<{ initial: SupplierData | null } | null>(null);
   const [toast, flash] = useToast();
 
+const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
+
   useEffect(() => {
     let active = true;
-    getProveedores()
-      .then((rows) => { if (active) { setAll(rows); setLoading(false); } })
-      .catch(() => { if (active) setLoading(false); });
+    load()
+      .then(() => { if (active) setLoading(false); })
+      .catch(() => { if (active) { setLoading(false); flash("No se pudieron cargar los proveedores"); } });
     getPedidos(obraId).then((rows) => { if (active) setOrders(rows); }).catch(() => {});
     getRubrosDeObra(obraId)
       .then((r) => { if (active) setRubros(r.map((x) => x.nombre)); })
       .catch(() => {});
     return () => { active = false; };
-  }, [obraId]);
+  }, [obraId, load, flash]);
 
   const globals = all.filter((p) => p.scope === "global");
   const privates = all.filter((p) => p.scope === "obra");
@@ -65,55 +67,54 @@ export function ScreenProveedores() {
   }, {});
 
   const current = sel ? all.find((x) => x.id === sel) || null : null;
-  const ordersOf = (name: string) => orders.filter((o) => o.prov === name);
+  const ordersOf = (id: string) => orders.filter((o) => o.provId === id);
 
-  const toggleFav = (id: string, cur: boolean) => {
+  const toggleFav = async (id: string, cur: boolean) => {
     setAll((prev) => prev.map((p) => (p.id === id ? { ...p, fav: !cur } : p)));
-    updateProveedor(id, { fav: !cur });
-    flash(cur ? "Quitado de frecuentes" : "Agregado a frecuentes");
+    try {
+      await setFavorito(id, !cur);
+      flash(cur ? "Quitado de frecuentes" : "Agregado a frecuentes");
+    } catch (e) {
+      setAll((prev) => prev.map((p) => (p.id === id ? { ...p, fav: cur } : p)));
+      flash(e instanceof Error ? e.message : "No se pudo actualizar el favorito");
+    }
   };
 
-  const save = (d: SupplierData) => {
+  // El modal muestra el error y sigue abierto si esto lanza
+  const save = async (d: SupplierData) => {
     if (d.id) {
-      const patch = { ...d };
-      setAll((prev) => prev.map((p) => (p.id === d.id ? { ...p, ...patch } as Proveedor : p)));
-      updateProveedor(d.id, patch);
+      const actualizado = await updateProveedor(d.id, d);
+      setAll((prev) => prev.map((p) => (p.id === d.id ? actualizado : p)));
       flash("Proveedor actualizado");
     } else {
-      const id = nextProveedorId();
-      const nuevo: Proveedor = {
-        id,
-        scope,
-        fav: false,
-        name: d.name,
-        rubro: d.rubro,
-        cuit: d.cuit,
-        contact: d.contact,
-        role: d.role,
-        phone: d.phone,
-        wa: d.wa,
-        email: d.email,
-        web: d.web,
-        address: d.address,
-        pay: d.pay,
-        lead: d.lead,
-        desc: d.desc,
-        orders: 0,
-        spent: 0,
-      };
-      addProveedor(nuevo);
+      const nuevo = await createProveedor(obraId, scope, d);
       setAll((prev) => [nuevo, ...prev]);
-      setSel(id);
+      setSel(nuevo.id);
       flash(scope === "global" ? "Agregado al catálogo de la empresa" : "Agregado a esta obra");
     }
     setEdit(null);
   };
 
-  const promote = (p: Proveedor) => {
-    setAll((prev) => prev.map((x) => (x.id === p.id ? { ...x, scope: "global" } : x)));
-    updateProveedor(p.id, { scope: "global" });
-    setScope("global");
-    flash("Agregado al catálogo de la empresa");
+  const promote = async (p: Proveedor) => {
+    try {
+      await promoverProveedor(p.id);
+      setAll((prev) => prev.map((x) => (x.id === p.id ? { ...x, scope: "global" } : x)));
+      setScope("global");
+      flash("Agregado al catálogo de la empresa");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo promover el proveedor");
+    }
+  };
+
+  const remove = async (p: Proveedor) => {
+    try {
+      await deleteProveedor(p.id);
+      setAll((prev) => prev.filter((x) => x.id !== p.id));
+      setSel(null);
+      flash("Proveedor eliminado");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo eliminar el proveedor");
+    }
   };
 
   const Row = (p: Proveedor) => {
@@ -291,6 +292,8 @@ export function ScreenProveedores() {
                   </div>
                   <div className="flex items-center gap-1 flex-none">
                     <button onClick={() => setEdit({ initial: current })} className="text-slate-400 hover:text-primary p-2" title="Editar"><Pencil width={14} height={14} /></button>
+                    <button onClick={() => { if (window.confirm(`¿Eliminar ${current.name}? No vas a poder deshacerlo desde acá.`)) remove(current); }}
+                      className="text-slate-400 hover:text-critical p-2" title="Eliminar"><TrashBin width={14} height={14} /></button>
                   </div>
                 </div>
 
@@ -365,14 +368,14 @@ export function ScreenProveedores() {
                 <div className="text-[13px] font-bold">Pedidos en esta obra</div>
                 <button onClick={() => router.replace(`/${obraId}/dashboard/materiales?v=pedidos`)} className="text-[11px] font-bold text-primary hover:underline">Ver todos →</button>
               </div>
-              {ordersOf(current.name).length === 0 ? (
+              {ordersOf(current.id).length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <div className="text-[12px] text-slate-500 mb-3">Todavía no le hiciste pedidos a este proveedor.</div>
                   <Button variant="secondary" size="sm" icon={<Plus width={12} height={12} />} onClick={() => router.replace(`/${obraId}/dashboard/materiales?v=pedidos`)}>Crear un pedido</Button>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {ordersOf(current.name).map((o) => (
+                  {ordersOf(current.id).map((o) => (
                     <div key={o.id} className="flex items-center gap-3 px-4 py-[10px]">
                       <span className="w-8 h-8 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-none"><Box width={13} height={13} /></span>
                       <div className="flex-1 min-w-0">

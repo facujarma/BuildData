@@ -16,7 +16,7 @@ import { useDashboardData } from "./DashboardDataContext";
 import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
 import { getStock, createMaterial } from "@/services/stockService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
-import { addProveedor, nextProveedorId } from "@/services/mock/proveedoresService";
+import { createProveedor } from "@/services/proveedoresService";
 import { createAlert } from "@/services/alertasService";
 import { createActividad } from "@/services/actividadService";
 
@@ -176,27 +176,8 @@ function QuickAddProveedor({ obraId, onClose, onDone }: Omit<Props, "kind">) {
       scope="global"
       rubros={rubros}
       onClose={onClose}
-      onSave={(d) => {
-        addProveedor({
-          id: nextProveedorId(),
-          scope: "global",
-          fav: false,
-          name: d.name,
-          rubro: d.rubro,
-          cuit: d.cuit,
-          contact: d.contact,
-          role: d.role,
-          phone: d.phone,
-          wa: d.wa,
-          email: d.email,
-          web: d.web,
-          address: d.address,
-          pay: d.pay,
-          lead: d.lead,
-          desc: d.desc,
-          orders: 0,
-          spent: 0,
-        });
+      onSave={async (d) => {
+        await createProveedor(obraId, "global", d);
         onDone(`Proveedor “${d.name}” agregado al catálogo`);
         onClose();
       }}

@@ -71,12 +71,12 @@ export function clasificarCandidatos(
   return { confianza, candidatos: ordenados };
 }
 
-// Los materiales pueden ser globales (obra_id NULL); el resto es por obra.
+// Materiales y proveedores pueden ser globales (obra_id NULL, scope='global')
+// o propios de la obra; el resto es siempre por obra.
 function filtroScope(tipo, obraId, params) {
-  if (tipo === "proveedor") return "true";
   params.push(obraId);
   const posicion = `$${params.length}`;
-  if (tipo === "material") {
+  if (tipo === "material" || tipo === "proveedor") {
     return `(obra_id = ${posicion} OR obra_id IS NULL) AND activo`;
   }
   return `obra_id = ${posicion}`;
