@@ -9,6 +9,8 @@ import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToa
 import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
 import { getPedidos, createPedido, aprobarPedido, rechazarPedido, cambiarEstadoPedido, entregarPedido, getObreros } from "@/services/pedidosService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
+import { getProveedores } from "@/services/proveedoresService";
+import type { Proveedor } from "../../proveedores/data";
 import type { NewPedidoPayload, ObreroLite } from "@/services/pedidosService";
 import type { PedidoItem } from "../data";
 import { STATE_MAP, FILTERS } from "../data";
@@ -36,6 +38,7 @@ export function ScreenPedidos() {
   const [deliverFor, setDeliverFor] = useState<PedidoItem | null>(null);
   const [members, setMembers] = useState<ObreroLite[]>([]);
   const [rubros, setRubros] = useState<string[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [toast, flash] = useToast();
 
   const load = useCallback(() => {
@@ -50,6 +53,7 @@ export function ScreenPedidos() {
     getRubrosDeObra(obraId)
       .then((r) => setRubros(r.map((x) => x.nombre)))
       .catch(() => {});
+    getProveedores(obraId).then(setProveedores).catch(() => {});
   }, [load, obraId, flash]);
 
   const filtered = orders.filter(FILTER_MATCH[filter] || FILTER_MATCH.Todos);
@@ -262,10 +266,12 @@ export function ScreenPedidos() {
 
       {showNew && (
         <NewOrderModal
+          obraId={obraId}
           onClose={() => setShowNew(false)}
           onSubmit={handleNewSave}
           members={members}
           rubros={rubros}
+          proveedores={proveedores}
         />
       )}
 

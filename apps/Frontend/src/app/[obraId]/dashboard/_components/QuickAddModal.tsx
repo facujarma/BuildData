@@ -16,7 +16,8 @@ import { useDashboardData } from "./DashboardDataContext";
 import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
 import { getStock, createMaterial } from "@/services/stockService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
-import { createProveedor } from "@/services/proveedoresService";
+import { createProveedor, getProveedores } from "@/services/proveedoresService";
+import type { Proveedor } from "../proveedores/data";
 import { createAlert } from "@/services/alertasService";
 import { createActividad } from "@/services/actividadService";
 
@@ -90,19 +91,23 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   const { refreshDashboard } = useDashboardData();
   const [members, setMembers] = useState<ObreroLite[]>([]);
   const [rubros, setRubros] = useState<string[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
 
   useEffect(() => {
     getObreros(obraId).then(setMembers).catch(() => {});
     getRubrosDeObra(obraId)
       .then((r) => setRubros(r.map((x) => x.nombre)))
       .catch(() => {});
+    getProveedores(obraId).then(setProveedores).catch(() => {});
   }, [obraId]);
 
   return (
     <NewOrderModal
+      obraId={obraId}
       onClose={onClose}
       members={members}
       rubros={rubros}
+      proveedores={proveedores}
       onSubmit={async (payload) => {
         await createPedido(obraId, payload);
         onDone("Pedido creado");

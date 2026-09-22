@@ -5,19 +5,26 @@ import { Check, Plus, TriangleExclamation, Xmark } from "@gravity-ui/icons";
 import { UNITS } from "../data";
 import type { NewPedidoPayload } from "@/services/pedidosService";
 import type { ObreroLite } from "@/services/pedidosService";
+import { createProveedor } from "@/services/proveedoresService";
+import { SupplierModal } from "../../_components/SupplierModal";
+import type { Proveedor } from "../../proveedores/data";
 
 interface Props {
+  obraId: string;
   onClose: () => void;
   onSubmit: (payload: NewPedidoPayload) => Promise<void>;
   members: ObreroLite[];
   rubros: string[];
+  proveedores: Proveedor[];
 }
 
-export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
+export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores }: Props) {
   const [customCats, setCustomCats] = useState<string[]>([]);
   const [units, setUnits] = useState([...UNITS]);
   const [mat, setMat] = useState("");
-  const [prov, setProv] = useState("");
+  const [provs, setProvs] = useState(proveedores);
+  const [provId, setProvId] = useState("");
+  const [showNewProv, setShowNewProv] = useState(false);
   const [cat, setCat] = useState("");
   const [qty, setQty] = useState<number>(1);
   const [unit, setUnit] = useState(units[0]);
@@ -36,8 +43,9 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
 
   const cats = useMemo(() => Array.from(new Set([...rubros, ...customCats])), [rubros, customCats]);
   const currentCat = cat || cats[0] || "";
+  const sortedProvs = useMemo(() => [...provs].sort((a, b) => a.name.localeCompare(b.name)), [provs]);
 
-  const canSave = mat.trim() && prov.trim();
+  const canSave = mat.trim() && provId;
 
   const addCategory = () => {
     const val = newCat.trim();
@@ -65,7 +73,7 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
     setSaving(true);
     try {
       await onSubmit({
-        proveedor_nombre: prov.trim(),
+        proveedor_id: provId,
         items: [
           {
             material_nombre: mat.trim(),
@@ -112,11 +120,22 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
           </label>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Proveedor*</span>
-              <input value={prov} onChange={(e) => setProv(e.target.value)} placeholder="Ej: Cementos del Plata"
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
-            </label>
+            <div className="flex flex-col gap-[6px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700">Proveedor*</span>
+                <button type="button" onClick={() => setShowNewProv(true)}
+                  className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]">
+                  <Plus width={10} height={10} /> Nuevo proveedor
+                </button>
+              </div>
+              <select value={provId} onChange={(e) => setProvId(e.target.value)}
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">{sortedProvs.length === 0 ? "Sin proveedores cargados" : "Elegí un proveedor…"}</option>
+                {sortedProvs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}{p.scope === "obra" ? " (esta obra)" : ""}</option>
+                ))}
+              </select>
+            </div>
 
             <div className="flex flex-col gap-[6px]">
               <div className="flex items-center justify-between">
@@ -238,6 +257,21 @@ export function NewOrderModal({ onClose, onSubmit, members, rubros }: Props) {
           </button>
         </div>
       </div>
+
+      {showNewProv && (
+        <SupplierModal
+          initial={null}
+          scope="obra"
+          rubros={rubros}
+          onClose={() => setShowNewProv(false)}
+          onSave={async (d) => {
+            const nuevo = await createProveedor(obraId, "obra", d);
+            setProvs((prev) => [...prev, nuevo]);
+            setProvId(nuevo.id);
+            setShowNewProv(false);
+          }}
+        />
+      )}
     </div>
   );
 }

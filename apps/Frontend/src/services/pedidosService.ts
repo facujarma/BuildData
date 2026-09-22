@@ -3,7 +3,7 @@ import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
 import { formatARS, formatDate, formatDateShort, formatNumber } from "@/lib/format";
 
 export interface NewPedidoPayload {
-  proveedor_nombre: string;
+  proveedor_id: string;
   items: {
     material_nombre: string;
     unidad: string;
