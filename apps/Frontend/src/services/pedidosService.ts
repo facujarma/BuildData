@@ -10,7 +10,7 @@ export interface NewPedidoPayload {
     cantidad: number;
     precio_unitario: number;
   }[];
-  categoria: string;
+  rubro_id: string | null;
   urgente: boolean;
   nota: string;
   fecha_llegada_estimada: string | null;
@@ -46,7 +46,8 @@ interface RawPedido {
   fecha_llegada_estimada: string | null;
   urgente: boolean;
   nota: string | null;
-  categoria: string | null;
+  rubro_id: string | null;
+  rubro_nombre: string | null;
   fecha_entrega: string | null; // 'YYYY-MM-DDTHH:MM' (texto, sin zona horaria)
   ubicacion_entrega: string | null;
   recibido_por: string | null;
@@ -96,7 +97,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
       : "",
     prov: row.proveedor_nombre || "",
     provId: row.proveedor_id,
-    cat: row.categoria || "",
+    cat: row.rubro_nombre || "",
     date: formatDateShort(row.fecha_llegada_estimada),
     dateISO: row.fecha_llegada_estimada,
     ordered: formatDateShort(row.fecha),

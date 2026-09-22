@@ -54,7 +54,6 @@ describe("collectMissingFields", () => {
     });
     expect(missingNombre.map((m) => m.path)).toEqual([
       "items[0].material_nombre",
-      "categoria",
     ]);
 
     const missingCantidad = collectMissingFields("/bot/pedidoDeCompra", {
@@ -62,7 +61,6 @@ describe("collectMissingFields", () => {
     });
     expect(missingCantidad.map((m) => m.path)).toEqual([
       "items[0].cantidad",
-      "categoria",
     ]);
     expect(missingCantidad[0].prompt).toBe("¿Cuántos pedís?");
   });

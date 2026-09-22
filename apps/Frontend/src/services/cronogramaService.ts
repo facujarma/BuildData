@@ -143,6 +143,22 @@ export async function getRubrosDeObra(obraId: string): Promise<OptionItem[]> {
   return json.rubros.map((r) => ({ id: r.id, nombre: r.nombre }));
 }
 
+export async function createRubro(
+  obraId: string,
+  nombre: string,
+  presupuesto = 0,
+  descripcion?: string,
+): Promise<OptionItem> {
+  const json = await request<{ id: string; nombre: string }>(
+    `${API_URL}/obras/${obraId}/rubros`,
+    {
+      method: "POST",
+      body: JSON.stringify({ nombre, presupuesto, descripcion }),
+    },
+  );
+  return { id: json.id, nombre: json.nombre };
+}
+
 export async function getMiembrosDeObra(obraId: string): Promise<OptionItem[]> {
   const rows = await request<{ id: string; nombre: string }[]>(`${API_URL}/obreros/${obraId}`);
   return rows.map((r) => ({ id: r.id, nombre: r.nombre }));

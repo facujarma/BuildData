@@ -106,7 +106,9 @@ function pedidoFields(data: Record<string, unknown>, display?: Record<string, st
   if (data.proveedor_id || data.proveedor_nombre) {
     campos.push(["Proveedor", named(display, "proveedor_id", data.proveedor_nombre ?? data.proveedor_id)]);
   }
-  add(campos, "Categoría", data.categoria);
+  if (data.rubro_id || data.rubro_nombre) {
+    campos.push(["Rubro", named(display, "rubro_id", (data.rubro_nombre ?? data.rubro_id) as string)]);
+  }
   if (data.urgente === true) campos.push(["Urgente", "Sí"]);
   add(campos, "Llegada estimada", data.fecha_llegada_estimada);
   add(campos, "Nota", data.nota);

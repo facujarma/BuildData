@@ -26,7 +26,8 @@ export async function getPedidos(req, res) {
          pm.fecha_llegada_estimada,
          pm.urgente,
          pm.nota,
-         pm.categoria,
+         pm.rubro_id,
+         r.nombre AS rubro_nombre,
          pm.proveedor_id,
          to_char(pm.fecha_entrega, 'YYYY-MM-DD"T"HH24:MI') AS fecha_entrega, -- texto: sin corrimiento de zona horaria
          pm.ubicacion_entrega,
@@ -49,6 +50,7 @@ export async function getPedidos(req, res) {
            WHERE i.pedido_id = pm.id
          ), '[]') AS items
        FROM pedidos_materiales pm
+       LEFT JOIN rubros r ON r.id = pm.rubro_id
        LEFT JOIN proveedores pr ON pr.id = pm.proveedor_id
        LEFT JOIN personas sp ON sp.id = pm.solicitado_por
        LEFT JOIN personas ap ON ap.id = pm.aprobado_por
@@ -68,14 +70,14 @@ export async function getPedidos(req, res) {
 // Body: {
 //   obra_id, proveedor_id,
 //   items: [{ material_nombre, unidad?, cantidad, precio_unitario }],
-//   categoria?, urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
+//   rubro_id?, urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
 // }
 export async function crearPedidoWeb(req, res) {
   const {
     obra_id,
     proveedor_id,
     items,
-    categoria,
+    rubro_id,
     urgente,
     nota,
     fecha_llegada_estimada,
@@ -105,6 +107,17 @@ export async function crearPedidoWeb(req, res) {
     if (!proveedor) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "proveedor_id inválido para esta obra" });
+    }
+
+    if (rubro_id) {
+      const rubro = await client.query(
+        `SELECT id FROM rubros WHERE id = $1 AND obra_id = $2`,
+        [rubro_id, obra_id]
+      );
+      if (rubro.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "rubro_id inválido para esta obra" });
+      }
     }
 
     const itemsFinal = [];
@@ -140,10 +153,10 @@ export async function crearPedidoWeb(req, res) {
 
     const pedido = await client.query(
       `INSERT INTO pedidos_materiales
-         (obra_id, proveedor_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por, categoria)
-       VALUES ($1, $2, 'pendiente', false, $3, $4, $5, $6, $7)
+         (obra_id, proveedor_id, rubro_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por)
+       VALUES ($1, $2, $3, 'pendiente', false, $4, $5, $6, $7)
        RETURNING *`,
-      [obra_id, proveedor_id, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor, categoria || null]
+      [obra_id, proveedor_id, rubro_id || null, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor]
     );
     const pedido_id = pedido.rows[0].id;
 

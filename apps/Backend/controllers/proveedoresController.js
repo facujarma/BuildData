@@ -42,9 +42,10 @@ export async function getProveedores(req, res) {
   try {
     if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
 
-    // $1 = obra_id (stats), $2 = persona_id (fav, puede ser null), $3 = scope=obra ? obra_id : null
-    const params = [obra_id, req.personaId || null, scope === "obra" ? obra_id : null];
+    // $1 = obra_id (stats), $2 = persona_id (fav, puede ser null), $3 = obra_id (solo si scope=obra)
+    const params = [obra_id, req.personaId || null];
     const filtroScope = scope === "obra" ? `p.scope = 'obra' AND p.obra_id = $3` : `p.scope = 'global'`;
+    if (scope === "obra") params.push(obra_id);
 
     let filtroQ = "";
     if (q) {

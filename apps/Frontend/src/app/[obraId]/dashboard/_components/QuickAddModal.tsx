@@ -90,13 +90,13 @@ function QuickAddTarea({ obraId, onClose, onDone }: Omit<Props, "kind">) {
 function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   const { refreshDashboard } = useDashboardData();
   const [members, setMembers] = useState<ObreroLite[]>([]);
-  const [rubros, setRubros] = useState<string[]>([]);
+  const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
 
   useEffect(() => {
     getObreros(obraId).then(setMembers).catch(() => {});
     getRubrosDeObra(obraId)
-      .then((r) => setRubros(r.map((x) => x.nombre)))
+      .then((r) => setRubros(r.map((x) => ({ id: x.id, nombre: x.nombre }))))
       .catch(() => {});
     getProveedores(obraId).then(setProveedores).catch(() => {});
   }, [obraId]);

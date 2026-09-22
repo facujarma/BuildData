@@ -36,14 +36,14 @@ export const TABLAS = {
     clave: ["id", "obra_id", "rubro_id", "pedido_id", "descripcion", "monto", "fecha", "moneda", "revisado"],
   },
   pedidos_materiales: {
-    descripcion: "Pedidos de compra de materiales: estado, aprobación, proveedor, urgencia y fecha estimada de llegada.",
+    descripcion: "Pedidos de compra de materiales: estado, aprobación, proveedor, urgencia y fecha estimada de llegada. El rubro es una FK a la tabla rubros (nombre del rubro).",
     obraId: "obra_id",
     columnas: [
-      "id", "obra_id", "proveedor_id", "solicitado_por", "aprobado_por", "estado",
-      "aprobado", "urgente", "nota", "categoria", "fecha", "fecha_aprobacion",
+      "id", "obra_id", "proveedor_id", "rubro_id", "solicitado_por", "aprobado_por", "estado",
+      "aprobado", "urgente", "nota", "fecha", "fecha_aprobacion",
       "fecha_llegada_estimada", "fecha_entrega", "ubicacion_entrega", "recibido_por", "documento_receptor",
     ],
-    clave: ["id", "obra_id", "proveedor_id", "estado", "aprobado", "urgente", "categoria", "fecha", "fecha_aprobacion", "fecha_llegada_estimada", "fecha_entrega"],
+    clave: ["id", "obra_id", "proveedor_id", "rubro_id", "estado", "aprobado", "urgente", "fecha", "fecha_aprobacion", "fecha_llegada_estimada", "fecha_entrega"],
   },
   pedidos_items: {
     descripcion: "Detalle de materiales de cada pedido: cantidad y precio unitario.",

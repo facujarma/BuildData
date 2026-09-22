@@ -110,10 +110,10 @@ export async function actualizarAccionesMensaje(req, res) {
 // Facu detectó que se pidió material → crea el pedido. Si la obra tiene aprobacion_automatica
 // activada, el pedido queda aprobado y listo para comprar; si no (default), queda pendiente
 // para que el admin lo apruebe desde el panel (PATCH /pedidos/:id/aprobar|rechazar).
-// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad, precio_unitario}], urgente?, nota?, fecha_llegada_estimada? }
+// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad, precio_unitario}], rubro_id?, urgente?, nota?, fecha_llegada_estimada? }
 // solicitado_por se resuelve automáticamente desde telefono → persona que hizo el pedido.
 export async function crearPedidoDeCompra(req, res) {
-  const { obra_id, proveedor_id, telefono, mensaje_id, items, urgente, nota, fecha_llegada_estimada, categoria } = req.body;
+  const { obra_id, proveedor_id, telefono, mensaje_id, items, rubro_id, urgente, nota, fecha_llegada_estimada } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
 
   const usuario_id = await resolvePersonaIdByTelefono(telefono);
@@ -134,21 +134,32 @@ export async function crearPedidoDeCompra(req, res) {
       }
     }
 
+    if (rubro_id) {
+      const rubro = await client.query(
+        `SELECT id FROM rubros WHERE id = $1 AND obra_id = $2`,
+        [rubro_id, obra_id]
+      );
+      if (rubro.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "rubro_id inválido para esta obra" });
+      }
+    }
+
     // Crear el pedido (solicitado_por = obrero que lo pidió, resuelto desde su teléfono)
     const pedido = await client.query(
-      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por, categoria)
-       VALUES ($1, $2, $3, $4, CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END, $5, $6, $7, $8, $9)
+      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, rubro_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por)
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END, $6, $7, $8, $9)
        RETURNING *`,
       [
         obra_id,
         proveedor_id,
+        rubro_id || null,
         autoApprove ? "aprobado" : "pendiente",
         autoApprove,
         urgente || false,
         nota || null,
         fecha_llegada_estimada || null,
         usuario_id,
-        categoria || null,
       ]
     );
     const pedido_id = pedido.rows[0].id;

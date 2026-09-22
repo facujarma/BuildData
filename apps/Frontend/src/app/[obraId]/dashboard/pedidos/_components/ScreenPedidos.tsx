@@ -12,6 +12,7 @@ import { getRubrosDeObra } from "@/services/cronogramaService";
 import { getProveedores } from "@/services/proveedoresService";
 import type { Proveedor } from "../../proveedores/data";
 import type { NewPedidoPayload, ObreroLite } from "@/services/pedidosService";
+import type { RubroOption } from "./NewOrderModal";
 import type { PedidoItem } from "../data";
 import { STATE_MAP, FILTERS } from "../data";
 import { formatARS } from "@/lib/format";
@@ -37,7 +38,7 @@ export function ScreenPedidos() {
   const [showNew, setShowNew] = useState(false);
   const [deliverFor, setDeliverFor] = useState<PedidoItem | null>(null);
   const [members, setMembers] = useState<ObreroLite[]>([]);
-  const [rubros, setRubros] = useState<string[]>([]);
+  const [rubros, setRubros] = useState<RubroOption[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [toast, flash] = useToast();
 
@@ -51,7 +52,7 @@ export function ScreenPedidos() {
       .catch(() => { setLoading(false); flash("No se pudieron cargar los pedidos"); });
     getObreros(obraId).then(setMembers).catch(() => {});
     getRubrosDeObra(obraId)
-      .then((r) => setRubros(r.map((x) => x.nombre)))
+      .then((r) => setRubros(r.map((x) => ({ id: x.id, nombre: x.nombre }))))
       .catch(() => {});
     getProveedores(obraId).then(setProveedores).catch(() => {});
   }, [load, obraId, flash]);

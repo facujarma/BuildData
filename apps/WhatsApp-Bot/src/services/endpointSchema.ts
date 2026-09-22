@@ -122,13 +122,13 @@ export const ENDPOINTS: EndpointSchema[] = [
         ],
       },
       {
-        name: "categoria",
+        name: "rubro_nombre",
         type: "string",
         description:
-          "Categoría del pedido (ej: Herramientas, Hierros, Material eléctrico). Solo si el usuario la menciona.",
-        required: true,
+          "Rubro del pedido. Solo si el usuario lo menciona. Debe existir en la obra.",
+        required: false,
         source: "llm",
-        prompt: "¿Para que rubro es este pedido?",
+        isName: true,
       },
       {
         name: "urgente",

@@ -6,26 +6,33 @@ import { UNITS } from "../data";
 import type { NewPedidoPayload } from "@/services/pedidosService";
 import type { ObreroLite } from "@/services/pedidosService";
 import { createProveedor } from "@/services/proveedoresService";
+import { createRubro } from "@/services/cronogramaService";
 import { SupplierModal } from "../../_components/SupplierModal";
+import { CategoryModal, type CategoryFormData } from "../../_components/CategoryModal";
 import type { Proveedor } from "../../proveedores/data";
+
+export interface RubroOption {
+  id: string;
+  nombre: string;
+}
 
 interface Props {
   obraId: string;
   onClose: () => void;
   onSubmit: (payload: NewPedidoPayload) => Promise<void>;
   members: ObreroLite[];
-  rubros: string[];
+  rubros: RubroOption[];
   proveedores: Proveedor[];
 }
 
 export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores }: Props) {
-  const [customCats, setCustomCats] = useState<string[]>([]);
+  const [rubroList, setRubroList] = useState<RubroOption[]>(rubros);
   const [units, setUnits] = useState([...UNITS]);
   const [mat, setMat] = useState("");
   const [provs, setProvs] = useState(proveedores);
   const [provId, setProvId] = useState("");
   const [showNewProv, setShowNewProv] = useState(false);
-  const [cat, setCat] = useState("");
+  const [rubroId, setRubroId] = useState("");
   const [qty, setQty] = useState<number>(1);
   const [unit, setUnit] = useState(units[0]);
   const [total, setTotal] = useState<number>(0);
@@ -34,28 +41,16 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
   const [urgent, setUrgent] = useState(false);
   const [note, setNote] = useState("");
 
-  const [newCat, setNewCat] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [showNewUnit, setShowNewUnit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const cats = useMemo(() => Array.from(new Set([...rubros, ...customCats])), [rubros, customCats]);
-  const currentCat = cat || cats[0] || "";
+  const sortedRubros = useMemo(() => [...rubroList].sort((a, b) => a.nombre.localeCompare(b.nombre)), [rubroList]);
   const sortedProvs = useMemo(() => [...provs].sort((a, b) => a.name.localeCompare(b.name)), [provs]);
 
   const canSave = mat.trim() && provId;
-
-  const addCategory = () => {
-    const val = newCat.trim();
-    if (val && !cats.includes(val)) {
-      setCustomCats((prev) => [...prev, val]);
-      setCat(val);
-    }
-    setNewCat("");
-    setShowNewCat(false);
-  };
 
   const addUnit = () => {
     const val = newUnit.trim();
@@ -65,6 +60,17 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
     }
     setNewUnit("");
     setShowNewUnit(false);
+  };
+
+  const handleCreateRubro = async (cat: CategoryFormData) => {
+    try {
+      const nuevo = await createRubro(obraId, cat.name, 0, cat.desc || undefined);
+      setRubroList((prev) => [...prev, nuevo]);
+      setRubroId(nuevo.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo crear el rubro");
+    }
+    setShowNewCat(false);
   };
 
   const submit = async () => {
@@ -82,7 +88,7 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
             precio_unitario: total / (qty || 1),
           },
         ],
-        categoria: currentCat,
+        rubro_id: rubroId || null,
         urgente: urgent,
         nota: note.trim(),
         fecha_llegada_estimada: date || null,
@@ -145,26 +151,11 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
                   <Plus width={10} height={10} /> Nuevo rubro
                 </button>
               </div>
-              {showNewCat ? (
-                <div className="flex gap-1">
-                  <input autoFocus value={newCat} onChange={(e) => setNewCat(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(); else if (e.key === "Escape") setShowNewCat(false); }}
-                    placeholder="Nuevo rubro"
-                    className="flex-1 min-w-0 bg-white border border-primary rounded-md px-3 py-[9px] text-[13px] focus:outline-none" />
-                  <button type="button" onClick={addCategory} className="px-3 rounded-md bg-primary text-white flex items-center justify-center">
-                    <Check width={14} height={14} />
-                  </button>
-                  <button type="button" onClick={() => setShowNewCat(false)} className="px-2 rounded-md border border-slate-200 text-slate-500 flex items-center justify-center">
-                    <Xmark width={14} height={14} />
-                  </button>
-                </div>
-              ) : (
-                <select value={currentCat} onChange={(e) => setCat(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                  {cats.length === 0 && <option value="">Sin rubros</option>}
-                  {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              )}
+              <select value={rubroId} onChange={(e) => setRubroId(e.target.value)}
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">{sortedRubros.length === 0 ? "Sin rubros" : "Sin rubro"}</option>
+                {sortedRubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+              </select>
             </div>
 
             <div className="flex flex-col gap-[6px]">
@@ -262,7 +253,7 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
         <SupplierModal
           initial={null}
           scope="obra"
-          rubros={rubros}
+          rubros={sortedRubros.map((r) => r.nombre)}
           onClose={() => setShowNewProv(false)}
           onSave={async (d) => {
             const nuevo = await createProveedor(obraId, "obra", d);
@@ -270,6 +261,16 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
             setProvId(nuevo.id);
             setShowNewProv(false);
           }}
+        />
+      )}
+
+      {showNewCat && (
+        <CategoryModal
+          open={showNewCat}
+          initial={null}
+          availableTasks={[]}
+          onClose={() => setShowNewCat(false)}
+          onSave={handleCreateRubro}
         />
       )}
     </div>
