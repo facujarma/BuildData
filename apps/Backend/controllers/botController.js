@@ -1,6 +1,7 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 import { guardarEmbedding } from "../services/embeddings.service.js";
+import { aplicarMovimientoStock } from "../services/stock.service.js";
 
 // ============================================================
 // CONTRATO DE API CON FACU (bot de WhatsApp)
@@ -257,7 +258,7 @@ export async function crearMaterialDesdeBot(req, res) {
   try {
     const existing = await pool.query(
       `SELECT id, nombre, unidad FROM materiales
-       WHERE obra_id = $1 AND LOWER(nombre) = LOWER($2)
+       WHERE obra_id = $1 AND activo AND LOWER(nombre) = LOWER($2)
        LIMIT 1`,
       [obra_id, nombre]
     );
@@ -294,32 +295,16 @@ export async function actualizarStock(req, res) {
     await client.query("BEGIN");
 
     for (const mov of movimientos) {
-      // Descontar stock
-      await client.query(
-        `UPDATE materiales SET stock_actual = stock_actual - $1 WHERE id = $2`,
-        [mov.cantidad, mov.material_id]
-      );
-
-      // Registrar movimiento
-      await client.query(
-        `INSERT INTO movimientos_stock (material_id, obra_id, usuario_id, rubro_id, tipo, cantidad)
-         VALUES ($1, $2, $3, $4, 'salida', $5)`,
-        [mov.material_id, obra_id, usuario_id, mov.rubro_id, mov.cantidad]
-      );
-
-      // Verificar si el stock quedó por debajo del mínimo → alerta
-      const material = await client.query(
-        `SELECT nombre, stock_actual, stock_minimo FROM materiales WHERE id = $1`,
-        [mov.material_id]
-      );
-      const m = material.rows[0];
-      if (m.stock_actual <= m.stock_minimo) {
-        await client.query(
-          `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, titulo, subtitulo, severity)
-           VALUES ($1, 'stock_bajo', $2, 'media', $3, $4, 'attention')`,
-          [obra_id, `Stock bajo de ${m.nombre}: quedan ${m.stock_actual} unidades`, `Stock bajo de ${m.nombre}`, `Quedan ${m.stock_actual} unidades`]
-        );
-      }
+      // Descuenta stock, registra el movimiento y alerta si quedó bajo el mínimo
+      const material = await aplicarMovimientoStock(client, {
+        materialId: mov.material_id,
+        obraId: obra_id,
+        usuarioId: usuario_id,
+        rubroId: mov.rubro_id,
+        tipo: "salida",
+        cantidad: mov.cantidad,
+      });
+      if (!material) throw new Error(`Material no encontrado: ${mov.material_id}`);
     }
 
     await client.query(

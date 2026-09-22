@@ -6,18 +6,27 @@ import DButton from "@/components/ui/Button";
 
 interface Props {
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => Promise<void>;
   existing: string[];
 }
 
 export function NewCategoryModal({ onClose, onSave, existing }: Props) {
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const dup = name.trim() && existing.some((c) => c.toLowerCase() === name.trim().toLowerCase());
   const canSave = name.trim().length >= 2 && !dup;
 
-  const submit = () => {
-    if (!canSave) return;
-    onSave(name.trim());
+  const submit = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(name.trim());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo crear la categoría");
+      setSaving(false);
+    }
   };
 
   return (
@@ -46,12 +55,13 @@ export function NewCategoryModal({ onClose, onSave, existing }: Props) {
             {dup && (
               <span className="text-[11px] text-critical font-semibold">Esa categoría ya existe</span>
             )}
+            {error && <span className="text-[11px] text-critical font-semibold">{error}</span>}
           </label>
         </div>
 
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
           <DButton variant="ghost" onClick={onClose}>Cancelar</DButton>
-          <DButton onClick={submit} disabled={!canSave}>Crear categoría</DButton>
+          <DButton onClick={submit} disabled={!canSave || saving}>Crear categoría</DButton>
         </div>
       </div>
     </div>

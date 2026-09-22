@@ -9,26 +9,15 @@ export interface StockItem {
   photo: string;
 }
 
-export const ITEMS: StockItem[] = [
-  { id: 's1', name: 'Cemento Portland 50 kg', cat: 'Áridos y cementos', unit: 'bolsas', qty: 84,  min: 40,  loc: 'Depósito A', photo: '' },
-  { id: 's2', name: 'Arena fina',             cat: 'Áridos y cementos', unit: 'm³',     qty: 12,  min: 8,   loc: 'Playa', photo: '' },
-  { id: 's3', name: 'Hierro 12 mm × 12 m',    cat: 'Hierros',           unit: 'barras', qty: 18,  min: 60,  loc: 'Depósito B', photo: '' },
-  { id: 's4', name: 'Hierro 8 mm × 12 m',     cat: 'Hierros',           unit: 'barras', qty: 120, min: 50,  loc: 'Depósito B', photo: '' },
-  { id: 's5', name: 'Ladrillo cerámico 18×18',cat: 'Mampostería',       unit: 'u',      qty: 3200,min: 2000,loc: 'Playa', photo: '' },
-  { id: 's6', name: 'Cal hidratada 25 kg',    cat: 'Mampostería',       unit: 'bolsas', qty: 26,  min: 30,  loc: 'Depósito A', photo: '' },
-  { id: 's7', name: 'Cable 3×6 mm',           cat: 'Eléctrico',         unit: 'm',      qty: 240, min: 100, loc: 'Pañol', photo: '' },
-  { id: 's8', name: 'Caño PVC 110 mm',        cat: 'Sanitario',         unit: 'u',      qty: 14,  min: 20,  loc: 'Pañol', photo: '' },
-];
+const CAT_PALETTE = ['#0F4395', '#22C55E', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#94A3B8'];
 
-export const CATEGORIES = ['Áridos y cementos', 'Hierros', 'Mampostería', 'Eléctrico', 'Sanitario'];
-
-export const CAT_COLORS: Record<string, string> = {
-  'Áridos y cementos': '#94A3B8',
-  'Hierros':           '#0F4395',
-  'Mampostería':       '#22C55E',
-  'Eléctrico':         '#F59E0B',
-  'Sanitario':         '#3B82F6',
-};
+// Color estable por categoría (las categorías son dinámicas: se derivan del nombre)
+export function catColor(cat: string): string {
+  if (!cat) return '#94A3B8';
+  let h = 0;
+  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
+  return CAT_PALETTE[h % CAT_PALETTE.length];
+}
 
 export function getStatus(item: StockItem) {
   if (item.qty <= 0) return 'out';

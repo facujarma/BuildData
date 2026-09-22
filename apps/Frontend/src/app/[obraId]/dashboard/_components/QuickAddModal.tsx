@@ -6,7 +6,7 @@ import { InviteTeamModal } from "../equipo/_components/InviteTeamModal";
 import { SupplierModal } from "./SupplierModal";
 import { UploadPhotosModal } from "./UploadPhotosModal";
 import { StockItemModal } from "../stock/_components/StockItemModal";
-import { CATEGORIES as STOCK_CATEGORIES, CAT_COLORS } from "../stock/data";
+import { catColor as stockCatColor } from "../stock/data";
 import { ReceiptModal } from "../recibos/_components/ReceiptModal";
 import { CATEGORIES as RECEIPT_CATEGORIES } from "../recibos/data";
 import { NuevaTareaModal } from "../cronograma/_components/NuevaTareaModal";
@@ -14,6 +14,7 @@ import { NewOrderModal } from "../pedidos/_components/NewOrderModal";
 import { CategoryModal } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
 import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
+import { getStock, createMaterial } from "@/services/stockService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
 import { addProveedor, nextProveedorId } from "@/services/mock/proveedoresService";
 import { createAlert } from "@/services/alertasService";
@@ -112,14 +113,21 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   );
 }
 
-function QuickAddMaterial({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+function QuickAddMaterial({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const [cats, setCats] = useState<string[]>([]);
+
+  useEffect(() => {
+    getStock(obraId).then((d) => setCats(d.categories)).catch(() => {});
+  }, [obraId]);
+
   return (
     <StockItemModal
       item={null}
-      cats={STOCK_CATEGORIES}
-      catColor={(cat) => CAT_COLORS[cat] || "#94A3B8"}
+      cats={cats}
+      catColor={stockCatColor}
       onClose={onClose}
-      onSave={(item) => {
+      onSave={async (item, photo) => {
+        await createMaterial(obraId, item, photo);
         onDone(`Material “${item.name}” agregado al stock`);
         onClose();
       }}
@@ -351,7 +359,7 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
     case "pedido":
       return <QuickAddPedido obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "material":
-      return <QuickAddMaterial onClose={onClose} onDone={onDone} />;
+      return <QuickAddMaterial obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "recibo":
       return <QuickAddRecibo onClose={onClose} onDone={onDone} />;
     case "rubro":

@@ -7,12 +7,12 @@ import DButton from "@/components/ui/Button";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
 import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
-import { getPedidos, createPedido, aprobarPedido, rechazarPedido, getObreros } from "@/services/pedidosService";
+import { getPedidos, createPedido, aprobarPedido, rechazarPedido, cambiarEstadoPedido, entregarPedido, getObreros } from "@/services/pedidosService";
 import { getRubrosDeObra } from "@/services/cronogramaService";
 import type { NewPedidoPayload, ObreroLite } from "@/services/pedidosService";
 import type { PedidoItem } from "../data";
 import { STATE_MAP, FILTERS } from "../data";
-import { formatARS, formatDate } from "@/lib/format";
+import { formatARS } from "@/lib/format";
 import { OrderDrawer } from "./OrderDrawer";
 import { NewOrderModal } from "./NewOrderModal";
 import { DeliveryModal } from "./DeliveryModal";
@@ -81,15 +81,30 @@ export function ScreenPedidos() {
     }
   };
 
-  const handleDeliverSave = (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
+  const handleChangeState = async (id: string, estado: "en_camino" | "demorado") => {
+    try {
+      await cambiarEstadoPedido(id, estado);
+      await load();
+      setSelected(null);
+      flash(estado === "en_camino" ? "Pedido marcado en camino" : "Pedido marcado como demorado");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo actualizar el pedido");
+    }
+  };
+
+  // El modal muestra el error y sigue abierto si esto lanza
+  const handleDeliverSave = async (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
     if (!deliverFor) return;
-    const dateLabel = delivery.date ? formatDate(delivery.date) : "";
-    const displayDate = `${dateLabel}${delivery.time ? ` · ${delivery.time}` : ""}`;
-    const patch = { state: "delivered", delivery: { date: displayDate, loc: delivery.loc, receiver: delivery.receiver, doc: delivery.doc } };
-    setOrders((prev) => prev.map((o) => (o.id === deliverFor.id ? { ...o, ...patch } : o)));
-    setSelected((prev) => (prev && prev.id === deliverFor.id ? { ...prev, ...patch } : prev));
+    await entregarPedido(deliverFor.id, {
+      fecha: delivery.date,
+      hora: delivery.time,
+      ubicacion: delivery.loc,
+      recibido_por: delivery.receiver,
+      documento: delivery.doc,
+    });
+    await load();
     setDeliverFor(null);
-    flash("Entrega registrada");
+    flash("Entrega registrada y stock actualizado");
   };
 
   const handleNewSave = async (payload: NewPedidoPayload) => {
@@ -239,6 +254,7 @@ export function ScreenPedidos() {
           onClose={() => setSelected(null)}
           onApprove={handleApprove}
           onCancel={handleCancel}
+          onChangeState={handleChangeState}
           onDeliver={(id) => { setDeliverFor(orders.find((o) => o.id === id) || selected); setSelected(null); }}
           onComprobante={() => flash("Comprobante no disponible")}
         />

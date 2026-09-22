@@ -68,6 +68,15 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Frontend**: el componente `ChatBubble` (Buildo, `app/[obraId]/dashboard/_components/ChatBubble.tsx`) está activo en el layout del dashboard y consulta `POST /chat/consultar` vía `services/chatbotService.ts` (JWT de Supabase + `obra_id`). El endpoint **no tiene memoria conversacional**: cada pregunta es independiente (no hay follow-ups tipo "y el mes pasado?")
 - Pendiente: rate limit por persona, rol Postgres read-only dedicado, memoria conversacional
 
+## Stock y entrega de pedidos (web)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_stock_entregas.sql` (`materiales.ubicacion/foto_url/activo`, tabla `categorias_materiales`, columnas de entrega en `pedidos_materiales`, bucket público `materiales`)
+- `services/stock.service.js:aplicarMovimientoStock(client, …)` es el único lugar que suma/resta `stock_actual`, inserta en `movimientos_stock` (`entrada`/`salida`) y crea la alerta `stock_bajo`. Lo usan `POST /bot/stock`, `POST /materiales/:id/ajuste`, `PATCH /materiales/:id` (si cambia `stock_actual`) y `PATCH /pedidos/:id/entregar`. Requiere transacción abierta
+- **Materiales**: `DELETE /materiales/:id` es soft delete (`activo=false`, por las FK de `pedidos_items`/`movimientos_stock`). Todo lookup de materiales por nombre (bot, `crearPedidoWeb`, `entitySearch`) filtra `activo`. `GET /materiales/:obra_id` y `GET /materiales/:obra_id/categorias` devuelven solo activos; `numeric` llega como string (el frontend hace `Number()`)
+- **Foto**: `POST /materiales/:id/foto` recibe la imagen cruda (`Content-Type` image/jpeg|png|webp, máx 5 MB), la sube al bucket `materiales` con la service role key y guarda la URL pública en `foto_url`
+- **Pedidos**: `PATCH /pedidos/:id/estado` (`en_camino`|`demorado`) y `PATCH /pedidos/:id/entregar` (estado `entregado` + fecha/lugar/receptor/documento + entrada de stock por cada ítem con material). Ambos exigen estado `aprobado`/`en_camino`/`demorado` (409 si no). `fecha_entrega` sale de `getPedidos` como texto `YYYY-MM-DDTHH:MM` (sin corrimiento de zona horaria)
+- `/materiales` y `/pedidos` validan membresía a la obra (`services/obraAccess.service.js`, 403 si no pertenece)
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error

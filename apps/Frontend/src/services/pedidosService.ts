@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
-import { formatARS, formatDateShort, formatNumber } from "@/lib/format";
+import { formatARS, formatDate, formatDateShort, formatNumber } from "@/lib/format";
 
 export interface NewPedidoPayload {
   proveedor_nombre: string;
@@ -15,6 +15,14 @@ export interface NewPedidoPayload {
   nota: string;
   fecha_llegada_estimada: string | null;
   solicitado_por: string | null;
+}
+
+export interface EntregaPayload {
+  fecha: string; // YYYY-MM-DD
+  hora: string; // HH:MM (puede ir vacío)
+  ubicacion: string;
+  recibido_por: string;
+  documento: string;
 }
 
 export interface ObreroLite {
@@ -38,6 +46,10 @@ interface RawPedido {
   urgente: boolean;
   nota: string | null;
   categoria: string | null;
+  fecha_entrega: string | null; // 'YYYY-MM-DDTHH:MM' (texto, sin zona horaria)
+  ubicacion_entrega: string | null;
+  recibido_por: string | null;
+  documento_receptor: string | null;
   proveedor_nombre: string | null;
   solicitado_por_nombre: string | null;
   aprobado_por_nombre: string | null;
@@ -57,6 +69,17 @@ const ESTADO_DB_UI: Record<string, string> = {
 function fmtUnit(precio: number | null, unidad: string | null): string {
   const base = formatARS(precio);
   return unidad ? `${base}/${unidad}` : base;
+}
+
+function mapEntrega(row: RawPedido): PedidoItem["delivery"] {
+  if (row.estado !== "entregado" || !row.fecha_entrega) return undefined;
+  const hora = row.fecha_entrega.slice(11, 16);
+  return {
+    date: `${formatDate(row.fecha_entrega.slice(0, 10))}${hora && hora !== "00:00" ? ` · ${hora}` : ""}`,
+    loc: row.ubicacion_entrega || "",
+    receiver: row.recibido_por || "",
+    doc: row.documento_receptor || "",
+  };
 }
 
 function mapRawToItem(row: RawPedido): PedidoItem {
@@ -81,6 +104,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
     who: row.solicitado_por_nombre || "",
     urgent: row.urgente || false,
     note: row.nota || "",
+    delivery: mapEntrega(row),
   };
 }
 
@@ -133,6 +157,27 @@ export async function rechazarPedido(id: string) {
   const res = await fetch(`${API_URL}/pedidos/${id}/rechazar`, {
     method: "PATCH",
     headers: await authHeaders(),
+  });
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function cambiarEstadoPedido(id: string, estado: "en_camino" | "demorado") {
+  const res = await fetch(`${API_URL}/pedidos/${id}/estado`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify({ estado }),
+  });
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+// Marca el pedido como entregado; el Backend suma los ítems al stock
+export async function entregarPedido(id: string, payload: EntregaPayload) {
+  const res = await fetch(`${API_URL}/pedidos/${id}/entregar`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw await parseError(res);
   return res.json();

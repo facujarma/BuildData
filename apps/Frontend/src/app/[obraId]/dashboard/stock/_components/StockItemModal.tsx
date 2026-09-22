@@ -10,43 +10,66 @@ interface Props {
   cats: string[];
   catColor: (cat: string) => string;
   onClose: () => void;
-  onSave: (item: StockItem) => void;
+  onSave: (item: StockItem, photo: File | null) => Promise<void>;
   onDelete?: (id: string) => void;
 }
 
 export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete }: Props) {
   const isNew = !item;
   const [name, setName] = useState(item?.name || "");
-  const [cat, setCat] = useState(item?.cat || cats[0] || "");
+  const [cat, setCat] = useState(item ? item.cat : cats[0] || "");
   const [unit, setUnit] = useState(item?.unit || "");
   const [qty, setQty] = useState(item?.qty ?? 0);
   const [min, setMin] = useState(item?.min ?? 0);
   const [loc, setLoc] = useState(item?.loc || "");
   const [photo, setPhoto] = useState(item?.photo || "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const canSave = name.trim() && cat.trim();
+  const canSave = name.trim() && !saving;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+      setError("La foto debe ser JPG, PNG o WebP");
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setError("La foto no puede superar 5 MB");
+      return;
+    }
+    setError("");
+    setPhotoFile(f);
     const reader = new FileReader();
     reader.onload = () => setPhoto(reader.result as string);
     reader.readAsDataURL(f);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSave) return;
-    onSave({
-      id: item?.id || "s" + Date.now().toString(36),
-      name: name.trim(),
-      cat: cat.trim(),
-      unit: unit.trim(),
-      qty,
-      min,
-      loc: loc.trim(),
-      photo,
-    });
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(
+        {
+          id: item?.id || "",
+          name: name.trim(),
+          cat: cat.trim(),
+          unit: unit.trim(),
+          qty,
+          min,
+          loc: loc.trim(),
+          photo,
+        },
+        photoFile
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el material");
+      setSaving(false);
+    }
   };
 
   return (
@@ -78,7 +101,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
                 <Camera width={24} height={24} className="text-slate-400" />
               )}
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} hidden />
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} hidden />
             <div>
               <div className="text-[13px] font-semibold text-slate-950">Foto del material</div>
               <div className="text-[11px] text-slate-500 mt-[2px]">Tocá para subir una imagen</div>
@@ -95,6 +118,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
               <span className="text-[11px] font-bold text-slate-700">Categoría</span>
               <select value={cat} onChange={(e) => setCat(e.target.value)}
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+                <option value="">Sin categoría</option>
                 {cats.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
@@ -121,6 +145,8 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
           </div>
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-none">
           <div>
             {!isNew && onDelete && (
@@ -131,7 +157,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
           </div>
           <div className="flex gap-2">
             <DButton variant="ghost" onClick={onClose}>Cancelar</DButton>
-            <DButton onClick={submit} disabled={!canSave}>{isNew ? "Agregar" : "Guardar"}</DButton>
+            <DButton onClick={submit} disabled={!canSave}>{saving ? "Guardando…" : isNew ? "Agregar" : "Guardar"}</DButton>
           </div>
         </div>
       </div>

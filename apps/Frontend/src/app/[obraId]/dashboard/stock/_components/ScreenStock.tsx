@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, LayoutCells, ListUl, Minus, CirclePlus, Camera, Pencil, FolderPlus } from "@gravity-ui/icons";
 import { DCard } from "@/components/ui/DCard";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
-import { getStock } from "@/services/mock/stockService";
+import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
+import { getStock, createMaterial, updateMaterial, ajustarStock, deleteMaterial, createCategoria } from "@/services/stockService";
 import type { StockItem } from "../data";
-import { getStatus, STAT_LABELS, CAT_COLORS } from "../data";
+import { getStatus, STAT_LABELS, catColor } from "../data";
 import { StockItemModal } from "./StockItemModal";
 import { NewCategoryModal } from "./NewCategoryModal";
 
 export function ScreenStock() {
+  const { obraId } = useDashboardData();
   const [items, setItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,10 +26,17 @@ export function ScreenStock() {
   const [showNewCat, setShowNewCat] = useState(false);
   const [toast, flash] = useToast();
 
+  const load = useCallback(async () => {
+    const d = await getStock(obraId);
+    setItems(d.items);
+    setCategories(d.categories);
+  }, [obraId]);
+
   useEffect(() => {
-    setLoading(true);
-    getStock().then((d) => { setItems(d.items); setCategories(d.categories); setLoading(false); });
-  }, []);
+    load()
+      .then(() => setLoading(false))
+      .catch(() => { setLoading(false); flash("No se pudo cargar el stock"); });
+  }, [load, flash]);
 
   const filtered = catFilter === "Todas" ? items : items.filter((i) => i.cat === catFilter);
 
@@ -36,37 +45,50 @@ export function ScreenStock() {
   const low = items.filter((i) => getStatus(i) === "low").length;
   const out = items.filter((i) => getStatus(i) === "out").length;
 
-  const adjust = (id: string, delta: number) => {
+  // Optimista: el Backend registra el movimiento; si falla se recarga el estado real
+  const adjust = async (id: string, delta: number) => {
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i));
+    try {
+      await ajustarStock(id, delta);
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo ajustar el stock");
+      load().catch(() => {});
+    }
   };
 
-  const handleSave = (item: StockItem) => {
-    setItems((prev) => {
-      const idx = prev.findIndex((i) => i.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [item, ...prev];
-    });
+  // El modal muestra el error y sigue abierto si esto lanza
+  const handleSave = async (item: StockItem, photo: File | null) => {
+    const isNew = !editItem;
+    try {
+      if (isNew) await createMaterial(obraId, item, photo);
+      else await updateMaterial(item, photo);
+    } catch (e) {
+      // Si el material ya quedó guardado (falló solo la foto), reflejarlo igual
+      load().catch(() => {});
+      throw e;
+    }
+    await load();
     setEditItem(null);
     setShowAdd(false);
-    flash(item.id.startsWith("s") && !items.find((i) => i.id === item.id) ? "Material agregado" : "Material actualizado");
+    flash(isNew ? "Material agregado" : "Material actualizado");
   };
 
-  const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    flash("Material eliminado");
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMaterial(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      flash("Material eliminado");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo eliminar el material");
+    }
   };
 
-  const handleAddCat = (name: string) => {
-    setCategories((prev) => [...prev, name]);
+  const handleAddCat = async (name: string) => {
+    const created = await createCategoria(obraId, name);
+    setCategories((prev) => [...prev, created].sort((a, b) => a.localeCompare(b)));
     setShowNewCat(false);
     flash("Categoría creada");
   };
-
-  const catColor = (cat: string) => CAT_COLORS[cat] || "#94A3B8";
 
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-slate-500 text-[15px] font-semibold">Cargando...</div>;
@@ -133,10 +155,10 @@ export function ScreenStock() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1 mb-[2px]">
                       <span className="w-2 h-2 rounded-full flex-none" style={{ background: catColor(item.cat) }} />
-                      <span className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500 truncate">{item.cat}</span>
+                      <span className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate-500 truncate">{item.cat || "Sin categoría"}</span>
                     </div>
                     <h4 className="text-[13px] font-bold text-slate-950 leading-tight truncate">{item.name}</h4>
-                    <div className="text-[11px] text-slate-500">{item.loc}</div>
+                    <div className="text-[11px] text-slate-500">{item.loc || "Sin ubicación"}</div>
                   </div>
                   <DPill tone={sl.tone as any}>{sl.label}</DPill>
                 </div>
@@ -148,8 +170,8 @@ export function ScreenStock() {
                   <div className="h-full rounded-full transition-all" style={{ width: Math.min(pct, 100) + "%", background: sl.dot }} />
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => adjust(item.id, -1)}
-                    className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950">
+                  <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
+                    className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950 disabled:opacity-40 disabled:pointer-events-none">
                     <Minus width={12} height={12} />
                   </button>
                   <span className="text-[13px] font-bold tnum text-slate-950 w-[32px] text-center">{item.qty}</span>
@@ -202,16 +224,16 @@ export function ScreenStock() {
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full flex-none" style={{ background: catColor(item.cat) }} />
-                        {item.cat}
+                        {item.cat || "Sin categoría"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{item.loc}</td>
+                    <td className="px-4 py-3 text-slate-600">{item.loc || "—"}</td>
                     <td className="px-4 py-3 text-center font-bold tnum">{item.qty} <span className="font-normal text-slate-500">{item.unit}</span></td>
                     <td className="px-4 py-3 text-center"><DPill tone={sl.tone as any}>{sl.label}</DPill></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => adjust(item.id, -1)}
-                          className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50">
+                        <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
+                          className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none">
                           <Minus width={12} height={12} />
                         </button>
                         <span className="text-[13px] font-bold tnum w-[32px] text-center">{item.qty}</span>
