@@ -1,7 +1,7 @@
 import { pool } from "../db.js";
 import { guardarEmbeddings } from "../services/embeddings.service.js";
 import { aplicarMovimientoStock } from "../services/stock.service.js";
-import { esMiembroDeObra, obraDePedido } from "../services/obraAccess.service.js";
+import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js";
 
 const sinAcceso = (res) =>
   res.status(403).json({ code: "FORBIDDEN", message: "No pertenecés a esta obra" });
@@ -62,18 +62,6 @@ export async function getPedidos(req, res) {
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   }
-}
-
-// El proveedor viaja como FK desde la web (selector, no texto libre): valida
-// que exista, esté activo y sea accesible desde esta obra (global o propio
-// de esta obra). Devuelve la fila o null si no es válido para esta obra.
-async function proveedorAccesible(client, obraId, proveedorId) {
-  const { rows } = await client.query(
-    `SELECT * FROM proveedores
-     WHERE id = $1 AND activo AND (scope = 'global' OR obra_id = $2)`,
-    [proveedorId, obraId]
-  );
-  return rows[0] || null;
 }
 
 // POST /pedidos — crear pedido desde la web (usuario autenticado)

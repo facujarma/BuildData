@@ -2,6 +2,7 @@ import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 import { guardarEmbedding } from "../services/embeddings.service.js";
 import { aplicarMovimientoStock } from "../services/stock.service.js";
+import { proveedorAccesible } from "../services/obraAccess.service.js";
 
 // ============================================================
 // CONTRATO DE API CON FACU (bot de WhatsApp)
@@ -124,6 +125,14 @@ export async function crearPedidoDeCompra(req, res) {
     const autoApprove = obra.rows[0]?.aprobacion_automatica || false;
 
     await client.query("BEGIN");
+
+    if (proveedor_id) {
+      const proveedor = await proveedorAccesible(client, obra_id, proveedor_id);
+      if (!proveedor) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "proveedor_id inválido para esta obra" });
+      }
+    }
 
     // Crear el pedido (solicitado_por = obrero que lo pidió, resuelto desde su teléfono)
     const pedido = await client.query(

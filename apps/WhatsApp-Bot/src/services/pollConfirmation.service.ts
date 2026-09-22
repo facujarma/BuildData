@@ -280,10 +280,13 @@ export async function handleEntityTextReply(phone: string, raw: string, chatId: 
 
   clearEntityPending(phone);
 
-  // Para tareas, "Ninguno de estos" cancela la operación: sin tarea válida no hay nada que completar.
-  if (option === null && question.kind === "tarea") {
+  // "Ninguno de estos" → error y cancelar: no se auto-crean entidades.
+  if (option === null) {
     clearPending(phone);
-    await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
+    await client.sendMessage(
+      chatId,
+      `❌ No encontré el ${entityKindLabel(question.kind)} "*${question.entity}*". No puedo continuar sin él. Crealo desde la web y volvé a intentar.`,
+    );
     return true;
   }
 

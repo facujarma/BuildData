@@ -21,3 +21,14 @@ export async function obraDePedido(pedidoId) {
   const { rows } = await pool.query(`SELECT obra_id FROM pedidos_materiales WHERE id = $1`, [pedidoId]);
   return rows[0] || null;
 }
+
+// Valida que el proveedor exista, esté activo y sea accesible desde esta obra
+// (global o scope='obra' de esa misma obra). Devuelve la fila o null.
+export async function proveedorAccesible(client, obraId, proveedorId) {
+  const { rows } = await client.query(
+    `SELECT * FROM proveedores
+     WHERE id = $1 AND activo AND (scope = 'global' OR obra_id = $2)`,
+    [proveedorId, obraId]
+  );
+  return rows[0] || null;
+}

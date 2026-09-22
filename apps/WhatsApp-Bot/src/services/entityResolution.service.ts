@@ -4,7 +4,7 @@ import {
   EntidadResuelta,
   mapearResultadoBusqueda,
 } from "./entityMatch.service";
-import { crearMaterial, buscarEntidades } from "./api.service";
+import { buscarEntidades } from "./api.service";
 import { displayPath } from "./actionExecuted.service";
 
 export type EntityKind = "material" | "proveedor" | "rubro" | "tarea";
@@ -149,9 +149,6 @@ async function resolveSlot(
     container[slot.targetKey] = id;
     remember(nombre);
   };
-  const drop = (): void => {
-    delete container[slot.key];
-  };
 
   // Match claro: se aplica directo (el top viene entre los candidatos).
   if (resolved.confianza === "alta" && resolved.match_id) {
@@ -173,13 +170,8 @@ async function resolveSlot(
     };
   }
 
-  // Sin match ni candidatos: el proveedor es opcional y se omite; el resto se
-  // pregunta sin opciones. No se auto-crean entidades acá.
-  if (slot.kind === "proveedor") {
-    drop();
-    return null;
-  }
-
+  // Sin match ni candidatos: se pregunta sin opciones (el usuario solo puede
+  // cancelar). No se auto-crean ni se omiten entidades.
   return {
     entity: rawValue,
     kind: slot.kind,
@@ -199,7 +191,8 @@ function nameOfMatch(resolved: EntidadResuelta, fallback: string): string {
 /**
  * Aplica la respuesta del usuario a una encuesta de entidad dentro del pending.
  * - option con id → se setea ese id en el slot.
- * - option null ("Ninguno de estos") → material se crea; proveedor/rubro/tarea se descartan.
+ * - option null ("Ninguno de estos") no llega acá: handleEntityTextReply lo
+ *   intercepta y cancela con error antes de llamar.
  */
 export async function applyQuestionAnswer(
   pending: { type?: unknown; operation?: ApiCall[] },
@@ -232,17 +225,5 @@ export async function applyQuestionAnswer(
   if (option?.id) {
     set(option.id, option.nombre);
     return;
-  }
-
-  // "Ninguno de estos"
-  if (slot.kind === "material") {
-    try {
-      const created = await crearMaterial({ obra_id: obraId, nombre: question.entity.trim() });
-      set(created.id, created.nombre || question.entity.trim());
-    } catch (error) {
-      console.error(`[entityResolution] no pude crear material "${question.entity}":`, error);
-    }
-  } else {
-    delete container[slot.key];
   }
 }

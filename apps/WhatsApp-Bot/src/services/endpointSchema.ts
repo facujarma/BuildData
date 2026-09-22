@@ -88,7 +88,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "proveedor_nombre",
         type: "string",
         description:
-          "Nombre del proveedor al que se realizará el pedido. Si el proveedor no existe, se crea automáticamente.",
+          "Nombre del proveedor al que se realizará el pedido. Debe existir en la obra o en el catálogo global.",
         required: false,
         source: "llm",
         isName: true,
