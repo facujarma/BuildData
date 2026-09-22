@@ -3,12 +3,23 @@ import {
   guardarEmbedding,
   guardarEmbeddings,
 } from "../services/embeddings.service.js";
+import { aplicarMovimientoStock } from "../services/stock.service.js";
+import { esMiembroDeObra, obraDePedido } from "../services/obraAccess.service.js";
+
+const sinAcceso = (res) =>
+  res.status(403).json({ code: "FORBIDDEN", message: "No pertenecés a esta obra" });
+const noEncontrado = (res) =>
+  res.status(404).json({ code: "NOT_FOUND", message: "Pedido no encontrado" });
+
+// Estados desde los que un pedido puede avanzar a en_camino / demorado / entregado
+const ESTADOS_EN_CURSO = ["aprobado", "en_camino", "demorado"];
 
 // GET /pedidos/:obra_id — pedidos de una obra con proveedor, persona y ítems.
 // Devuelve datos crudos (snake_case, estados en español); el frontend hace el mapping de presentación.
 export async function getPedidos(req, res) {
   const { obra_id } = req.params;
   try {
+    if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
     const result = await pool.query(
       `SELECT
          pm.id,
@@ -19,6 +30,10 @@ export async function getPedidos(req, res) {
          pm.urgente,
          pm.nota,
          pm.categoria,
+         to_char(pm.fecha_entrega, 'YYYY-MM-DD"T"HH24:MI') AS fecha_entrega, -- texto: sin corrimiento de zona horaria
+         pm.ubicacion_entrega,
+         pm.recibido_por,
+         pm.documento_receptor,
          pr.nombre AS proveedor_nombre,
          sp.nombre AS solicitado_por_nombre,
          ap.nombre AS aprobado_por_nombre,
@@ -97,6 +112,7 @@ export async function crearPedidoWeb(req, res) {
   if (obra.rows.length === 0) {
     return res.status(404).json({ error: "obra_id no encontrada" });
   }
+  if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
 
   const client = await pool.connect();
   const materialesCreados = [];
@@ -112,7 +128,7 @@ export async function crearPedidoWeb(req, res) {
       let materialId = null;
       if (nombre) {
         const existente = await client.query(
-          `SELECT id FROM materiales WHERE obra_id = $1 AND lower(nombre) = lower($2) LIMIT 1`,
+          `SELECT id FROM materiales WHERE obra_id = $1 AND activo AND lower(nombre) = lower($2) LIMIT 1`,
           [obra_id, nombre]
         );
         if (existente.rows[0]) {
@@ -179,6 +195,9 @@ export async function crearPedidoWeb(req, res) {
 export async function aprobarPedido(req, res) {
   const { id } = req.params;
   try {
+    const dueno = await obraDePedido(id);
+    if (!dueno) return noEncontrado(res);
+    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res);
     const result = await pool.query(
       `UPDATE pedidos_materiales
        SET estado = 'aprobado', aprobado = true, fecha_aprobacion = CURRENT_TIMESTAMP, aprobado_por = $1
@@ -198,6 +217,9 @@ export async function aprobarPedido(req, res) {
 export async function rechazarPedido(req, res) {
   const { id } = req.params;
   try {
+    const dueno = await obraDePedido(id);
+    if (!dueno) return noEncontrado(res);
+    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res);
     const result = await pool.query(
       `UPDATE pedidos_materiales
        SET estado = 'rechazado', aprobado = false, fecha_aprobacion = NULL, aprobado_por = NULL
@@ -210,5 +232,111 @@ export async function rechazarPedido(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+}
+
+// PATCH /pedidos/:id/estado
+// Body: { estado: 'en_camino' | 'demorado' } — solo para pedidos aprobados o ya en curso.
+export async function cambiarEstadoPedido(req, res) {
+  const { id } = req.params;
+  const { estado } = req.body;
+  if (estado !== "en_camino" && estado !== "demorado") {
+    return res.status(400).json({ code: "VALIDATION", message: "estado debe ser 'en_camino' o 'demorado'" });
+  }
+  try {
+    const dueno = await obraDePedido(id);
+    if (!dueno) return noEncontrado(res);
+    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res);
+
+    const result = await pool.query(
+      `UPDATE pedidos_materiales SET estado = $1
+       WHERE id = $2 AND estado = ANY($3)
+       RETURNING *`,
+      [estado, id, ESTADOS_EN_CURSO]
+    );
+    if (!result.rows[0]) {
+      return res.status(409).json({ code: "INVALID_STATE", message: "El pedido debe estar aprobado o en curso" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+}
+
+// PATCH /pedidos/:id/entregar
+// Body: { ubicacion, recibido_por, documento?, fecha? (YYYY-MM-DD), hora? (HH:MM) }
+// Marca el pedido como entregado y suma los ítems al stock (movimiento 'entrada' por cada material).
+export async function entregarPedido(req, res) {
+  const { id } = req.params;
+  const ubicacion = typeof req.body.ubicacion === "string" ? req.body.ubicacion.trim() : "";
+  const recibidoPor = typeof req.body.recibido_por === "string" ? req.body.recibido_por.trim() : "";
+  const documento = typeof req.body.documento === "string" ? req.body.documento.trim() : "";
+  const { fecha, hora } = req.body;
+
+  if (!ubicacion || !recibidoPor) {
+    return res.status(400).json({ code: "VALIDATION", message: "ubicacion y recibido_por son requeridos" });
+  }
+  if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return res.status(400).json({ code: "VALIDATION", message: "fecha debe tener formato YYYY-MM-DD" });
+  }
+  if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
+    return res.status(400).json({ code: "VALIDATION", message: "hora debe tener formato HH:MM" });
+  }
+  // Sin fecha → ahora (CURRENT_TIMESTAMP); con fecha y sin hora → 00:00
+  const fechaEntrega = fecha ? `${fecha} ${hora || "00:00"}` : null;
+
+  let client;
+  try {
+    const dueno = await obraDePedido(id);
+    if (!dueno) return noEncontrado(res);
+    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res);
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // FOR UPDATE: evita sumar el stock dos veces ante un doble click
+    const pedido = await client.query(`SELECT id, obra_id, estado FROM pedidos_materiales WHERE id = $1 FOR UPDATE`, [id]);
+    if (!ESTADOS_EN_CURSO.includes(pedido.rows[0].estado)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ code: "INVALID_STATE", message: "Solo se pueden entregar pedidos aprobados o en curso" });
+    }
+
+    const actualizado = await client.query(
+      `UPDATE pedidos_materiales
+       SET estado = 'entregado',
+           fecha_entrega = COALESCE($1::timestamp, CURRENT_TIMESTAMP),
+           ubicacion_entrega = $2,
+           recibido_por = $3,
+           documento_receptor = $4
+       WHERE id = $5
+       RETURNING *`,
+      [fechaEntrega, ubicacion, recibidoPor, documento || null, id]
+    );
+
+    const items = await client.query(
+      `SELECT material_id, cantidad FROM pedidos_items
+       WHERE pedido_id = $1 AND material_id IS NOT NULL AND cantidad > 0`,
+      [id]
+    );
+    for (const item of items.rows) {
+      await aplicarMovimientoStock(client, {
+        materialId: item.material_id,
+        obraId: dueno.obra_id,
+        usuarioId: req.personaId || null,
+        tipo: "entrada",
+        cantidad: Number(item.cantidad),
+        observacion: `Entrada por pedido ${id.slice(0, 8)}`,
+      });
+    }
+
+    await client.query("COMMIT");
+    res.json(actualizado.rows[0]);
+  } catch (error) {
+    if (client) await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  } finally {
+    if (client) client.release();
   }
 }

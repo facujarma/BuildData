@@ -77,7 +77,7 @@ function filtroScope(tipo, obraId, params) {
   params.push(obraId);
   const posicion = `$${params.length}`;
   if (tipo === "material") {
-    return `(obra_id = ${posicion} OR obra_id IS NULL)`;
+    return `(obra_id = ${posicion} OR obra_id IS NULL) AND activo`;
   }
   return `obra_id = ${posicion}`;
 }

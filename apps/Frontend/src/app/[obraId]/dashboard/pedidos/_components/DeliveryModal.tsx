@@ -16,7 +16,7 @@ interface DeliveryData {
 interface Props {
   order: PedidoItem;
   onClose: () => void;
-  onSave: (delivery: DeliveryData) => void;
+  onSave: (delivery: DeliveryData) => Promise<void>;
 }
 
 export function DeliveryModal({ order, onClose, onSave }: Props) {
@@ -26,12 +26,21 @@ export function DeliveryModal({ order, onClose, onSave }: Props) {
   const [loc, setLoc] = useState("");
   const [receiver, setReceiver] = useState("");
   const [doc, setDoc] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const canSave = loc.trim() && receiver.trim();
+  const canSave = loc.trim() && receiver.trim() && !saving;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSave) return;
-    onSave({ date: date || today, time, loc: loc.trim(), receiver: receiver.trim(), doc: doc.trim() });
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({ date: date || today, time, loc: loc.trim(), receiver: receiver.trim(), doc: doc.trim() });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo registrar la entrega");
+      setSaving(false);
+    }
   };
 
   return (
@@ -85,13 +94,15 @@ export function DeliveryModal({ order, onClose, onSave }: Props) {
           </div>
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
           <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
           <button onClick={submit} disabled={!canSave}
             className={`inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors ${
               canSave ? "bg-success hover:bg-[#15803D] text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"
             }`}>
-            Confirmar entrega <Check width={14} height={14} />
+            {saving ? "Registrando…" : "Confirmar entrega"} <Check width={14} height={14} />
           </button>
         </div>
       </div>

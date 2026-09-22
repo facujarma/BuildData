@@ -21,6 +21,7 @@ interface Props {
   onClose: () => void;
   onApprove: (id: string) => void;
   onCancel: (id: string) => void;
+  onChangeState: (id: string, estado: "en_camino" | "demorado") => void;
   onDeliver: (id: string) => void;
   onComprobante: () => void;
 }
@@ -33,7 +34,7 @@ const STEPS = [
   { key: "delivered", label: "Entregado", n: 4 },
 ];
 
-export function OrderDrawer({ order, onClose, onApprove, onCancel, onDeliver, onComprobante }: Props) {
+export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState, onDeliver, onComprobante }: Props) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -190,6 +191,16 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onDeliver, on
               <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
                 Cancelar
               </DButton>
+              {order.state !== "transit" && (
+                <DButton variant="secondary" size="sm" onClick={() => onChangeState(order.id, "en_camino")}>
+                  En camino
+                </DButton>
+              )}
+              {order.state !== "late" && (
+                <DButton variant="secondary" size="sm" onClick={() => onChangeState(order.id, "demorado")}>
+                  Demorado
+                </DButton>
+              )}
               <DButton
                 variant="primary"
                 size="sm"

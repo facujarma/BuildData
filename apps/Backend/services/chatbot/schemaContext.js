@@ -41,9 +41,9 @@ export const TABLAS = {
     columnas: [
       "id", "obra_id", "proveedor_id", "solicitado_por", "aprobado_por", "estado",
       "aprobado", "urgente", "nota", "categoria", "fecha", "fecha_aprobacion",
-      "fecha_llegada_estimada",
+      "fecha_llegada_estimada", "fecha_entrega", "ubicacion_entrega", "recibido_por", "documento_receptor",
     ],
-    clave: ["id", "obra_id", "proveedor_id", "estado", "aprobado", "urgente", "categoria", "fecha", "fecha_aprobacion", "fecha_llegada_estimada"],
+    clave: ["id", "obra_id", "proveedor_id", "estado", "aprobado", "urgente", "categoria", "fecha", "fecha_aprobacion", "fecha_llegada_estimada", "fecha_entrega"],
   },
   pedidos_items: {
     descripcion: "Detalle de materiales de cada pedido: cantidad y precio unitario.",
@@ -52,17 +52,17 @@ export const TABLAS = {
     clave: ["pedido_id", "material_id", "cantidad", "precio_unitario"],
   },
   materiales: {
-    descripcion: "Catálogo de materiales de la obra, con stock actual, stock mínimo y costo unitario.",
+    descripcion: "Catálogo de materiales de la obra, con stock actual, stock mínimo, ubicación y costo unitario. Los eliminados quedan con activo = false (borrado lógico).",
     obraId: "obra_id",
-    columnas: ["id", "obra_id", "nombre", "categoria", "unidad", "stock_actual", "stock_minimo", "costo_unitario"],
-    clave: ["id", "obra_id", "nombre", "categoria", "unidad", "stock_actual", "stock_minimo", "costo_unitario"],
+    columnas: ["id", "obra_id", "nombre", "categoria", "unidad", "stock_actual", "stock_minimo", "costo_unitario", "ubicacion", "activo"],
+    clave: ["id", "obra_id", "nombre", "categoria", "unidad", "stock_actual", "stock_minimo", "costo_unitario", "ubicacion", "activo"],
   },
   movimientos_stock: {
-    descripcion: "Movimientos de stock de materiales. El sistema solo registra consumos/uso.",
+    descripcion: "Movimientos de stock de materiales: consumos (salida), ingresos por entrega de pedidos y ajustes manuales (entrada).",
     obraId: "obra_id",
     columnas: ["id", "material_id", "obra_id", "rubro_id", "usuario_id", "tipo", "cantidad", "fecha", "observacion"],
     clave: ["material_id", "obra_id", "rubro_id", "tipo", "cantidad", "fecha"],
-    valores: { tipo: "salida (uso/consumo de material; es el único valor que registra el sistema)" },
+    valores: { tipo: "salida (uso/consumo o baja de stock) | entrada (ingreso por entrega de pedido o ajuste manual). Para consumos filtrar tipo = 'salida'" },
   },
   proveedores: {
     descripcion: "Proveedores (catálogo global, sin obra_id).",
@@ -137,8 +137,8 @@ export const TABLAS_PERMITIDAS = Object.keys(TABLAS);
 export const GLOSARIO = `
 - "pedidos" / "pedidos de compra" → pedidos_materiales (detalle en pedidos_items)
 - "gastos" / "gastamos" / "plata" / "costos" → gastos
-- "stock" / "inventario" → materiales.stock_actual y materiales.stock_minimo
-- "materiales usados" / "consumidos" / "movimientos" → movimientos_stock
+- "stock" / "inventario" → materiales.stock_actual y materiales.stock_minimo (solo materiales con activo = true)
+- "materiales usados" / "consumidos" / "movimientos" → movimientos_stock (consumo = tipo 'salida')
 - "avance" de la obra → obras.progress; avance por tarea → tareas.porcentaje_avance; avance por rubro → rubros.porcentaje_avance
 - "presupuesto" → presupuestos.total / ejecutado / comprometido; por rubro → presupuesto_rubros.cap / spent
 - "rubro" → rubros (categorías de trabajo de la obra)
@@ -150,7 +150,7 @@ Métricas derivadas (no existen como columna; se calculan):
 - "disponible" del presupuesto = presupuestos.total - presupuestos.ejecutado - presupuestos.comprometido
 - saldo de un rubro = presupuesto_rubros.cap - presupuesto_rubros.spent
 - costo total de un pedido = SUM(pedidos_items.cantidad * pedidos_items.precio_unitario)
-- "materiales a reponer" / "stock bajo" = materiales con stock_actual < stock_minimo
+- "materiales a reponer" / "stock bajo" = materiales activos (activo = true) con stock_actual < stock_minimo
 - cantidad de pedidos = COUNT de pedidos_materiales; monto de factura = comprobantes_facturas.total
 - Los montos de gastos y facturas están en su columna "moneda" (por defecto ARS): sumar solo montos de la misma moneda.
 `;
