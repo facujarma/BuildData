@@ -65,10 +65,21 @@ export const TABLAS = {
     valores: { tipo: "salida (uso/consumo o baja de stock) | entrada (ingreso por entrega de pedido o ajuste manual). Para consumos filtrar tipo = 'salida'" },
   },
   proveedores: {
-    descripcion: "Proveedores (catálogo global, sin obra_id).",
+    descripcion: "Proveedores: catálogo global (scope='global', obra_id NULL, compartido por todas las obras) o de una obra puntual (scope='obra'). Los eliminados quedan con activo = false.",
+    obraId: "obra_id",
+    columnas: [
+      "id", "scope", "obra_id", "nombre", "rubro", "cuit", "contacto_nombre", "contacto_puesto",
+      "telefono", "whatsapp", "email", "web", "direccion", "condicion_pago", "plazo_entrega",
+      "descripcion", "activo", "created_at",
+    ],
+    clave: ["id", "scope", "obra_id", "nombre", "rubro", "telefono", "email", "condicion_pago", "plazo_entrega", "activo"],
+    valores: { scope: "global (todas las obras) | obra (solo la obra de obra_id)" },
+  },
+  proveedores_favoritos: {
+    descripcion: "Proveedores marcados como frecuentes por cada persona (agenda personal, no del proveedor).",
     obraId: null,
-    columnas: ["id", "nombre", "telefono", "email"],
-    clave: ["id", "nombre", "telefono", "email"],
+    columnas: ["persona_id", "proveedor_id", "created_at"],
+    clave: ["persona_id", "proveedor_id"],
   },
   materiales_proveedores: {
     descripcion: "Relación entre materiales y proveedores.",
@@ -142,7 +153,7 @@ export const GLOSARIO = `
 - "avance" de la obra → obras.progress; avance por tarea → tareas.porcentaje_avance; avance por rubro → rubros.porcentaje_avance
 - "presupuesto" → presupuestos.total / ejecutado / comprometido; por rubro → presupuesto_rubros.cap / spent
 - "rubro" → rubros (categorías de trabajo de la obra)
-- "proveedor" → proveedores
+- "proveedor" → proveedores (scope='global' = catálogo de la empresa; scope='obra' = solo esa obra; siempre filtrar activo = true); "proveedores favoritos/frecuentes" → proveedores_favoritos
 - "factura" / "comprobante" → comprobantes_facturas (detalle en factura_items)
 - "obreros" / "equipo" / "gente" → miembros_obra y personas
 

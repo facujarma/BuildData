@@ -52,7 +52,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Migración manual una vez: `apps/Backend/outputs/migracion_embeddings.sql` (habilita `vector` y agrega `embedding vector(1536)`, `embedding_model`, `embedding_updated_at` a `materiales`, `proveedores`, `rubros`, `tareas`). **Sin índice a propósito**: catálogos chicos filtrados por obra; agregar HNSW solo si crece y medido
 - `services/embeddings.service.js`: OpenAI `text-embedding-3-small` (configurable con `OPENAI_EMBEDDING_MODEL`), normaliza trim/espacios/minúsculas, lotes de 100, timeout 8s. `guardarEmbedding(s)` es best-effort (no lanza; la fila queda con embedding NULL)
 - `services/entitySearch.service.js` + `GET /bot/entidades/buscar`: resolución sin LLM (exacto normalizado → fuzzy Levenshtein → similitud coseno), auto-repara filas con embedding NULL antes de comparar, y si OpenAI falla sigue solo con fuzzy. Devuelve `{ confianza, candidatos }`; umbrales (`UMBRAL_ALTA/BAJA/MARGEN_ALTA`) provisorios a calibrar. Calibración: `cd apps/Backend && node scripts/probar_busqueda.js --tipo=material --obra=<uuid> --nombre="semento"`
-- **Regla**: todo write path que cree o cambie el nombre/título de una entidad llama `guardarEmbedding(s)` **después del commit** (nunca dentro de una transacción abierta). Hoy: materiales (`materialesController`, `botController.crearMaterialDesdeBot`, `pedidosController.crearPedidoWeb`), proveedores (`proveedoresController`, `pedidosController.resolverProveedor`), rubros (`rubrosController` create/update, `obrasController` create obra), tareas (`tareasController` crear, crearTareaDesdeBot, actualizarTarea). Al agregar un write path nuevo, sumarlo
+- **Regla**: todo write path que cree o cambie el nombre/título de una entidad llama `guardarEmbedding(s)` **después del commit** (nunca dentro de una transacción abierta). Hoy: materiales (`materialesController`, `botController.crearMaterialDesdeBot`, `pedidosController.crearPedidoWeb`), proveedores (`proveedoresController` crear/editar), rubros (`rubrosController` create/update, `obrasController` create obra), tareas (`tareasController` crear, crearTareaDesdeBot, actualizarTarea). Al agregar un write path nuevo, sumarlo
 - Backfill/reproceso: `cd apps/Backend && node scripts/backfill_embeddings.js [--tipo=material|proveedor|rubro|tarea|all] [--obra=<uuid>] [--force]`
 
 ## ChatBot AI (preguntas en lenguaje natural → SQL → respuesta)
@@ -76,6 +76,18 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Foto**: `POST /materiales/:id/foto` recibe la imagen cruda (`Content-Type` image/jpeg|png|webp, máx 5 MB), la sube al bucket `materiales` con la service role key y guarda la URL pública en `foto_url`
 - **Pedidos**: `PATCH /pedidos/:id/estado` (`en_camino`|`demorado`) y `PATCH /pedidos/:id/entregar` (estado `entregado` + fecha/lugar/receptor/documento + entrada de stock por cada ítem con material). Ambos exigen estado `aprobado`/`en_camino`/`demorado` (409 si no). `fecha_entrega` sale de `getPedidos` como texto `YYYY-MM-DDTHH:MM` (sin corrimiento de zona horaria)
 - `/materiales` y `/pedidos` validan membresía a la obra (`services/obraAccess.service.js`, 403 si no pertenece)
+
+## Proveedores (catálogo global + agenda por obra)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_proveedores.sql` (`scope`/`obra_id`/`activo`/`empresa_id` y demás columnas en `proveedores`, tabla `proveedores_favoritos`, índices únicos parciales por ámbito reemplazando `proveedores_nombre_unique`)
+- Un proveedor es `scope='global'` (`obra_id` NULL, catálogo de toda la empresa) o `scope='obra'` (propio de una obra). El nombre es único por ámbito (`lower(nombre)`), así que un proveedor de obra puede llamarse igual que uno global
+- `PATCH /proveedores/:id` nunca cambia `scope`/`obra_id`; eso lo hace únicamente `POST /proveedores/:id/promover` (de obra → global), que rechaza con 409 si ya existe un global con ese nombre
+- Favoritos son por persona (`proveedores_favoritos`, PK `persona_id, proveedor_id`), no una propiedad del proveedor: `PATCH /proveedores/:id/favorito`
+- `DELETE /proveedores/:id` es soft delete (`activo=false`); todo GET filtra `activo`, igual que `materiales`
+- `GET /proveedores` requiere `obra_id` (membresía + ahí se calculan `pedidos_count`/`spent` de esa obra vía `pedidos_materiales`/`pedidos_items`) y acepta `scope=global|obra` (default global) y `q` (busca por nombre/rubro/contacto/descripción)
+- `entitySearch` trata `proveedor` igual que `material`: `(obra_id = obra OR obra_id IS NULL) AND activo`
+- `pedidos_materiales.proveedor_id` es FK real a `proveedores` (ya lo era antes de esta migración). `POST /pedidos` (web, `pedidosController.crearPedidoWeb`) recibe `proveedor_id` directo — no texto: el frontend elige de un `<select>` (`NewOrderModal`, con alta rápida vía `SupplierModal` si no existe) y el Backend valida que sea un proveedor `activo` accesible desde esa obra (`scope='global'` o `obra_id` de la obra), 400 si no. **`POST /bot/pedidoDeCompra` (WhatsApp-Bot) es un endpoint aparte en `botController.js` y ya recibía `proveedor_id` de antes** — no se tocó nada del bot ni de ese endpoint
+- `empresa_id` existe en la tabla (nullable, sin FK) para cuando haya soporte multi-empresa; hoy ningún endpoint lo usa ni lo filtra
 
 ## Fuentes de verdad del schema
 

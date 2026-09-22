@@ -3,7 +3,7 @@ import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
 import { formatARS, formatDate, formatDateShort, formatNumber } from "@/lib/format";
 
 export interface NewPedidoPayload {
-  proveedor_nombre: string;
+  proveedor_id: string;
   items: {
     material_nombre: string;
     unidad: string;
@@ -39,6 +39,7 @@ interface RawPedidoItem {
 
 interface RawPedido {
   id: string;
+  proveedor_id: string | null;
   estado: string;
   aprobado: boolean;
   fecha: string;
@@ -94,6 +95,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
       ? `${formatNumber(first.cantidad)} ${first.unidad || ""}`.trim()
       : "",
     prov: row.proveedor_nombre || "",
+    provId: row.proveedor_id,
     cat: row.categoria || "",
     date: formatDateShort(row.fecha_llegada_estimada),
     dateISO: row.fecha_llegada_estimada,

@@ -1,8 +1,5 @@
 import { pool } from "../db.js";
-import {
-  guardarEmbedding,
-  guardarEmbeddings,
-} from "../services/embeddings.service.js";
+import { guardarEmbeddings } from "../services/embeddings.service.js";
 import { aplicarMovimientoStock } from "../services/stock.service.js";
 import { esMiembroDeObra, obraDePedido } from "../services/obraAccess.service.js";
 
@@ -30,6 +27,7 @@ export async function getPedidos(req, res) {
          pm.urgente,
          pm.nota,
          pm.categoria,
+         pm.proveedor_id,
          to_char(pm.fecha_entrega, 'YYYY-MM-DD"T"HH24:MI') AS fecha_entrega, -- texto: sin corrimiento de zona horaria
          pm.ubicacion_entrega,
          pm.recibido_por,
@@ -66,32 +64,28 @@ export async function getPedidos(req, res) {
   }
 }
 
-async function resolverProveedor(client, nombre) {
-  const existente = await client.query(
-    `SELECT * FROM proveedores WHERE lower(nombre) = lower($1) LIMIT 1`,
-    [nombre]
+// El proveedor viaja como FK desde la web (selector, no texto libre): valida
+// que exista, esté activo y sea accesible desde esta obra (global o propio
+// de esta obra). Devuelve la fila o null si no es válido para esta obra.
+async function proveedorAccesible(client, obraId, proveedorId) {
+  const { rows } = await client.query(
+    `SELECT * FROM proveedores
+     WHERE id = $1 AND activo AND (scope = 'global' OR obra_id = $2)`,
+    [proveedorId, obraId]
   );
-  if (existente.rows[0]) return { ...existente.rows[0], creado: false };
-  // Requiere el índice único proveedores_nombre_unique (migración)
-  const creado = await client.query(
-    `INSERT INTO proveedores (nombre) VALUES ($1)
-     ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-     RETURNING *`,
-    [nombre]
-  );
-  return { ...creado.rows[0], creado: true };
+  return rows[0] || null;
 }
 
 // POST /pedidos — crear pedido desde la web (usuario autenticado)
 // Body: {
-//   obra_id, proveedor_nombre,
+//   obra_id, proveedor_id,
 //   items: [{ material_nombre, unidad?, cantidad, precio_unitario }],
 //   categoria?, urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
 // }
 export async function crearPedidoWeb(req, res) {
   const {
     obra_id,
-    proveedor_nombre,
+    proveedor_id,
     items,
     categoria,
     urgente,
@@ -101,8 +95,8 @@ export async function crearPedidoWeb(req, res) {
   } = req.body;
 
   if (!obra_id) return res.status(400).json({ error: "obra_id es requerido" });
-  if (!proveedor_nombre || !proveedor_nombre.trim()) {
-    return res.status(400).json({ error: "proveedor_nombre es requerido" });
+  if (!proveedor_id) {
+    return res.status(400).json({ error: "proveedor_id es requerido" });
   }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "items debe ser un array no vacío" });
@@ -119,8 +113,11 @@ export async function crearPedidoWeb(req, res) {
   try {
     await client.query("BEGIN");
 
-    const proveedor = await resolverProveedor(client, proveedor_nombre.trim());
-    const proveedor_id = proveedor.id;
+    const proveedor = await proveedorAccesible(client, obra_id, proveedor_id);
+    if (!proveedor) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "proveedor_id inválido para esta obra" });
+    }
 
     const itemsFinal = [];
     for (const item of items) {
@@ -177,9 +174,6 @@ export async function crearPedidoWeb(req, res) {
     );
 
     await client.query("COMMIT");
-    if (proveedor.creado) {
-      await guardarEmbedding("proveedor", proveedor.id, proveedor.nombre);
-    }
     await guardarEmbeddings("material", materialesCreados);
     res.status(201).json(pedido.rows[0]);
   } catch (error) {

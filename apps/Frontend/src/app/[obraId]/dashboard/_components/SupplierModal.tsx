@@ -38,7 +38,7 @@ interface Props {
   scope: "global" | "obra";
   rubros: string[];
   onClose: () => void;
-  onSave: (data: SupplierData) => void;
+  onSave: (data: SupplierData) => Promise<void>;
 }
 
 export function SupplierModal({ initial, scope, rubros, onClose, onSave }: Props) {
@@ -46,6 +46,8 @@ export function SupplierModal({ initial, scope, rubros, onClose, onSave }: Props
     name: "", rubro: rubros[0] || "", cuit: "", contact: "", role: "",
     phone: "", wa: "", email: "", web: "", address: "", pay: "30 días", lead: "", desc: "",
   });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -54,8 +56,20 @@ export function SupplierModal({ initial, scope, rubros, onClose, onSave }: Props
   }, [onClose]);
 
   const set = (patch: Partial<SupplierData>) => setD((p) => ({ ...p, ...patch }));
-  const canSave = (d.name || "").trim().length >= 2;
+  const canSave = (d.name || "").trim().length >= 2 && !saving;
   const isPrivate = (initial ? initial.scope : scope) === "obra";
+
+  const submit = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el proveedor");
+      setSaving(false);
+    }
+  };
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
@@ -149,11 +163,13 @@ export function SupplierModal({ initial, scope, rubros, onClose, onSave }: Props
           </div>
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
           <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
-          <button onClick={() => canSave && onSave(d)} disabled={!canSave}
+          <button onClick={submit} disabled={!canSave}
             className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed")}>
-            Guardar <Check width={14} height={14} />
+            {saving ? "Guardando…" : "Guardar"} <Check width={14} height={14} />
           </button>
         </div>
       </div>

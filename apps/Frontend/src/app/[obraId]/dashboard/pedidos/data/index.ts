@@ -5,6 +5,7 @@ export interface PedidoItem {
   mat: string;
   qty: string;
   prov: string;
+  provId?: string | null;
   cat: string;
   date: string;
   dateISO?: string | null;
