@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import qrcode from "qrcode-terminal";
 import { mongoStore } from "./mongoStore";
 import { handleMessage } from "./handlers/message.handler";
-import { handlePollVote } from "./services/pollConfirmation.service";
+// import { handlePollVote } from "./services/pollConfirmation.service";
 import { applyWhatsappPatches } from "./services/whatsappPatch.service";
 
 const mongoUri = process.env.MONGO_URI!;
@@ -61,18 +61,23 @@ export async function initClient() {
     handleMessage(message);
   });
 
-  client.on("vote_update", (vote) => {
-    console.log("[vote_update] Evento recibido:", JSON.stringify({
-      voter: vote.voter,
-      selectedOptions: vote.selectedOptions?.map(o => o.name),
-      hasParentMessage: !!vote.parentMessage,
-      parentId: vote.parentMessage?.id?.id,
-    }));
-    const voterPhone = vote.voter.split("@")[0];
-    const selected = vote.selectedOptions[0]?.name;
-    if (!selected) return;
-    handlePollVote(voterPhone, selected, vote.parentMessage);
-  });
+  // Poll nativo — código muerto. vote_update no se dispara con la versión
+  // actual de WhatsApp Web (hook WAWebAddonPollVoteTableMode roto).
+  // Se usa el sistema de texto numerado (handleEntityTextReply / handleObraTextReply).
+  // import { handlePollVote } from "./services/pollConfirmation.service";
+  //
+  // client.on("vote_update", (vote) => {
+  //   console.log("[vote_update] Evento recibido:", JSON.stringify({
+  //     voter: vote.voter,
+  //     selectedOptions: vote.selectedOptions?.map(o => o.name),
+  //     hasParentMessage: !!vote.parentMessage,
+  //     parentId: vote.parentMessage?.id?.id,
+  //   }));
+  //   const voterPhone = vote.voter.split("@")[0];
+  //   const selected = vote.selectedOptions[0]?.name;
+  //   if (!selected) return;
+  //   handlePollVote(voterPhone, selected, vote.parentMessage);
+  // });
 
   client.initialize();
 }

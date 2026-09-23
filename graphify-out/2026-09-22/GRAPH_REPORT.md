@@ -1,41 +1,41 @@
 # Graph Report - BuildData  (2026-09-22)
 
 ## Corpus Check
-- 350 files · ~211,214 words
+- 351 files · ~211,920 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 2, .lock 2, .ico 1)
 
 ## Summary
-- 2026 nodes · 4367 edges · 115 communities (84 shown, 31 thin omitted)
+- 2025 nodes · 4360 edges · 115 communities (81 shown, 34 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 236 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e5173508`
+- Built from commit: `8476cc4e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - live-dashboard.jsx
-- cronogramaService.ts
+- ScreenCronograma.tsx
 - stockService.ts
 - ScreenConfiguracion.tsx
 - message.handler routing
 - Frontend redesign plan (dashboard + grouped sidebar)
-- payments/page.tsx
+- dashboard/_components/index.ts
 - package.json
 - ScreenPresupuesto.tsx
-- ScreenCronograma.tsx
+- GanttView.tsx
 - landing.ts
 - nueva-obra.jsx
 - WhatsApp-Bot/package.json
-- ObraCard.tsx
+- ObrasHome.tsx
 - sqlGuard.service.js
 - QuickAddModal.tsx
 - message.handler.ts
-- useToast
+- next
 - NuevaObraModal.tsx
-- pollConfirmation.service.ts
+- costos/page.tsx
 - HowItWorks.tsx
 - bot.js
 - ScreenReportes.tsx
@@ -44,38 +44,36 @@
 - settings-page.jsx
 - alertasService.ts
 - useDashboardData
-- actionExecuted.service.ts
-- vision.service.ts
-- ScreenInbox.tsx
+- pollConfirmation.service.ts
+- pendingQuery.store.ts
+- mensajesService.ts
 - obras-home.jsx
 - compilerOptions
 - entityResolution.service.ts
 - LiveDashboard.tsx
 - api.service.ts
-- @gravity-ui/icons
+- ScreenRecibos.tsx
 - dashboard-empty.jsx
 - planes-page.jsx
-- cronograma/data/index.ts
-- pendingQuery.store.ts
-- endpointSchema.ts
+- TaskDetail.tsx
+- actividadService.ts
+- clarification.handler.ts
 - server.js
-- pedidosController.js
+- alertas/page.tsx
 - Frontend/package.json
-- dashboard/_components/index.ts
+- DashboardContent.tsx
 - tweaks-panel.jsx
-- ScreenAlertas.tsx
 - i18n.jsx
 - react
 - app/page.tsx
 - client.ts
 - compilerOptions
-- auth.js
-- tareasController.js
+- db.js
 - NotificationsPanel.tsx
-- ObrasHome.tsx
+- ObraWelcome.tsx
 - obrasController.js
 - NuevaTareaModal.tsx
-- equipoService.ts
+- InviteTeamModal.tsx
 - dashboard.api.ts
 - Database schema (obras construction)
 - tasks
@@ -84,13 +82,13 @@
 - WorkspaceSidebar.tsx
 - LiveBot.tsx
 - taskPct
-- ScreenPerfil.tsx
-- actividadService.ts
-- CompareTable.tsx
+- perfil/data/index.ts
+- @gravity-ui/icons
+- auth.js
 - entitySearch.service.js
-- rubrosController.js
+- UnderConstructionPage.tsx
 - DashboardSection.tsx
-- Pricing.tsx
+- payments/page.tsx
 - supabaseClient.ts
 - howitworks.jsx
 - ScreenDashboard
@@ -99,8 +97,10 @@
 - ProjectsSkeleton.tsx
 - materialesController.js
 - cronograma/page.tsx
-- perfil/page.tsx
+- ScreenInbox.tsx
 - Ascending bar chart glyph (three white rounded rectangles)
+- gastosController.js
+- obrerosController.js
 - phone-input.jsx
 - profile-page.jsx
 - mongoStore (custom RemoteAuth store)
@@ -155,23 +155,23 @@
 - **Mock services following the stockService seed+delay+clone pattern** — apps_frontend_tmp_temp_stockservice, apps_frontend_tmp_temp_inbox_service, apps_frontend_tmp_temp_galeria_service, apps_frontend_tmp_temp_notificaciones_service, apps_frontend_tmp_temp_configuracion_service, apps_frontend_tmp_temp_perfil_service, apps_frontend_tmp_temp_rubros_service [INFERRED 0.85]
 - **Grouped navigation redesign (8 items, ?v= sub-tabs, legacy redirects)** — apps_frontend_tmp_temp_grouped_nav, apps_frontend_tmp_temp_grouptabs, apps_frontend_tmp_temp_dashsidebar, apps_frontend_tmp_temp_searchparams_v, apps_frontend_tmp_temp_redirects [INFERRED 0.85]
 
-## Communities (115 total, 31 thin omitted)
+## Communities (115 total, 34 thin omitted)
 
 ### Community 0 - "live-dashboard.jsx"
 Cohesion: 0.02
 Nodes (53): ACT_LISTENERS, ACTIVITY_SEED, ActivityStore, ALERT_LISTENERS, ALERTS_SEED, AlertStore, BUDGET, CAT_COLORS (+45 more)
 
-### Community 1 - "cronogramaService.ts"
-Cohesion: 0.18
-Nodes (18): Props, UploadPhotosModal(), buildGrid(), ScreenCronograma(), computeTimeline(), startOfDay(), toMonday(), weekIndexOf() (+10 more)
+### Community 1 - "ScreenCronograma.tsx"
+Cohesion: 0.25
+Nodes (14): UploadPhotosModal(), Props, ScreenCronograma(), VIEW_META, ViewMode, TaskGroup, Timeline, ApiTarea (+6 more)
 
 ### Community 2 - "stockService.ts"
-Cohesion: 0.19
-Nodes (22): QuickAddMaterial(), ScreenStock(), Props, CAT_PALETTE, getStatus(), STAT_LABELS, StockItem, accessToken() (+14 more)
+Cohesion: 0.17
+Nodes (24): QuickAddMaterial(), ScreenStock(), Props, StockItemModal(), CAT_PALETTE, catColor(), getStatus(), STAT_LABELS (+16 more)
 
 ### Community 3 - "ScreenConfiguracion.tsx"
-Cohesion: 0.08
-Nodes (24): ObraDefaults, ScreenConfiguracion(), ConfiguracionPlan, INTEGRACIONES_SEED, IntegracionItem, OBRA_SETTINGS, ObraEstado, ObraSettings (+16 more)
+Cohesion: 0.07
+Nodes (25): ObraDefaults, ScreenConfiguracion(), SecPlan(), ConfiguracionPlan, INTEGRACIONES_SEED, IntegracionItem, OBRA_SETTINGS, ObraEstado (+17 more)
 
 ### Community 4 - "message.handler routing"
 Cohesion: 0.05
@@ -181,9 +181,9 @@ Nodes (52): api.service, /bot/pedidoDeCompra endpoint, /bot/retraso endpoint (up
 Cohesion: 0.06
 Nodes (47): BuildData platform (WhatsApp bot + REST API + Frontend), Blueprint background motif (AI insight banner), ChatBubble (loaded-state AI chatbot), dashboard-empty.jsx (onboarding empty state), DashboardPage (root, tweakable state), Empty (onboarding) vs loaded dashboard states, i18n es/en language switching, LiveDashboard (loaded/empty screens) (+39 more)
 
-### Community 6 - "payments/page.tsx"
-Cohesion: 0.18
-Nodes (7): CTA(), Hero(), Pricing(), Stats(), Navbar(), NavbarProps, LogoIcon()
+### Community 6 - "dashboard/_components/index.ts"
+Cohesion: 0.11
+Nodes (22): KIND_ELEM, ActivityGroup, ActivityItem, ANSWERS_DB, KIND_ICONS, SUGGESTED_QUESTIONS, ActivityFeed(), Props (+14 more)
 
 ### Community 7 - "package.json"
 Cohesion: 0.05
@@ -193,13 +193,13 @@ Nodes (37): dependencies, cors, dotenv, express, groq-sdk, multer, pg, @supabase
 Cohesion: 0.15
 Nodes (21): BudgetAuditEntry, BudgetEditModal(), DraftLine, Props, Donut(), DonutProps, ASSUMPTIONS, KPI_TONES (+13 more)
 
-### Community 9 - "ScreenCronograma.tsx"
+### Community 9 - "GanttView.tsx"
 Cohesion: 0.20
-Nodes (14): CalendarView(), DAY_HEADERS, DayInfo, Props, WEEKENDS, ListView(), Props, STATE_TONE (+6 more)
+Nodes (13): buildGrid(), CalendarView(), DAY_HEADERS, DayInfo, Props, WEEKENDS, GanttView(), ZoomId (+5 more)
 
 ### Community 10 - "landing.ts"
-Cohesion: 0.14
-Nodes (11): BENEFICIOS_ITEMS, BENEFICIOS_STATS, FEATURES, PROBLEMA_ITEMS, PROBLEMA_STATS, TONE_MAP, benefitIconMap, featureIconMap (+3 more)
+Cohesion: 0.21
+Nodes (7): BENEFICIOS_ITEMS, BENEFICIOS_STATS, PROBLEMA_ITEMS, PROBLEMA_STATS, benefitIconMap, iconMap, Problema()
 
 ### Community 11 - "nueva-obra.jsx"
 Cohesion: 0.10
@@ -209,77 +209,69 @@ Nodes (20): allPerm(), DEFAULT_RUBROS, fmtMoney(), initialsFromName(), isEmail()
 Cohesion: 0.07
 Nodes (29): dependencies, axios, dotenv, express, groq-sdk, mongoose, qrcode-terminal, whatsapp-web.js (+21 more)
 
-### Community 13 - "ObraCard.tsx"
-Cohesion: 0.20
-Nodes (4): ObraRow(), ObraThumb(), Obra, STATUS
+### Community 13 - "ObrasHome.tsx"
+Cohesion: 0.17
+Nodes (7): ObraCard(), ObraRow(), FILTERS, ObraThumb(), WorkspaceTopbar(), Obra, STATUS
 
 ### Community 14 - "sqlGuard.service.js"
-Cohesion: 0.09
-Nodes (39): auditar(), consultar(), completarJSON(), getCliente(), MODELO_DEFAULT, construirSystemPrompt(), narrar(), recortar() (+31 more)
+Cohesion: 0.08
+Nodes (41): consultarChat(), router, auditar(), consultar(), completarJSON(), getCliente(), MODELO_DEFAULT, construirSystemPrompt() (+33 more)
 
 ### Community 15 - "QuickAddModal.tsx"
-Cohesion: 0.05
-Nodes (75): FieldDef, FormConfig, Props, QUICK_FORMS, QuickAddGeneric(), QuickAddPedido(), QuickAddProveedor(), QuickAddRubro() (+67 more)
+Cohesion: 0.06
+Nodes (69): GroupTab, GroupTabs(), FieldDef, FormConfig, Props, QUICK_FORMS, QuickAddGeneric(), QuickAddPedido() (+61 more)
 
 ### Community 16 - "message.handler.ts"
-Cohesion: 0.15
-Nodes (29): ayudaCommand, buildingsCommand, cancelCommand, Command, commands, getAllCommands(), getCommand(), registerCommand() (+21 more)
-
-### Community 17 - "useToast"
-Cohesion: 0.14
-Nodes (10): DPageHeader(), DashToast(), useToast(), InviteTeamModal(), InviteTeamModalProps, ScreenEquipo(), Loading(), DAvatar() (+2 more)
+Cohesion: 0.13
+Nodes (26): ayudaCommand, buildingsCommand, cancelCommand, Command, commands, getAllCommands(), getCommand(), registerCommand() (+18 more)
 
 ### Community 18 - "NuevaObraModal.tsx"
 Cohesion: 0.11
 Nodes (26): INITIAL_DATA, NuevaObraModal(), validateStep(), PickCard(), Step1(), TYPE_ICONS, Step2(), Step3() (+18 more)
 
-### Community 19 - "pollConfirmation.service.ts"
-Cohesion: 0.20
-Nodes (22): getClient(), getEntityPending(), getPending(), setEntityPending(), setPending(), applyQuestionAnswer(), resolveOperationEntities(), interpolatePathParams() (+14 more)
-
 ### Community 20 - "HowItWorks.tsx"
 Cohesion: 0.11
-Nodes (6): DashboardMockup(), PhoneMockup(), PhoneMockupProps, LOGOS, HowItWorks(), STAGES
+Nodes (6): DashboardMockup(), PhoneMockup(), PhoneMockupProps, LOGOS, Hero(), STAGES
 
 ### Community 21 - "bot.js"
-Cohesion: 0.11
-Nodes (24): actualizarAccionesMensaje(), actualizarStock(), crearMaterialDesdeBot(), crearPedidoDeCompra(), ESTADOS_PROCESAMIENTO, recibirMensaje(), registrarRetraso(), crearGasto() (+16 more)
+Cohesion: 0.15
+Nodes (22): actualizarAccionesMensaje(), actualizarStock(), crearMaterialDesdeBot(), crearPedidoDeCompra(), ESTADOS_PROCESAMIENTO, recibirMensaje(), registrarRetraso(), actualizarTarea() (+14 more)
 
 ### Community 22 - "ScreenReportes.tsx"
-Cohesion: 0.10
-Nodes (21): GroupTab, GroupTabs(), RegistroView(), TABS, VIEWS, ScreenGaleria(), PHOTO_SEED, RUBRO_COLORS (+13 more)
+Cohesion: 0.11
+Nodes (21): renderBold(), ScreenActividad(), RegistroView(), TABS, VIEWS, ScreenGaleria(), PHOTO_SEED, RUBRO_COLORS (+13 more)
 
 ### Community 23 - "Button.tsx"
 Cohesion: 0.10
-Nodes (26): KIND_ELEM, renderBold(), ScreenActividad(), ActivityGroup, ActivityItem, ANSWERS_DB, KIND_ICONS, SUGGESTED_QUESTIONS (+18 more)
+Nodes (27): AlertaDrawer(), TabDef, TabId, TABS, AlertaItem, AlertaLvl, AlertaState, LVL (+19 more)
 
 ### Community 24 - "proveedoresController.js"
-Cohesion: 0.35
-Nodes (15): actualizarProveedor(), buscarProveedor(), crearProveedor(), eliminarProveedor(), esViolacionCheck(), esViolacionUnica(), getProveedores(), marcarFavorito() (+7 more)
+Cohesion: 0.38
+Nodes (14): actualizarProveedor(), buscarProveedor(), crearProveedor(), eliminarProveedor(), esViolacionCheck(), esViolacionUnica(), getProveedores(), marcarFavorito() (+6 more)
 
 ### Community 25 - "settings-page.jsx"
 Cohesion: 0.10
 Nodes (4): ALL_PERMS, DEFAULT_ROLES, PERM_GROUPS, SETTINGS_NAV
 
 ### Community 26 - "alertasService.ts"
-Cohesion: 0.27
-Nodes (11): AlertaLvl, AlertasData, ApiAlerta, authHeaders(), createAlert(), getAlertas(), mapAlerta(), mapNivelToSeverity() (+3 more)
+Cohesion: 0.33
+Nodes (10): ScreenAlertas(), ApiAlerta, authHeaders(), createAlert(), getAlertas(), mapAlerta(), mapNivelToSeverity(), mapSeverityToLvl() (+2 more)
 
 ### Community 27 - "useDashboardData"
-Cohesion: 0.08
-Nodes (25): ChatBubble(), ChatBubbleProps, SUGGESTED, ContextValue, DashboardDataContext, DashboardDataProvider(), noop(), RubroInfo (+17 more)
+Cohesion: 0.09
+Nodes (22): ChatBubble(), ChatBubbleProps, SUGGESTED, ContextValue, DashboardDataContext, DashboardDataProvider(), noop(), RubroInfo (+14 more)
 
-### Community 28 - "actionExecuted.service.ts"
-Cohesion: 0.15
-Nodes (25): ACTION_META, ActionExecuted, ActionMeta, ActionOutcome, add(), arrayOf(), asRecord(), buildActionExecuted() (+17 more)
+### Community 28 - "pollConfirmation.service.ts"
+Cohesion: 0.12
+Nodes (32): ACTION_META, ActionExecuted, ActionMeta, ActionOutcome, add(), arrayOf(), asRecord(), buildActionExecuted() (+24 more)
 
-### Community 29 - "vision.service.ts"
-Cohesion: 0.20
-Nodes (8): groq, ComprobanteData, DocumentType, ExtractedDocument, FacturaData, FacturaItem, groq, ref_groq_sdk
+### Community 29 - "pendingQuery.store.ts"
+Cohesion: 0.13
+Nodes (23): formatComprobante(), formatFactura(), handleImage(), clarifications, clearClarification(), EntityPending, getEntityPending(), getPending() (+15 more)
 
-### Community 30 - "ScreenInbox.tsx"
-Cohesion: 0.10
-Nodes (27): HighlightedRaw(), Props, InboxCorrectModal(), Props, Result, TIPOS, confPill(), initialsOf() (+19 more)
+### Community 30 - "mensajesService.ts"
+Cohesion: 0.13
+Nodes (20): HighlightedRaw(), Props, InboxCorrectModal(), Props, Result, TIPOS, ActionExecutedRow, getInbox() (+12 more)
 
 ### Community 31 - "obras-home.jsx"
 Cohesion: 0.11
@@ -294,12 +286,12 @@ Cohesion: 0.16
 Nodes (16): CandidatoBusqueda, EntidadCandidata, EntidadResuelta, mapearResultadoBusqueda(), ResultadoBusquedaEntidades, ARRAY_KEYS, ARRAY_ONLY_KEYS, EntityKind (+8 more)
 
 ### Community 35 - "api.service.ts"
-Cohesion: 0.20
-Nodes (14): actualizarMensajeAcciones(), apiRequest(), AUTH_HEADERS, buscarEntidades(), callEndpoint(), crearMaterial(), getUserByPhone(), MaterialCreado (+6 more)
+Cohesion: 0.19
+Nodes (15): actualizarMensajeAcciones(), apiRequest(), AUTH_HEADERS, buscarEntidades(), callEndpoint(), crearMaterial(), getUserByPhone(), MaterialCreado (+7 more)
 
-### Community 36 - "@gravity-ui/icons"
-Cohesion: 0.12
-Nodes (18): DELTA_COLORS, DStatTile(), TONES, CostosView(), TABS, Loading(), Props, ReceiptModal() (+10 more)
+### Community 36 - "ScreenRecibos.tsx"
+Cohesion: 0.18
+Nodes (14): useToast(), TABS, ScreenEquipo(), Props, ReceiptModal(), ReceiptModalData, CAT_TO_TONE, ScreenRecibos() (+6 more)
 
 ### Community 37 - "dashboard-empty.jsx"
 Cohesion: 0.12
@@ -309,85 +301,69 @@ Nodes (3): EMPTY_SCREENS, obreroLink(), ObrerosInviter()
 Cohesion: 0.12
 Nodes (5): ButtonStyles(), COMPARE_GROUPS, FAQ_ITEMS, PlanCard(), PLANS
 
-### Community 39 - "cronograma/data/index.ts"
-Cohesion: 0.24
-Nodes (14): GanttView(), Props, ZoomId, ZOOMS, Props, FALLBACK_RUBRO_COLOR, isoWeek(), RUBRO_COLORS (+6 more)
+### Community 39 - "TaskDetail.tsx"
+Cohesion: 0.18
+Nodes (20): Props, ListView(), Props, STATE_TONE, initials(), Props, STATE_TONE, TaskDetail() (+12 more)
 
-### Community 40 - "pendingQuery.store.ts"
-Cohesion: 0.17
-Nodes (21): ask(), buildContenido(), concludeTurn(), handleClarificationReply(), recalcMissing(), tryDeterministicAnswer(), ApiCall, Clarification (+13 more)
+### Community 40 - "actividadService.ts"
+Cohesion: 0.60
+Nodes (5): getActividad(), getInitials(), mapAccionToKind(), mapTipoToKind(), transformActividad()
 
-### Community 41 - "endpointSchema.ts"
-Cohesion: 0.14
-Nodes (22): buildEndpointDescription(), buildEndpointIndex(), collectMissingFields(), describeEndpoint(), elementLabel(), EndpointParam, ENDPOINTS, EndpointSchema (+14 more)
+### Community 41 - "clarification.handler.ts"
+Cohesion: 0.10
+Nodes (37): ask(), buildContenido(), concludeTurn(), handleClarificationReply(), recalcMissing(), tryDeterministicAnswer(), ApiCall, Clarification (+29 more)
 
 ### Community 42 - "server.js"
 Cohesion: 0.07
-Nodes (31): crearActividad(), getActividad(), mapAccion(), crearAlerta(), getAlertas(), resolverAlerta(), verificarInactividad(), consultarChat() (+23 more)
-
-### Community 43 - "pedidosController.js"
-Cohesion: 0.35
-Nodes (12): aprobarPedido(), cambiarEstadoPedido(), crearPedidoWeb(), entregarPedido(), ESTADOS_EN_CURSO, getPedidos(), noEncontrado(), rechazarPedido() (+4 more)
+Nodes (31): crearActividad(), getActividad(), mapAccion(), crearAlerta(), getAlertas(), resolverAlerta(), verificarInactividad(), getDashboard() (+23 more)
 
 ### Community 44 - "Frontend/package.json"
 Cohesion: 0.05
 Nodes (41): eslintConfig, dependencies, framer-motion, @gravity-ui/icons, @heroui/react, @heroui/styles, next, qrcode.react (+33 more)
 
-### Community 45 - "dashboard/_components/index.ts"
-Cohesion: 0.08
-Nodes (40): ActivityFeed(), Props, BudgetCard(), Props, CAT_COLORS, CategoryFormData, CategoryModal(), Props (+32 more)
-
-### Community 47 - "ScreenAlertas.tsx"
-Cohesion: 0.20
-Nodes (10): AlertaDrawer(), ScreenAlertas(), TabDef, TabId, TABS, AlertaItem, AlertaState, LVL (+2 more)
+### Community 45 - "DashboardContent.tsx"
+Cohesion: 0.09
+Nodes (31): BudgetCard(), Props, CAT_COLORS, CategoryFormData, CategoryModal(), Props, STATE_MAP, CriticalAlertsCard() (+23 more)
 
 ### Community 48 - "i18n.jsx"
 Cohesion: 0.30
 Nodes (13): ATTR_ORIGINALS, I18N_DICT, I18N_REGEX, restoreOriginals(), setLanguage(), shouldSkipElement(), startObserver(), stopObserver() (+5 more)
 
 ### Community 49 - "react"
-Cohesion: 0.05
-Nodes (32): nextConfig, AuthWrapper(), apps_frontend_src_app_globals, ManropeFont, metadata, BrandPanel(), FakeMessageCard(), FakeMessageCardProps (+24 more)
+Cohesion: 0.09
+Nodes (23): AuthWrapper(), apps_frontend_src_app_globals, ManropeFont, metadata, BrandPanel(), FakeMessageCard(), FakeMessageCardProps, tagStyles (+15 more)
 
 ### Community 50 - "app/page.tsx"
-Cohesion: 0.28
-Nodes (4): Beneficios(), CTA(), Hero(), Footer()
+Cohesion: 0.18
+Nodes (8): FEATURES, TONE_MAP, Beneficios(), ChatbotSection(), CTA(), featureIconMap, Funcionalidades(), HowItWorks()
 
 ### Community 51 - "client.ts"
-Cohesion: 0.18
-Nodes (13): initClient(), getPhoneNumber(), handleMessage(), isWhitelisted(), mongoStore, Session, sessionSchema, applyWhatsappPatches() (+5 more)
+Cohesion: 0.16
+Nodes (18): getClient(), initClient(), clearEntityPending(), clearPending(), mongoStore, Session, sessionSchema, entityKindLabel() (+10 more)
 
 ### Community 53 - "compilerOptions"
 Cohesion: 0.15
 Nodes (12): compilerOptions, esModuleInterop, forceConsistentCasingInFileNames, lib, module, outDir, rootDir, skipLibCheck (+4 more)
 
-### Community 54 - "auth.js"
-Cohesion: 0.10
-Nodes (18): getMe(), login(), logout(), register(), authMiddleware(), router, args, __dirname (+10 more)
-
-### Community 55 - "tareasController.js"
-Cohesion: 0.28
-Nodes (11): actualizarTarea(), completarTarea(), completarTareaDesdeBot(), crearTarea(), crearTareaDesdeBot(), ESTADOS_VALIDOS, getTareas(), PRIORIDADES_VALIDAS (+3 more)
+### Community 54 - "db.js"
+Cohesion: 0.12
+Nodes (15): crearRubro(), deleteRubro(), formatRubro(), getRubros(), updateRubro(), router, args, __dirname (+7 more)
 
 ### Community 56 - "NotificationsPanel.tsx"
 Cohesion: 0.29
 Nodes (8): NOTIF_SEED, NotifItem, NotifKind, KIND_ICON, KIND_TINT, NotificationsPanel(), getNotificaciones(), NotificacionesData
-
-### Community 57 - "ObrasHome.tsx"
-Cohesion: 0.18
-Nodes (6): ObraCard(), FILTERS, ObrasHome(), WelcomeHero(), WorkspaceTopbar(), getObras()
 
 ### Community 58 - "obrasController.js"
 Cohesion: 0.42
 Nodes (8): buildObra(), crearObra(), deleteObra(), getObra(), getObras(), toggleStarred(), updateObra(), router
 
 ### Community 59 - "NuevaTareaModal.tsx"
-Cohesion: 0.42
-Nodes (7): NuevaTareaModal(), PRIORIDADES, Props, formatDateLong(), todayISO(), getMiembrosDeObra(), createTask()
+Cohesion: 0.36
+Nodes (8): NuevaTareaModal(), PRIORIDADES, Props, formatDateLong(), todayISO(), getMiembrosDeObra(), OptionItem, createTask()
 
-### Community 60 - "equipoService.ts"
-Cohesion: 0.33
-Nodes (8): Obrero, Person, ROLES, ApiMiembro, authHeaders(), EquipoData, getEquipo(), initials()
+### Community 60 - "InviteTeamModal.tsx"
+Cohesion: 0.11
+Nodes (15): InviteTeamModal(), InviteTeamModalProps, Obrero, Person, ROLES, Loading(), FLAG_SVG, PHONE_COUNTRIES (+7 more)
 
 ### Community 61 - "dashboard.api.ts"
 Cohesion: 0.18
@@ -406,52 +382,52 @@ Cohesion: 0.25
 Nodes (9): Frontend App (Next.js), BuildData Logo Mark (SVG), Ascending Bars Motif, BuildData Brand Identity Asset, Color Palette (Blue #0F4395, White, Amber #F59E0B), Frontend assets patterns directory, blueprint.svg (blueprint background pattern), Next.js Logo (next.svg) (+1 more)
 
 ### Community 65 - "format.ts"
-Cohesion: 0.25
-Nodes (18): capitalize(), formatDate(), formatDateShort(), formatDateTime(), formatDayLabel(), formatDayTime(), formatMessageTime(), formatRelative() (+10 more)
+Cohesion: 0.23
+Nodes (19): capitalize(), formatCurrency(), formatDate(), formatDateShort(), formatDateTime(), formatDayLabel(), formatDayTime(), formatMessageTime() (+11 more)
 
 ### Community 66 - "WorkspaceSidebar.tsx"
 Cohesion: 0.20
 Nodes (5): NAV_BOTTOM, NAV_ITEMS, SidebarTheme, THEMES, WorkspaceSidebar()
 
 ### Community 67 - "LiveBot.tsx"
-Cohesion: 0.24
-Nodes (7): LiveBot(), Message, QuickReply, Scenario, SCENARIOS, ChatbotSection(), framer-motion
+Cohesion: 0.28
+Nodes (6): LiveBot(), Message, QuickReply, Scenario, SCENARIOS, framer-motion
 
 ### Community 68 - "taskPct"
 Cohesion: 0.38
 Nodes (7): ALL_TASKS, DashTareasComplete(), recomputeDerived(), ScreenGantt(), taskPct(), UploadPhotosModal(), useTaskStore()
 
-### Community 69 - "ScreenPerfil.tsx"
-Cohesion: 0.29
-Nodes (7): ACT_ICON, ScreenPerfil(), PERFIL_SEED, PerfilActividad, PerfilData, PerfilPermiso, getPerfil()
+### Community 69 - "perfil/data/index.ts"
+Cohesion: 0.19
+Nodes (7): ScreenPerfil(), PERFIL_SEED, PerfilActividad, PerfilData, PerfilPermiso, Loading(), getPerfil()
 
-### Community 70 - "actividadService.ts"
-Cohesion: 0.60
-Nodes (5): getActividad(), getInitials(), mapAccionToKind(), mapTipoToKind(), transformActividad()
+### Community 70 - "@gravity-ui/icons"
+Cohesion: 0.23
+Nodes (8): CRUMB_MAP, SUB_MAP, Props, QUICK_ADD_GROUPS, QuickAddItem, QuickAddMenu(), AvatarMenu(), @gravity-ui/icons
 
-### Community 71 - "CompareTable.tsx"
-Cohesion: 0.28
-Nodes (7): CellValue, CompareCategory, CompareTable(), CompareTableProps, renderCell(), comparisonCategories, Comparison()
+### Community 71 - "auth.js"
+Cohesion: 0.26
+Nodes (9): getMe(), login(), logout(), register(), authMiddleware(), router, supabase, supabaseAdmin (+1 more)
 
 ### Community 72 - "entitySearch.service.js"
 Cohesion: 0.21
 Nodes (20): buscarEntidad(), aVectorLiteral(), ENTIDADES, generarEmbeddings(), guardarEmbedding(), guardarEmbeddings(), modeloEmbeddings(), normalizarTextoEntidad() (+12 more)
 
-### Community 73 - "rubrosController.js"
-Cohesion: 0.50
-Nodes (6): crearRubro(), deleteRubro(), formatRubro(), getRubros(), updateRubro(), router
+### Community 73 - "UnderConstructionPage.tsx"
+Cohesion: 0.27
+Nodes (6): BrandLogo(), BrandLogoProps, ConstructionIllustration(), NotifyForm(), UnderConstructionPage(), UnderConstructionPageProps
 
 ### Community 74 - "DashboardSection.tsx"
 Cohesion: 0.25
 Nodes (4): LiveDashboard(), DASHBOARD_CALLOUTS, DashboardSection(), iconMap
 
-### Community 75 - "Pricing.tsx"
-Cohesion: 0.16
-Nodes (11): FAQ(), FAQItemData, FAQProps, Feature, PricingCard(), PricingCardProps, PricingToggle(), faqItems (+3 more)
+### Community 75 - "payments/page.tsx"
+Cohesion: 0.07
+Nodes (26): FAQ(), FAQItemData, FAQProps, CellValue, CompareCategory, CompareTable(), CompareTableProps, renderCell() (+18 more)
 
 ### Community 76 - "supabaseClient.ts"
-Cohesion: 0.27
-Nodes (6): supabase, CreateObraInput, CreateObraPayload, ChatPeriodo, ChatRespuesta, ChatSubpregunta
+Cohesion: 0.21
+Nodes (8): ObrasHome(), supabase, CreateObraInput, CreateObraPayload, getObras(), ChatPeriodo, ChatRespuesta, ChatSubpregunta
 
 ### Community 78 - "ScreenDashboard"
 Cohesion: 0.25
@@ -466,12 +442,24 @@ Cohesion: 0.24
 Nodes (13): CalendarView(), fmtDate(), fmtDateLong(), GanttView(), ListView(), NuevaTareaModal(), TaskDetail(), taskFrom() (+5 more)
 
 ### Community 82 - "materialesController.js"
-Cohesion: 0.34
-Nodes (16): actualizarMaterial(), ajustarStock(), asegurarCategoria(), crearCategoria(), crearMaterial(), eliminarMaterial(), EXT_POR_MIME, getCategorias() (+8 more)
+Cohesion: 0.20
+Nodes (27): actualizarMaterial(), ajustarStock(), asegurarCategoria(), crearCategoria(), crearMaterial(), eliminarMaterial(), EXT_POR_MIME, getCategorias() (+19 more)
+
+### Community 84 - "ScreenInbox.tsx"
+Cohesion: 0.23
+Nodes (7): confPill(), initialsOf(), KIND_META, ScreenInbox(), TabId, WAVE, Loading()
 
 ### Community 85 - "Ascending bar chart glyph (three white rounded rectangles)"
 Cohesion: 0.40
 Nodes (6): Amber accent #F59E0B (top segment of tallest bar), Ascending bar chart glyph (three white rounded rectangles), BuildData on-dark brand identity (construction data brand), logo-buildata-onDark.svg (BuildData logo for dark backgrounds), Manrope typeface (brand font, extrabold 800), BuildData wordmark (Manrope 800, white, size 26)
+
+### Community 88 - "gastosController.js"
+Cohesion: 0.36
+Nodes (7): crearGasto(), crearGastoDesdeBot(), getGastos(), parseFechaDocumento(), parseFechaISO(), parseMontoDocumento(), router
+
+### Community 89 - "obrerosController.js"
+Cohesion: 0.36
+Nodes (6): asignarObraObrero(), getObreros(), getUserByPhone(), quitarObreroDeObra(), registrarObrero(), router
 
 ### Community 91 - "profile-page.jsx"
 Cohesion: 0.40
@@ -502,7 +490,7 @@ Nodes (4): CategoriesManager(), NewOrderModal(), UnitPicker(), useCatStore()
 ## Knowledge Gaps
 - **467 isolated node(s):** `$schema`, `plugin`, `ESTADOS_PROCESAMIENTO`, `EXT_POR_MIME`, `ESTADOS_EN_CURSO` (+462 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 759 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -511,12 +499,12 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **What is the exact relationship between `BuildData platform (WhatsApp bot + REST API + Frontend)` and `Technology stack (Turborepo+Bun, Groq, MongoDB, Express, Next.js)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `react` connect `react` to `cronogramaService.ts`, `ScreenConfiguracion.tsx`, `ScreenPresupuesto.tsx`, `ScreenCronograma.tsx`, `QuickAddModal.tsx`, `useToast`, `NuevaObraModal.tsx`, `HowItWorks.tsx`, `ScreenReportes.tsx`, `Button.tsx`, `useDashboardData`, `ScreenInbox.tsx`, `LiveDashboard.tsx`, `@gravity-ui/icons`, `cronograma/data/index.ts`, `Frontend/package.json`, `dashboard/_components/index.ts`, `ScreenAlertas.tsx`, `NotificationsPanel.tsx`, `ObrasHome.tsx`, `NuevaTareaModal.tsx`, `LiveBot.tsx`, `ScreenPerfil.tsx`, `Pricing.tsx`, `cronograma/page.tsx`?**
-  _High betweenness centrality (0.160) - this node is a cross-community bridge._
-- **Why does `@gravity-ui/icons` connect `@gravity-ui/icons` to `cronogramaService.ts`, `ScreenConfiguracion.tsx`, `payments/page.tsx`, `ScreenPresupuesto.tsx`, `ScreenCronograma.tsx`, `landing.ts`, `QuickAddModal.tsx`, `useToast`, `NuevaObraModal.tsx`, `HowItWorks.tsx`, `ScreenReportes.tsx`, `Button.tsx`, `useDashboardData`, `ScreenInbox.tsx`, `LiveDashboard.tsx`, `cronograma/data/index.ts`, `Frontend/package.json`, `dashboard/_components/index.ts`, `ScreenAlertas.tsx`, `react`, `app/page.tsx`, `NotificationsPanel.tsx`, `ObrasHome.tsx`, `NuevaTareaModal.tsx`, `WorkspaceSidebar.tsx`, `LiveBot.tsx`, `ScreenPerfil.tsx`, `CompareTable.tsx`, `DashboardSection.tsx`, `Pricing.tsx`?**
-  _High betweenness centrality (0.082) - this node is a cross-community bridge._
-- **Why does `pool` connect `server.js` to `entitySearch.service.js`, `rubrosController.js`, `pedidosController.js`, `sqlGuard.service.js`, `materialesController.js`, `bot.js`, `auth.js`, `tareasController.js`, `proveedoresController.js`, `obrasController.js`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `ScreenCronograma.tsx`, `stockService.ts`, `ScreenConfiguracion.tsx`, `dashboard/_components/index.ts`, `ScreenPresupuesto.tsx`, `GanttView.tsx`, `ObrasHome.tsx`, `QuickAddModal.tsx`, `NuevaObraModal.tsx`, `costos/page.tsx`, `HowItWorks.tsx`, `ScreenReportes.tsx`, `Button.tsx`, `useDashboardData`, `mensajesService.ts`, `LiveDashboard.tsx`, `ScreenRecibos.tsx`, `TaskDetail.tsx`, `alertas/page.tsx`, `Frontend/package.json`, `DashboardContent.tsx`, `NotificationsPanel.tsx`, `NuevaTareaModal.tsx`, `InviteTeamModal.tsx`, `LiveBot.tsx`, `@gravity-ui/icons`, `UnderConstructionPage.tsx`, `payments/page.tsx`, `cronograma/page.tsx`, `ScreenInbox.tsx`?**
+  _High betweenness centrality (0.166) - this node is a cross-community bridge._
+- **Why does `@gravity-ui/icons` connect `@gravity-ui/icons` to `ScreenCronograma.tsx`, `stockService.ts`, `ScreenConfiguracion.tsx`, `dashboard/_components/index.ts`, `ScreenPresupuesto.tsx`, `GanttView.tsx`, `landing.ts`, `ObrasHome.tsx`, `QuickAddModal.tsx`, `NuevaObraModal.tsx`, `HowItWorks.tsx`, `ScreenReportes.tsx`, `Button.tsx`, `useDashboardData`, `mensajesService.ts`, `LiveDashboard.tsx`, `ScreenRecibos.tsx`, `TaskDetail.tsx`, `Frontend/package.json`, `DashboardContent.tsx`, `react`, `app/page.tsx`, `NotificationsPanel.tsx`, `NuevaTareaModal.tsx`, `InviteTeamModal.tsx`, `WorkspaceSidebar.tsx`, `LiveBot.tsx`, `DashboardSection.tsx`, `payments/page.tsx`, `ScreenInbox.tsx`?**
+  _High betweenness centrality (0.080) - this node is a cross-community bridge._
+- **Why does `pool` connect `server.js` to `auth.js`, `entitySearch.service.js`, `sqlGuard.service.js`, `materialesController.js`, `bot.js`, `db.js`, `gastosController.js`, `obrerosController.js`, `obrasController.js`, `proveedoresController.js`?**
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
 - **What connects `$schema`, `plugin`, `ESTADOS_PROCESAMIENTO` to the rest of the system?**
   _467 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `live-dashboard.jsx` be split into smaller, more focused modules?**

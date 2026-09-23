@@ -60,10 +60,10 @@
     "semantic_hash": ""
   },
   "apps/Backend/controllers/obrerosController.js": {
-    "mtime": 1789079788.9891636,
-    "seen": 1789515629.726577,
-    "ast_hash": "d675c150a322c48ce070517535174f83",
-    "semantic_hash": "d675c150a322c48ce070517535174f83"
+    "mtime": 1790121422.3636954,
+    "seen": 1790121510.9080794,
+    "ast_hash": "f97d019f596933e50b18c0c1aeeed11f",
+    "semantic_hash": ""
   },
   "apps/Backend/controllers/pedidosController.js": {
     "mtime": 1790119633.2291927,
@@ -1602,9 +1602,9 @@
     "semantic_hash": "b775840cff11881787195bf87f1c7e7a"
   },
   "apps/WhatsApp-Bot/src/client.ts": {
-    "mtime": 1789679935.8165772,
-    "seen": 1790026809.0577064,
-    "ast_hash": "30ca96078135dfae30a4c232a1278a13",
+    "mtime": 1790122424.011383,
+    "seen": 1790122439.750469,
+    "ast_hash": "634a8278681db10df98c90ce92f8e685",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/commands/ayuda.command.ts": {
@@ -1644,14 +1644,14 @@
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/image.handler.ts": {
-    "mtime": 1789679941.6942613,
-    "seen": 1790026809.058045,
+    "mtime": 1790122312.0363967,
+    "seen": 1790122439.7510183,
     "ast_hash": "a8523d139bd9b2f2ff53bdd12e99afdb",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/message.handler.ts": {
-    "mtime": 1789673376.1960518,
-    "seen": 1790026809.0580494,
+    "mtime": 1790122312.037765,
+    "seen": 1790122439.7510245,
     "ast_hash": "e6fc2b55eb6d09f9d131f4fda19d8bd4",
     "semantic_hash": ""
   },
@@ -1698,8 +1698,8 @@
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/entityResolution.service.ts": {
-    "mtime": 1790119655.2783484,
-    "seen": 1790119812.5452147,
+    "mtime": 1790122338.581891,
+    "seen": 1790122439.752808,
     "ast_hash": "f4847ab8d36c7121cf8597081f7fc8e2",
     "semantic_hash": ""
   },
@@ -1716,9 +1716,9 @@
     "semantic_hash": "a554301e51e7d9bb3acfc23b242bc3f1"
   },
   "apps/WhatsApp-Bot/src/services/pollConfirmation.service.ts": {
-    "mtime": 1790117559.644003,
-    "seen": 1790117616.7984784,
-    "ast_hash": "68aea8d542d49c6b9009b08664fa208d",
+    "mtime": 1790122420.2554789,
+    "seen": 1790122439.7529662,
+    "ast_hash": "84761a14b5bce0664d4f3494190944d9",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/transcription.service.ts": {
@@ -1746,10 +1746,10 @@
     "semantic_hash": "a69f846718b9fdab9cda55cfb12a4cfc"
   },
   "apps/WhatsApp-Bot/src/types/api.types.ts": {
-    "mtime": 1789248786.1688874,
-    "seen": 1789515629.7277842,
-    "ast_hash": "30de7045e58f89ae86897f20bc092dfb",
-    "semantic_hash": "30de7045e58f89ae86897f20bc092dfb"
+    "mtime": 1790121423.4671493,
+    "seen": 1790121510.935525,
+    "ast_hash": "e62d5bd30002d889bcbb667785887b21",
+    "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/tsconfig.json": {
     "mtime": 1789672861.8760018,

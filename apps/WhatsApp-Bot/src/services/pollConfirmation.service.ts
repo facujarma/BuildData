@@ -295,95 +295,90 @@ export async function handleEntityTextReply(phone: string, raw: string, chatId: 
   return true;
 }
 
-export async function sendObraPoll(
-  phone: string,
-  chatId: string,
-  pendingQuery: PendingQuery,
-): Promise<void> {
-  const user = await getUserObras(phone);
-  const client = getClient();
-  if (!user || user.obras.length === 0) {
-    await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
-    return;
-  }
-
-  /*if (user.obras.length === 1) {
-    const obra = user.obras[0];
-    pendingQuery.obra_id = obra.obra_id;
-    executePending(pendingQuery, obra.obra_nombre);
-    clearPending(phone);
-    await client.sendMessage(chatId,
-      `✅ Confirmado automáticamente para la obra *${obra.obra_nombre}*.`,
-    );
-    return;
-  }*/
-
-  setPending(phone, pendingQuery);
-
-  const options = user.obras.map((o) => o.obra_nombre);
-  options.push("❌ Cancelar");
-
-  const poll = new Poll("¿En qué obra?", options, {
-    allowMultipleAnswers: false,
-    messageSecret: undefined,
-  });
-  await client.sendMessage(chatId, poll);
-}
-
-export async function handlePollVote(
-  voterPhone: string,
-  selectedOptionName: string,
-  pollMessage: Message,
-): Promise<void> {
-  try {
-    console.log(`[handlePollVote] Voto de ${voterPhone}: "${selectedOptionName}"`);
-    const pending = getPending(voterPhone);
-    const client = getClient();
-
-    if (!pending) {
-      console.log(`[handlePollVote] Sin pendiente para ${voterPhone}, borrando poll`);
-      await pollMessage.delete(true);
-      return;
-    }
-
-    const chatId = pollMessage.id.remote;
-    console.log(`[handlePollVote] chatId: ${chatId}`);
-
-    if (selectedOptionName === "❌ Cancelar") {
-      clearPending(voterPhone);
-      await pollMessage.delete(true);
-      await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
-      return;
-    }
-
-    const user = await getUserObras(voterPhone);
-    if (!user) {
-      clearPending(voterPhone);
-      await pollMessage.delete(true);
-      await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
-      return;
-    }
-
-    const obra = user.obras.find((o) => o.obra_nombre === selectedOptionName);
-    if (!obra) {
-      await client.sendMessage(chatId, "❌ No encontré esa obra. Intenta de nuevo.");
-      return;
-    }
-
-    pending.obra_id = obra.obra_id;
-    await prepareAndExecute(pending, obra, voterPhone, chatId);
-    await pollMessage.delete(true);
-  } catch (error) {
-    console.error("[handlePollVote] Error:", error);
-    try {
-      const client = getClient();
-      const chatId = pollMessage.id?.remote;
-      if (chatId) {
-        await client.sendMessage(chatId, "❌ Ocurrió un error al ejecutar la operación. Intentá de nuevo.");
-      }
-    } catch {}
-  }
-}
+// ──────────────────────────────────────────
+// Poll nativo — código muerto. El hook WAWebAddonPollVoteTableMode de
+// whatsapp-web.js no emite vote_update con la versión actual de WhatsApp Web.
+// Se usa el sistema de texto numerado (sendEntityQuestion / handleEntityTextReply
+// / sendObraConfirmationText / handleObraTextReply).
+// ──────────────────────────────────────────
+// export async function sendObraPoll(
+//   phone: string,
+//   chatId: string,
+//   pendingQuery: PendingQuery,
+// ): Promise<void> {
+//   const user = await getUserObras(phone);
+//   const client = getClient();
+//   if (!user || user.obras.length === 0) {
+//     await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
+//     return;
+//   }
+//
+//   setPending(phone, pendingQuery);
+//
+//   const options = user.obras.map((o) => o.obra_nombre);
+//   options.push("❌ Cancelar");
+//
+//   const poll = new Poll("¿En qué obra?", options, {
+//     allowMultipleAnswers: false,
+//     messageSecret: undefined,
+//   });
+//   await client.sendMessage(chatId, poll);
+// }
+//
+// export async function handlePollVote(
+//   voterPhone: string,
+//   selectedOptionName: string,
+//   pollMessage: Message,
+// ): Promise<void> {
+//   try {
+//     console.log(`[handlePollVote] Voto de ${voterPhone}: "${selectedOptionName}"`);
+//     const pending = getPending(voterPhone);
+//     const client = getClient();
+//
+//     if (!pending) {
+//       console.log(`[handlePollVote] Sin pendiente para ${voterPhone}, borrando poll`);
+//       await pollMessage.delete(true);
+//       return;
+//     }
+//
+//     const chatId = pollMessage.id.remote;
+//     console.log(`[handlePollVote] chatId: ${chatId}`);
+//
+//     if (selectedOptionName === "❌ Cancelar") {
+//       clearPending(voterPhone);
+//       await pollMessage.delete(true);
+//       await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
+//       return;
+//     }
+//
+//     const user = await getUserObras(voterPhone);
+//     if (!user) {
+//       clearPending(voterPhone);
+//       await pollMessage.delete(true);
+//       await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
+//       return;
+//     }
+//
+//     const obra = user.obras.find((o) => o.obra_nombre === selectedOptionName);
+//     if (!obra) {
+//       await client.sendMessage(chatId, "❌ No encontré esa obra. Intenta de nuevo.");
+//       return;
+//     }
+//
+//     pending.obra_id = obra.obra_id;
+//     await prepareAndExecute(pending, obra, voterPhone, chatId);
+//     await pollMessage.delete(true);
+//   } catch (error) {
+//     console.error("[handlePollVote] Error:", error);
+//     try {
+//       const client = getClient();
+//       const chatId = pollMessage.id?.remote;
+//       if (chatId) {
+//         await client.sendMessage(chatId, "❌ Ocurrió un error al ejecutar la operación. Intentá de nuevo.");
+//       }
+//     } catch {}
+//   }
+// }
 
 /**
  * Respuesta "Ok!" + encuesta de obra para una operación ya validada.

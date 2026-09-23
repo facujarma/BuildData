@@ -90,7 +90,7 @@ export async function getUserByPhone(req, res) {
   const { phone } = req.params;
   try {
     const result = await pool.query(
-      `SELECT p.id, p.nombre, p.telefono, mo.obra_id, mo.rol, ob.nombre AS obra_nombre
+      `SELECT p.id, p.nombre, p.telefono, mo.obra_id, mo.rol, ob.nombre AS obra_nombre, ob.direccion
        FROM personas p
        JOIN miembros_obra mo ON p.id = mo.persona_id
        JOIN obras ob ON ob.id = mo.obra_id
@@ -103,7 +103,7 @@ export async function getUserByPhone(req, res) {
       id: result.rows[0].id,
       nombre: result.rows[0].nombre,
       telefono: result.rows[0].telefono,
-      obras: result.rows.map(row => ({ obra_id: row.obra_id, obra_nombre: row.obra_nombre, rol: row.rol }))
+      obras: result.rows.map(row => ({ obra_id: row.obra_id, obra_nombre: row.obra_nombre, direccion: row.direccion, rol: row.rol }))
     };
     res.json(obreroData);
   } catch (error) {
