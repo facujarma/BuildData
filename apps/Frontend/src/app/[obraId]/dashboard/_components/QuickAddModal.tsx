@@ -10,7 +10,7 @@ import { catColor as stockCatColor } from "../stock/data";
 import { ReceiptModal } from "../recibos/_components/ReceiptModal";
 import { CATEGORIES as RECEIPT_CATEGORIES } from "../recibos/data";
 import { NuevaTareaModal } from "../cronograma/_components/NuevaTareaModal";
-import { NewOrderModal } from "../pedidos/_components/NewOrderModal";
+import { NewOrderModal, type MaterialOption } from "../pedidos/_components/NewOrderModal";
 import { CategoryModal } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
 import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
@@ -92,6 +92,7 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   const [members, setMembers] = useState<ObreroLite[]>([]);
   const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [materiales, setMateriales] = useState<MaterialOption[]>([]);
 
   useEffect(() => {
     getObreros(obraId).then(setMembers).catch(() => {});
@@ -99,6 +100,9 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
       .then((r) => setRubros(r.map((x) => ({ id: x.id, nombre: x.nombre }))))
       .catch(() => {});
     getProveedores(obraId).then(setProveedores).catch(() => {});
+    getStock(obraId)
+      .then((d) => setMateriales(d.items.map((m) => ({ id: m.id, name: m.name, unit: m.unit, cost: m.cost }))))
+      .catch(() => {});
   }, [obraId]);
 
   return (
@@ -108,6 +112,7 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
       members={members}
       rubros={rubros}
       proveedores={proveedores}
+      materiales={materiales}
       onSubmit={async (payload) => {
         await createPedido(obraId, payload);
         onDone("Pedido creado");

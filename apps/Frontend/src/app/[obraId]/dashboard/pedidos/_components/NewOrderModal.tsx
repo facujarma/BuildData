@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { Check, Plus, TriangleExclamation, Xmark } from "@gravity-ui/icons";
-import { UNITS } from "../data";
 import type { NewPedidoPayload } from "@/services/pedidosService";
 import type { ObreroLite } from "@/services/pedidosService";
 import { createProveedor } from "@/services/proveedoresService";
@@ -10,10 +9,18 @@ import { createRubro } from "@/services/cronogramaService";
 import { SupplierModal } from "../../_components/SupplierModal";
 import { CategoryModal, type CategoryFormData } from "../../_components/CategoryModal";
 import type { Proveedor } from "../../proveedores/data";
+import { formatARS } from "@/lib/format";
 
 export interface RubroOption {
   id: string;
   nombre: string;
+}
+
+export interface MaterialOption {
+  id: string;
+  name: string;
+  unit: string;
+  cost: number;
 }
 
 interface Props {
@@ -23,44 +30,35 @@ interface Props {
   members: ObreroLite[];
   rubros: RubroOption[];
   proveedores: Proveedor[];
+  materiales: MaterialOption[];
 }
 
-export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores }: Props) {
+export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores, materiales }: Props) {
   const [rubroList, setRubroList] = useState<RubroOption[]>(rubros);
-  const [units, setUnits] = useState([...UNITS]);
-  const [mat, setMat] = useState("");
+  const [matId, setMatId] = useState("");
   const [provs, setProvs] = useState(proveedores);
   const [provId, setProvId] = useState("");
   const [showNewProv, setShowNewProv] = useState(false);
   const [rubroId, setRubroId] = useState("");
   const [qty, setQty] = useState<number>(1);
-  const [unit, setUnit] = useState(units[0]);
-  const [total, setTotal] = useState<number>(0);
   const [date, setDate] = useState("");
   const [who, setWho] = useState("");
   const [urgent, setUrgent] = useState(false);
   const [note, setNote] = useState("");
 
-  const [newUnit, setNewUnit] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
-  const [showNewUnit, setShowNewUnit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const sortedRubros = useMemo(() => [...rubroList].sort((a, b) => a.nombre.localeCompare(b.nombre)), [rubroList]);
   const sortedProvs = useMemo(() => [...provs].sort((a, b) => a.name.localeCompare(b.name)), [provs]);
+  const sortedMateriales = useMemo(() => [...materiales].sort((a, b) => a.name.localeCompare(b.name)), [materiales]);
 
-  const canSave = mat.trim() && provId;
+  const material = sortedMateriales.find((m) => m.id === matId) || null;
+  const precioUnitario = material?.cost ?? 0;
+  const total = (Number(qty) || 0) * precioUnitario;
 
-  const addUnit = () => {
-    const val = newUnit.trim();
-    if (val && !units.includes(val)) {
-      setUnits([...units, val]);
-      setUnit(val);
-    }
-    setNewUnit("");
-    setShowNewUnit(false);
-  };
+  const canSave = matId && qty > 0 && provId;
 
   const handleCreateRubro = async (cat: CategoryFormData) => {
     try {
@@ -82,10 +80,8 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
         proveedor_id: provId,
         items: [
           {
-            material_nombre: mat.trim(),
-            unidad: unit,
+            material_id: matId,
             cantidad: qty,
-            precio_unitario: total / (qty || 1),
           },
         ],
         rubro_id: rubroId || null,
@@ -121,8 +117,14 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
         <div className="p-6 space-y-4 overflow-y-auto">
           <label className="flex flex-col gap-[6px]">
             <span className="text-[11px] font-bold text-slate-700">Material*</span>
-            <input value={mat} onChange={(e) => setMat(e.target.value)} placeholder="Ej: Cemento Portland · 50 kg"
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
+            <select value={matId} onChange={(e) => setMatId(e.target.value)}
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+              <option value="">{sortedMateriales.length === 0 ? "Sin materiales cargados en stock" : "Elegí un material…"}</option>
+              {sortedMateriales.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+            {sortedMateriales.length === 0 && (
+              <span className="text-[10px] text-slate-500">Cargá el material desde Stock antes de pedirlo.</span>
+            )}
           </label>
 
           <div className="grid grid-cols-2 gap-3">
@@ -158,46 +160,28 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
               </select>
             </div>
 
-            <div className="flex flex-col gap-[6px]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-700">Cantidad</span>
-                {!showNewUnit && (
-                  <button type="button" onClick={() => { setShowNewUnit(true); setNewUnit(""); }}
-                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-[3px]">
-                    <Plus width={10} height={10} /> Unidad
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <input type="number" min={0} value={qty} onChange={(e) => setQty(Number(e.target.value))} placeholder="0"
-                  className="w-[90px] bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
-                {showNewUnit ? (
-                  <div className="flex gap-1 flex-1 min-w-0">
-                    <input autoFocus value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") addUnit(); else if (e.key === "Escape") setShowNewUnit(false); }}
-                      placeholder="Nueva unidad"
-                      className="flex-1 min-w-0 bg-white border border-primary rounded-md px-2 py-[9px] text-[13px] focus:outline-none" />
-                    <button type="button" onClick={addUnit} className="px-2 rounded-md bg-primary text-white flex items-center justify-center">
-                      <Check width={14} height={14} />
-                    </button>
-                    <button type="button" onClick={() => setShowNewUnit(false)} className="px-2 rounded-md border border-slate-200 text-slate-500 flex items-center justify-center">
-                      <Xmark width={14} height={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <select value={unit} onChange={(e) => setUnit(e.target.value)}
-                    className="flex-1 min-w-0 bg-white border border-slate-200 rounded-md px-2 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                    {units.map((u) => <option key={u}>{u}</option>)}
-                  </select>
-                )}
-              </div>
-            </div>
-
             <label className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-bold text-slate-700">Total (AR$)*</span>
-              <input type="number" min={0} value={total} onChange={(e) => setTotal(Number(e.target.value))} placeholder="0"
+              <span className="text-[11px] font-bold text-slate-700">Cantidad{material?.unit ? ` (${material.unit})` : ""}</span>
+              <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} placeholder="0"
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
             </label>
+
+            <div className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate-700">Precio unitario</span>
+              <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-[9px] text-[13px] font-semibold text-slate-950 tnum">
+                {material ? `${formatARS(precioUnitario)}${material.unit ? `/${material.unit}` : ""}` : "—"}
+              </div>
+              {material && precioUnitario === 0 && (
+                <span className="text-[10px] font-semibold text-[#B91C1C]">El material no tiene costo cargado en Stock.</span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate-700">Total</span>
+              <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-[9px] text-[13px] font-extrabold text-slate-950 tnum">
+                {formatARS(total)}
+              </div>
+            </div>
 
             <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate-700">Llegada estimada</span>

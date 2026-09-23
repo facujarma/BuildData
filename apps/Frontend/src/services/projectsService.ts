@@ -52,21 +52,8 @@ interface CreateObraPayload {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export async function getObras(): Promise<Obra[]> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const res = await fetch(`${API_URL}/obras`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session?.access_token || ""}`,
-    },
-  });
-
-  if (!res.ok) throw new Error("Error al obtener obras");
-
-  const json = await res.json();
-
-  return (json.obras || []).map((o: any) => ({
+function mapObra(o: any): Obra {
+  return {
     id: String(o.id),
     name: o.name,
     code: o.code,
@@ -81,7 +68,39 @@ export async function getObras(): Promise<Obra[]> {
     lastActivityWho: o.lastActivityWho || "",
     starred: o.starred || false,
     color: "#0F4395",
-  }));
+  };
+}
+
+export async function getObras(): Promise<Obra[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch(`${API_URL}/obras`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+  });
+
+  if (!res.ok) throw new Error("Error al obtener obras");
+
+  const json = await res.json();
+
+  return (json.obras || []).map(mapObra);
+}
+
+export async function getObra(obraId: string): Promise<Obra> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch(`${API_URL}/obras/${obraId}`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+  });
+
+  if (!res.ok) throw new Error("Error al obtener obra");
+
+  return mapObra(await res.json());
 }
 
 export async function createObra(input: CreateObraInput): Promise<any> {

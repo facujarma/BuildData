@@ -5,6 +5,7 @@ export interface StockItem {
   unit: string;
   qty: number;
   min: number;
+  cost: number;
   loc: string;
   photo: string;
 }

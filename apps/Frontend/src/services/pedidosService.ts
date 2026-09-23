@@ -5,10 +5,8 @@ import { formatARS, formatDate, formatDateShort, formatNumber } from "@/lib/form
 export interface NewPedidoPayload {
   proveedor_id: string;
   items: {
-    material_nombre: string;
-    unidad: string;
+    material_id: string;
     cantidad: number;
-    precio_unitario: number;
   }[];
   rubro_id: string | null;
   urgente: boolean;
@@ -35,6 +33,7 @@ interface RawPedidoItem {
   unidad: string | null;
   cantidad: number | null;
   precio_unitario: number | null;
+  subtotal: number | null;
 }
 
 interface RawPedido {
@@ -46,6 +45,7 @@ interface RawPedido {
   fecha_llegada_estimada: string | null;
   urgente: boolean;
   nota: string | null;
+  total: number | null;
   rubro_id: string | null;
   rubro_nombre: string | null;
   fecha_entrega: string | null; // 'YYYY-MM-DDTHH:MM' (texto, sin zona horaria)
@@ -87,7 +87,10 @@ function mapEntrega(row: RawPedido): PedidoItem["delivery"] {
 function mapRawToItem(row: RawPedido): PedidoItem {
   const items = row.items || [];
   const first = items[0] || null;
-  const total = items.reduce((s, it) => s + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0), 0);
+  // El Backend persiste el total; el fallback cubre pedidos viejos sin el campo.
+  const total = row.total != null
+    ? Number(row.total) || 0
+    : items.reduce((s, it) => s + (Number(it.subtotal) || (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0)), 0);
 
   return {
     id: row.id,

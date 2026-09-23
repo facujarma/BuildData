@@ -14,6 +14,7 @@ interface RawMaterial {
   // numeric de PostgreSQL llega como string
   stock_actual: string | number | null;
   stock_minimo: string | number | null;
+  costo_unitario: string | number | null;
   ubicacion: string | null;
   foto_url: string | null;
 }
@@ -28,6 +29,7 @@ function mapRawToItem(row: RawMaterial): StockItem {
     unit: row.unidad || "",
     qty: Number(row.stock_actual) || 0,
     min: Number(row.stock_minimo) || 0,
+    cost: Number(row.costo_unitario) || 0,
     loc: row.ubicacion || "",
     photo: row.foto_url || "",
   };
@@ -91,6 +93,7 @@ function toBody(item: StockItem) {
     ubicacion: item.loc,
     stock_actual: item.qty,
     stock_minimo: item.min,
+    costo_unitario: item.cost,
   };
 }
 

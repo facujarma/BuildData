@@ -40,16 +40,16 @@ export const TABLAS = {
     obraId: "obra_id",
     columnas: [
       "id", "obra_id", "proveedor_id", "rubro_id", "solicitado_por", "aprobado_por", "estado",
-      "aprobado", "urgente", "nota", "fecha", "fecha_aprobacion",
+      "aprobado", "urgente", "nota", "fecha", "fecha_aprobacion", "total",
       "fecha_llegada_estimada", "fecha_entrega", "ubicacion_entrega", "recibido_por", "documento_receptor",
     ],
-    clave: ["id", "obra_id", "proveedor_id", "rubro_id", "estado", "aprobado", "urgente", "fecha", "fecha_aprobacion", "fecha_llegada_estimada", "fecha_entrega"],
+    clave: ["id", "obra_id", "proveedor_id", "rubro_id", "estado", "aprobado", "urgente", "fecha", "fecha_aprobacion", "fecha_llegada_estimada", "fecha_entrega", "total"],
   },
   pedidos_items: {
-    descripcion: "Detalle de materiales de cada pedido: cantidad y precio unitario.",
+    descripcion: "Detalle de materiales de cada pedido: cantidad, precio unitario y subtotal (cantidad * precio_unitario). El precio unitario sale del catálogo de materiales al crear el pedido.",
     obraId: null,
-    columnas: ["id", "pedido_id", "material_id", "cantidad", "precio_unitario"],
-    clave: ["pedido_id", "material_id", "cantidad", "precio_unitario"],
+    columnas: ["id", "pedido_id", "material_id", "cantidad", "precio_unitario", "subtotal"],
+    clave: ["pedido_id", "material_id", "cantidad", "precio_unitario", "subtotal"],
   },
   materiales: {
     descripcion: "Catálogo de materiales de la obra, con stock actual, stock mínimo, ubicación y costo unitario. Los eliminados quedan con activo = false (borrado lógico).",
@@ -160,7 +160,7 @@ export const GLOSARIO = `
 Métricas derivadas (no existen como columna; se calculan):
 - "disponible" del presupuesto = presupuestos.total - presupuestos.ejecutado - presupuestos.comprometido
 - saldo de un rubro = presupuesto_rubros.cap - presupuesto_rubros.spent
-- costo total de un pedido = SUM(pedidos_items.cantidad * pedidos_items.precio_unitario)
+- costo total de un pedido = pedidos_materiales.total (por ítem: pedidos_items.subtotal = cantidad * precio_unitario)
 - "materiales a reponer" / "stock bajo" = materiales activos (activo = true) con stock_actual < stock_minimo
 - cantidad de pedidos = COUNT de pedidos_materiales; monto de factura = comprobantes_facturas.total
 - Los montos de gastos y facturas están en su columna "moneda" (por defecto ARS): sumar solo montos de la misma moneda.

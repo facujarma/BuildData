@@ -110,11 +110,15 @@ export async function actualizarAccionesMensaje(req, res) {
 // Facu detectó que se pidió material → crea el pedido. Si la obra tiene aprobacion_automatica
 // activada, el pedido queda aprobado y listo para comprar; si no (default), queda pendiente
 // para que el admin lo apruebe desde el panel (PATCH /pedidos/:id/aprobar|rechazar).
-// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad, precio_unitario}], rubro_id?, urgente?, nota?, fecha_llegada_estimada? }
+// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad}], rubro_id?, urgente?, nota?, fecha_llegada_estimada? }
+// El precio unitario y el total salen del catálogo de materiales (materiales.costo_unitario).
 // solicitado_por se resuelve automáticamente desde telefono → persona que hizo el pedido.
 export async function crearPedidoDeCompra(req, res) {
   const { obra_id, proveedor_id, telefono, mensaje_id, items, rubro_id, urgente, nota, fecha_llegada_estimada } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "items debe ser un array no vacío" });
+  }
 
   const usuario_id = await resolvePersonaIdByTelefono(telefono);
   if (!usuario_id) return res.status(404).json({ error: "Persona no encontrada para el teléfono proporcionado" });
@@ -145,10 +149,26 @@ export async function crearPedidoDeCompra(req, res) {
       }
     }
 
+    // El costo SIEMPRE se calcula con el precio unitario del catálogo de materiales de la obra
+    const itemsFinal = [];
+    let total = 0;
+    for (const item of items) {
+      const cantidad = Number(item.cantidad) || 0;
+      const material = item.material_id
+        ? await client.query(
+            `SELECT costo_unitario FROM materiales WHERE id = $1 AND obra_id = $2 AND activo`,
+            [item.material_id, obra_id]
+          )
+        : { rows: [] };
+      const precioUnitario = Number(material.rows[0]?.costo_unitario) || 0;
+      total += cantidad * precioUnitario;
+      itemsFinal.push({ material_id: item.material_id || null, cantidad, precio_unitario: precioUnitario });
+    }
+
     // Crear el pedido (solicitado_por = obrero que lo pidió, resuelto desde su teléfono)
     const pedido = await client.query(
-      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, rubro_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por)
-       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END, $6, $7, $8, $9)
+      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, rubro_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por, total)
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         obra_id,
@@ -160,16 +180,17 @@ export async function crearPedidoDeCompra(req, res) {
         nota || null,
         fecha_llegada_estimada || null,
         usuario_id,
+        total,
       ]
     );
     const pedido_id = pedido.rows[0].id;
 
-    // Insertar los ítems del pedido
-    for (const item of items) {
+    // Insertar los ítems del pedido (subtotal lo calcula la base)
+    for (const it of itemsFinal) {
       await client.query(
         `INSERT INTO pedidos_items (pedido_id, material_id, cantidad, precio_unitario)
          VALUES ($1, $2, $3, $4)`,
-        [pedido_id, item.material_id, item.cantidad, item.precio_unitario]
+        [pedido_id, it.material_id, it.cantidad, it.precio_unitario]
       );
     }
 

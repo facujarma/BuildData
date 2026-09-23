@@ -30,5 +30,3 @@ export const STATE_MAP: Record<string, { tone: PillTone; label: string; dot: str
 };
 
 export const FILTERS = ['Todos', 'Por aprobar', 'En camino', 'Demorados', 'Entregados', 'Cancelados'];
-
-export const UNITS = ['bolsas', 'u', 'm³', 'm', 'm²', 'kg', 't', 'L', 'barras', 'cajas', 'rollos', 'global'];

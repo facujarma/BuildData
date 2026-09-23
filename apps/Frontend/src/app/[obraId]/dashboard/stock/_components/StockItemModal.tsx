@@ -21,6 +21,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
   const [unit, setUnit] = useState(item?.unit || "");
   const [qty, setQty] = useState(item?.qty ?? 0);
   const [min, setMin] = useState(item?.min ?? 0);
+  const [cost, setCost] = useState(item?.cost ?? 0);
   const [loc, setLoc] = useState(item?.loc || "");
   const [photo, setPhoto] = useState(item?.photo || "");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -61,6 +62,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
           unit: unit.trim(),
           qty,
           min,
+          cost,
           loc: loc.trim(),
           photo,
         },
@@ -137,7 +139,13 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
               <input type="number" min={0} value={min} onChange={(e) => setMin(Number(e.target.value))}
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />
             </label>
-            <label className="flex flex-col gap-[6px] col-span-2">
+            <label className="flex flex-col gap-[6px]">
+              <span className="text-[11px] font-bold text-slate-700">Costo unitario (AR$)</span>
+              <input type="number" min={0} value={cost} onChange={(e) => setCost(Number(e.target.value))}
+                placeholder="0"
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
+            </label>
+            <label className="flex flex-col gap-[6px]">
               <span className="text-[11px] font-bold text-slate-700">Ubicación</span>
               <input value={loc} onChange={(e) => setLoc(e.target.value)} placeholder="Ej: Depósito A, Playa, Pañol"
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none" />

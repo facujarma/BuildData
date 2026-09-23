@@ -1,5 +1,4 @@
 import { pool } from "../db.js";
-import { guardarEmbeddings } from "../services/embeddings.service.js";
 import { aplicarMovimientoStock } from "../services/stock.service.js";
 import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js";
 
@@ -26,6 +25,7 @@ export async function getPedidos(req, res) {
          pm.fecha_llegada_estimada,
          pm.urgente,
          pm.nota,
+         pm.total,
          pm.rubro_id,
          r.nombre AS rubro_nombre,
          pm.proveedor_id,
@@ -42,7 +42,8 @@ export async function getPedidos(req, res) {
                'material', m.nombre,
                'unidad', m.unidad,
                'cantidad', i.cantidad,
-               'precio_unitario', i.precio_unitario
+               'precio_unitario', i.precio_unitario,
+               'subtotal', i.subtotal
              )
            )
            FROM pedidos_items i
@@ -69,9 +70,10 @@ export async function getPedidos(req, res) {
 // POST /pedidos — crear pedido desde la web (usuario autenticado)
 // Body: {
 //   obra_id, proveedor_id,
-//   items: [{ material_nombre, unidad?, cantidad, precio_unitario }],
+//   items: [{ material_id, cantidad }],
 //   rubro_id?, urgente?, nota?, fecha_llegada_estimada?, solicitado_por?
 // }
+// El precio unitario y el total salen del catálogo de materiales (materiales.costo_unitario).
 export async function crearPedidoWeb(req, res) {
   const {
     obra_id,
@@ -99,7 +101,6 @@ export async function crearPedidoWeb(req, res) {
   if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
 
   const client = await pool.connect();
-  const materialesCreados = [];
   try {
     await client.query("BEGIN");
 
@@ -121,42 +122,38 @@ export async function crearPedidoWeb(req, res) {
     }
 
     const itemsFinal = [];
+    let total = 0;
     for (const item of items) {
-      const nombre = (item.material_nombre || "").trim();
-      let materialId = null;
-      if (nombre) {
-        const existente = await client.query(
-          `SELECT id FROM materiales WHERE obra_id = $1 AND activo AND lower(nombre) = lower($2) LIMIT 1`,
-          [obra_id, nombre]
-        );
-        if (existente.rows[0]) {
-          materialId = existente.rows[0].id;
-        } else {
-          const creado = await client.query(
-            `INSERT INTO materiales (obra_id, nombre, unidad, costo_unitario)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id`,
-            [obra_id, nombre, item.unidad || null, Number(item.precio_unitario) || null]
-          );
-          materialId = creado.rows[0].id;
-          materialesCreados.push({ id: materialId, nombre });
-        }
+      if (!item.material_id) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "items[].material_id es requerido" });
       }
-      itemsFinal.push({
-        material_id: materialId,
-        cantidad: Number(item.cantidad) || 0,
-        precio_unitario: Number(item.precio_unitario) || 0,
-      });
+      const cantidad = Number(item.cantidad) || 0;
+      if (cantidad <= 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "items[].cantidad debe ser mayor a 0" });
+      }
+      const material = await client.query(
+        `SELECT costo_unitario FROM materiales WHERE id = $1 AND obra_id = $2 AND activo`,
+        [item.material_id, obra_id]
+      );
+      if (!material.rows[0]) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "items[].material_id inválido para esta obra" });
+      }
+      const precioUnitario = Number(material.rows[0].costo_unitario) || 0;
+      total += cantidad * precioUnitario;
+      itemsFinal.push({ material_id: item.material_id, cantidad, precio_unitario: precioUnitario });
     }
 
     const solicitadoPor = solicitado_por || req.personaId || null;
 
     const pedido = await client.query(
       `INSERT INTO pedidos_materiales
-         (obra_id, proveedor_id, rubro_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por)
-       VALUES ($1, $2, $3, 'pendiente', false, $4, $5, $6, $7)
+         (obra_id, proveedor_id, rubro_id, estado, aprobado, urgente, nota, fecha_llegada_estimada, solicitado_por, total)
+       VALUES ($1, $2, $3, 'pendiente', false, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [obra_id, proveedor_id, rubro_id || null, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor]
+      [obra_id, proveedor_id, rubro_id || null, urgente || false, nota || null, fecha_llegada_estimada || null, solicitadoPor, total]
     );
     const pedido_id = pedido.rows[0].id;
 
@@ -175,7 +172,6 @@ export async function crearPedidoWeb(req, res) {
     );
 
     await client.query("COMMIT");
-    await guardarEmbeddings("material", materialesCreados);
     res.status(201).json(pedido.rows[0]);
   } catch (error) {
     await client.query("ROLLBACK");

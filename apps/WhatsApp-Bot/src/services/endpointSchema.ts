@@ -97,7 +97,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "items",
         type: "array",
         description:
-          "Material a pedir. Debe tener material_nombre y cantidad, y puede incluir unidad y precio_unitario.",
+          "Material a pedir. Debe tener material_nombre y cantidad. El precio unitario lo toma el backend del catálogo de materiales de la obra.",
         required: true,
         source: "llm",
         prompt: "¿Qué materiales querés pedir y cuántos?",

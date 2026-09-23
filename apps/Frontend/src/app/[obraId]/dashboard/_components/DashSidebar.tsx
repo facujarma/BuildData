@@ -123,7 +123,8 @@ export function DashSidebar({
   const pathname = usePathname();
   const { obraName, obraProgress, obraId } = useDashboardData();
   const { profile, logout } = useAuth();
-  const projectLabel = explicitLabel ?? (obraName || "Edificio Belgrano");
+  const projectLabel = explicitLabel ?? obraName;
+  const obraLoading = !projectLabel;
   const navItems = buildNavItems(obraId);
   const p = `/${obraId}/dashboard`;
   const nombre = (profile?.nombre as string | undefined)?.trim() || "Usuario";
@@ -145,16 +146,25 @@ export function DashSidebar({
           <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-white/50">
             Obra activa
           </div>
-          <div className="text-[13px] font-bold mt-[2px] truncate">{projectLabel}</div>
-          {obraProgress > 0 ? (
+          {obraLoading ? (
             <>
-              <div className="text-[11px] text-white/60 mt-[1px]">{Math.round(obraProgress)}% completa</div>
-              <div className="h-[3px] rounded-full bg-white/10 mt-[6px] overflow-hidden">
-                <div className="h-full bg-accent" style={{ width: `${Math.min(100, obraProgress)}%` }} />
-              </div>
+              <div className="h-[14px] w-28 rounded bg-white/10 animate-pulse mt-[4px]" />
+              <div className="h-[10px] w-16 rounded bg-white/10 animate-pulse mt-[6px]" />
             </>
           ) : (
-            <div className="text-[11px] text-white/60 mt-[1px]">0% completa</div>
+            <>
+              <div className="text-[13px] font-bold mt-[2px] truncate">{projectLabel}</div>
+              {obraProgress > 0 ? (
+                <>
+                  <div className="text-[11px] text-white/60 mt-[1px]">{Math.round(obraProgress)}% completa</div>
+                  <div className="h-[3px] rounded-full bg-white/10 mt-[6px] overflow-hidden">
+                    <div className="h-full bg-accent" style={{ width: `${Math.min(100, obraProgress)}%` }} />
+                  </div>
+                </>
+              ) : (
+                <div className="text-[11px] text-white/60 mt-[1px]">0% completa</div>
+              )}
+            </>
           )}
         </div>
         <Link href="/projects" className="flex items-center rounded-md mt-4 font-semibold text-white/70 hover:text-white transition-colors">

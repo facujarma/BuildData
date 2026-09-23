@@ -8,6 +8,7 @@ import { QuickAddModal } from "@/app/[obraId]/dashboard/_components/QuickAddModa
 import { ChatBubble } from "@/app/[obraId]/dashboard/_components/ChatBubble";
 import { useToast, DashToast } from "@/app/[obraId]/dashboard/_components/useToast";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { getObra } from "@/services/projectsService";
 
 export default function DashboardLayout({
   children,
@@ -35,7 +36,16 @@ function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string
   const { setObraInfo, obraName } = useDashboardData();
 
   useEffect(() => {
+    let cancelled = false;
     setObraInfo(obraId, "", 0);
+    getObra(obraId)
+      .then((obra) => {
+        if (!cancelled) setObraInfo(obra.id, obra.name, obra.progress);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [obraId, setObraInfo]);
 
   return (
