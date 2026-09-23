@@ -51,6 +51,18 @@ describe("parseSimpleAnswer", () => {
     expect(parseSimpleAnswer(str, "sí").ok).toBe(false);
   });
 
+  test("strings con allowedValues: solo acepta valores válidos", () => {
+    const tipo = field({
+      name: "tipo",
+      path: "tipo",
+      type: "string",
+      allowedValues: ["entrada", "salida"],
+    });
+    expect(parseSimpleAnswer(tipo, "entrada")).toEqual({ ok: true, value: "entrada" });
+    expect(parseSimpleAnswer(tipo, "SALIDA")).toEqual({ ok: true, value: "salida" });
+    expect(parseSimpleAnswer(tipo, "llegó").ok).toBe(false);
+  });
+
   test("arrays y objetos nunca se responden determinísticamente", () => {
     const arr = field({ name: "items", path: "items", type: "array" });
     expect(parseSimpleAnswer(arr, "cemento").ok).toBe(false);

@@ -19,9 +19,21 @@ describe("collectMissingFields", () => {
 
   test("ignora obra_id y telefono (los completa el bot)", () => {
     const missing = collectMissingFields("/bot/stock", {
+      tipo: "salida",
       movimientos: [{ nombre: "cemento", cantidad: 10 }],
     });
     expect(missing).toEqual([]);
+  });
+
+  test("stock sin tipo pide el sentido del movimiento", () => {
+    const missing = collectMissingFields("/bot/stock", {
+      movimientos: [{ nombre: "cemento", cantidad: 10 }],
+    });
+    expect(missing.map((m) => m.path)).toEqual(["tipo"]);
+    expect(missing[0].examples).toEqual([
+      "Llegaron 50 bolsas de cemento",
+      "Usé 10 bolsas de cemento",
+    ]);
   });
 
   test("string vacío, numero NaN y array vacío cuentan como faltantes", () => {
@@ -33,19 +45,34 @@ describe("collectMissingFields", () => {
       collectMissingFields("/bot/gastos", { monto: Number.NaN }).map((m) => m.path),
     ).toEqual(["monto"]);
     expect(
-      collectMissingFields("/bot/stock", { movimientos: [] }).map((m) => m.path),
+      collectMissingFields("/bot/stock", { tipo: "salida", movimientos: [] }).map((m) => m.path),
     ).toEqual(["movimientos"]);
   });
 
   test("valida subcampos de arrays con path por índice y contexto", () => {
     const missing = collectMissingFields("/bot/stock", {
+      tipo: "salida",
       movimientos: [{ nombre: "cemento" }, { nombre: "arena", cantidad: 2 }],
     });
     expect(missing.map((m) => m.path)).toEqual(["movimientos[0].cantidad"]);
     expect(missing[0].dataKey).toBe("movimientos");
     expect(missing[0].itemIndex).toBe(0);
     expect(missing[0].type).toBe("number");
-    expect(formatMissingQuestion(missing[0])).toBe("¿Cuánto usaste? (cemento)");
+    expect(formatMissingQuestion(missing[0])).toBe("¿Qué cantidad? (cemento)");
+  });
+
+  test("ajuste de stock requiere tipo_ajuste y valor", () => {
+    const missing = collectMissingFields("/bot/stock/ajuste", {
+      movimientos: [{ nombre: "cemento", tipo_ajuste: "delta" }],
+    });
+    expect(missing.map((m) => m.path)).toEqual(["movimientos[0].valor"]);
+    expect(missing[0].prompt).toBe("¿Qué cantidad?");
+
+    const sinTipo = collectMissingFields("/bot/stock/ajuste", {
+      movimientos: [{ nombre: "cemento", valor: 5 }],
+    });
+    expect(sinTipo.map((m) => m.path)).toEqual(["movimientos[0].tipo_ajuste"]);
+    expect(sinTipo[0].allowedValues).toEqual(["delta", "stock_final"]);
   });
 
   test("items de pedido requieren material_nombre y cantidad", () => {

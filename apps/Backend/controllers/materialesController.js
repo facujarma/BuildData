@@ -203,6 +203,7 @@ export async function actualizarMaterial(req, res) {
 
 // POST /materiales/:id/ajuste   Body: { delta, observacion? }
 // Suma (delta > 0) o resta (delta < 0) stock y registra el movimiento.
+// El stock puede quedar negativo: no se bloquea por falta de stock.
 export async function ajustarStock(req, res) {
   const { id } = req.params;
   const delta = Number(req.body.delta);
@@ -220,16 +221,6 @@ export async function ajustarStock(req, res) {
     client = await pool.connect();
     await client.query("BEGIN");
 
-    const actual = await client.query(`SELECT stock_actual FROM materiales WHERE id = $1 AND activo FOR UPDATE`, [id]);
-    if (!actual.rows[0]) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Material no encontrado" });
-    }
-    if (Number(actual.rows[0].stock_actual || 0) + delta < 0) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "Stock insuficiente para restar esa cantidad" });
-    }
-
     const material = await aplicarMovimientoStock(client, {
       materialId: id,
       obraId: dueno.obra_id,
@@ -239,6 +230,10 @@ export async function ajustarStock(req, res) {
       observacion,
       soloAlCruzar: true,
     });
+    if (!material) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Material no encontrado" });
+    }
 
     await client.query("COMMIT");
     res.json(material);

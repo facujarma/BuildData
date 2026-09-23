@@ -29,11 +29,13 @@ ${ENDPOINTS_DESC}
 
 Reglas:
 - Elegí el endpoint que mejor matchee la intención del mensaje
+- Si el mensaje menciona una cantidad de material (ej: "100 metros de cable", "10 bolsas de cemento") y no un monto de dinero, es un movimiento de stock (/bot/stock), aunque diga "gasto" o "gasté". El endpoint /bot/gastos es solo para montos de dinero (pesos, dólares)
 - Los campos que son nombres (materiales, tareas, proveedores) se pasan con el NOMBRE, no el ID
 - No incluyas obra_id ni telefono en el JSON, esos se agregan automáticamente después
 - Las fechas relativas (ej: "la semana que viene", "el lunes", "para dentro de 2 días") se convierten a formato YYYY-MM-DD usando la fecha de hoy que se te pasa
 - Si falta información para un campo requerido, devolvé igualmente la llamada con los datos que tengas (nunca inventes valores): el sistema le repreguntará al usuario lo que falta
 - Solo usá {"error": "explicación del motivo"} si el mensaje no se entiende o no expresa ninguna acción concreta
+- Si el mensaje es una consulta o pregunta (ej: "¿cuánto cemento queda?", "¿cómo viene el cronograma?"), NO armes una operación: devolvé un array con un solo objeto {"error": "No puedo responder consultas. Puedo registrar movimientos y reportes; para ver los datos, entrá a la web."}
 - El comment debe ser amigable y describir la acción, ej: "Voy a registrar el uso de 10 bolsas de cemento"
 - "confianza": número entre 0 y 1 que indica qué tan seguro estás de la interpretación (endpoint y datos). Usalo honestamente: 1 si el mensaje es claro, menos si es ambiguo.
 `;

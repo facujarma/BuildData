@@ -71,24 +71,6 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
 }
 
 // ──────────────────────────────────────────
-// Materiales
-// ──────────────────────────────────────────
-
-export interface MaterialCreado {
-  id: string;
-  nombre: string;
-  unidad?: string | null;
-}
-
-export async function crearMaterial(payload: {
-  obra_id: string;
-  nombre: string;
-  unidad?: string;
-}): Promise<MaterialCreado> {
-  return apiRequest<MaterialCreado>("POST", "/bot/materiales", payload);
-}
-
-// ──────────────────────────────────────────
 // Búsqueda de entidades por similitud (sin LLM)
 // ──────────────────────────────────────────
 

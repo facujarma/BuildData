@@ -50,6 +50,12 @@ export function parseSimpleAnswer(field: MissingField, reply: string): ParsedAns
 
   if (field.type === "string") {
     if (text.length > 40 || /\s/.test(text)) return { ok: false };
+    if (field.allowedValues && field.allowedValues.length > 0) {
+      const match = field.allowedValues.find(
+        (value) => value.toLowerCase() === text.toLowerCase(),
+      );
+      return match ? { ok: true, value: match } : { ok: false };
+    }
     return { ok: true, value: text };
   }
 

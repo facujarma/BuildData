@@ -1,7 +1,6 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
-import { guardarEmbedding } from "../services/embeddings.service.js";
-import { aplicarMovimientoStock } from "../services/stock.service.js";
+import { aplicarMovimientoStock, calcularDeltaAjuste } from "../services/stock.service.js";
 import { proveedorAccesible } from "../services/obraAccess.service.js";
 
 // ============================================================
@@ -289,44 +288,27 @@ export async function registrarRetraso(req, res) {
 }
 
 
-// POST /bot/materiales
-// Facu auto-crea un material que el usuario pidió y no está en el catálogo.
-// Body esperado: { obra_id, nombre, unidad? }
-export async function crearMaterialDesdeBot(req, res) {
-  const { obra_id, nombre, unidad } = req.body;
-  if (!obra_id || !nombre) return res.status(400).json({ error: "obra_id y nombre son requeridos" });
-
-  try {
-    const existing = await pool.query(
-      `SELECT id, nombre, unidad FROM materiales
-       WHERE obra_id = $1 AND activo AND LOWER(nombre) = LOWER($2)
-       LIMIT 1`,
-      [obra_id, nombre]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(201).json(existing.rows[0]);
-    }
-
-    const result = await pool.query(
-      `INSERT INTO materiales (obra_id, nombre, unidad)
-       VALUES ($1, $2, $3)
-       RETURNING id, nombre, unidad`,
-      [obra_id, nombre, unidad || null]
-    );
-    await guardarEmbedding("material", result.rows[0].id, result.rows[0].nombre);
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error creando material" });
-  }
-}
-
 // POST /bot/stock
-// Facu detectó uso de materiales → descuenta del stock y registra movimiento.
-// Body esperado: { obra_id, telefono, mensaje_id, movimientos: [{material_id, cantidad, rubro_id}] }
+// Registra movimientos de stock desde el bot: 'entrada' (llegó material) o
+// 'salida' (uso, merma, rotura, devolución). El stock puede quedar negativo.
+// Body esperado: { obra_id, telefono, mensaje_id, tipo, movimientos: [{material_id, cantidad, rubro_id?, observacion?}] }
+const TIPOS_STOCK = { entrada: "entrada", ingreso: "entrada", salida: "salida", egreso: "salida" };
+
 export async function actualizarStock(req, res) {
   const { obra_id, telefono, mensaje_id, movimientos } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
+  const tipo = TIPOS_STOCK[String(req.body.tipo ?? "").trim().toLowerCase()];
+  if (!tipo) {
+    return res.status(400).json({ error: "tipo debe ser 'entrada' o 'salida'" });
+  }
+  if (!Array.isArray(movimientos) || movimientos.length === 0) {
+    return res.status(400).json({ error: "movimientos debe ser un array no vacío" });
+  }
+  for (const mov of movimientos) {
+    if (!mov.material_id || !(Number(mov.cantidad) > 0)) {
+      return res.status(400).json({ error: "cada movimiento requiere material_id y cantidad mayor a 0" });
+    }
+  }
 
   const usuario_id = await resolvePersonaIdByTelefono(telefono);
   if (!usuario_id) return res.status(404).json({ error: "Persona no encontrada para el teléfono proporcionado" });
@@ -335,17 +317,29 @@ export async function actualizarStock(req, res) {
   try {
     await client.query("BEGIN");
 
+    const aplicados = [];
     for (const mov of movimientos) {
-      // Descuenta stock, registra el movimiento y alerta si quedó bajo el mínimo
+      const cantidad = Number(mov.cantidad);
       const material = await aplicarMovimientoStock(client, {
         materialId: mov.material_id,
         obraId: obra_id,
         usuarioId: usuario_id,
         rubroId: mov.rubro_id,
-        tipo: "salida",
-        cantidad: mov.cantidad,
+        tipo,
+        cantidad,
+        observacion: mov.observacion || null,
       });
-      if (!material) throw new Error(`Material no encontrado: ${mov.material_id}`);
+      if (!material) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Material no encontrado o inactivo" });
+      }
+      aplicados.push({
+        material_id: material.id,
+        nombre: material.nombre,
+        tipo,
+        cantidad,
+        stock_actual: Number(material.stock_actual),
+      });
     }
 
     await client.query(
@@ -354,11 +348,106 @@ export async function actualizarStock(req, res) {
     );
 
     await client.query("COMMIT");
-    res.json({ ok: true });
+    res.json({ ok: true, movimientos: aplicados });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error(error);
     res.status(500).json({ error: "Error actualizando stock" });
+  } finally {
+    client.release();
+  }
+}
+
+// POST /bot/stock/ajuste
+// Ajusta el stock sin movimiento físico: por diferencia ('delta', puede ser negativo)
+// o fijando el valor final ('stock_final'). El stock puede quedar negativo por delta.
+// Body esperado: { obra_id, telefono, mensaje_id, movimientos: [{ material_id, tipo_ajuste: 'delta'|'stock_final', valor, observacion? }] }
+const TIPOS_AJUSTE = new Set(["delta", "stock_final"]);
+
+export async function ajustarStockDesdeBot(req, res) {
+  const { obra_id, telefono, mensaje_id, movimientos } = req.body;
+  if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
+  if (!Array.isArray(movimientos) || movimientos.length === 0) {
+    return res.status(400).json({ error: "movimientos debe ser un array no vacío" });
+  }
+  for (const mov of movimientos) {
+    if (!mov.material_id) {
+      return res.status(400).json({ error: "cada movimiento requiere material_id" });
+    }
+    if (!TIPOS_AJUSTE.has(mov.tipo_ajuste)) {
+      return res.status(400).json({ error: "tipo_ajuste debe ser 'delta' o 'stock_final'" });
+    }
+    const valor = Number(mov.valor);
+    const valido = mov.tipo_ajuste === "delta" ? valor !== 0 : valor >= 0;
+    if (!Number.isFinite(valor) || !valido) {
+      return res.status(400).json({ error: "valor inválido para el ajuste" });
+    }
+  }
+
+  const usuario_id = await resolvePersonaIdByTelefono(telefono);
+  if (!usuario_id) return res.status(404).json({ error: "Persona no encontrada para el teléfono proporcionado" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const aplicados = [];
+    for (const mov of movimientos) {
+      const actual = await client.query(
+        `SELECT nombre, stock_actual FROM materiales WHERE id = $1 AND activo FOR UPDATE`,
+        [mov.material_id]
+      );
+      if (!actual.rows[0]) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Material no encontrado o inactivo" });
+      }
+
+      const stockActual = Number(actual.rows[0].stock_actual || 0);
+      const delta = calcularDeltaAjuste(mov.tipo_ajuste, Number(mov.valor), stockActual);
+
+      // Sin diferencia no hay movimiento que registrar (el stock ya está en el valor pedido).
+      if (delta === 0) {
+        aplicados.push({
+          material_id: mov.material_id,
+          nombre: actual.rows[0].nombre,
+          delta: 0,
+          stock_actual: stockActual,
+        });
+        continue;
+      }
+
+      const material = await aplicarMovimientoStock(client, {
+        materialId: mov.material_id,
+        obraId: obra_id,
+        usuarioId: usuario_id,
+        tipo: delta > 0 ? "entrada" : "salida",
+        cantidad: Math.abs(delta),
+        observacion: mov.observacion || "Ajuste desde bot",
+        soloAlCruzar: true,
+      });
+      if (!material) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Material no encontrado o inactivo" });
+      }
+      aplicados.push({
+        material_id: material.id,
+        nombre: material.nombre,
+        delta,
+        stock_actual: Number(material.stock_actual),
+      });
+    }
+
+    await client.query(
+      `UPDATE mensajes SET estado_procesamiento = 'procesado' WHERE id = $1`,
+      [mensaje_id]
+    );
+
+    await client.query("COMMIT");
+    res.json({ ok: true, movimientos: aplicados });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ error: "Error ajustando stock" });
   } finally {
     client.release();
   }

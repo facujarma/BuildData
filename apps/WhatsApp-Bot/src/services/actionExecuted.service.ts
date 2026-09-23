@@ -139,6 +139,47 @@ function stockFields(data: Record<string, unknown>, display?: Record<string, str
       ),
     ];
     if (rubros.length > 0) campos.push(["Rubro", rubros.join(", ")]);
+
+    const motivos = [
+      ...new Set(
+        movimientos
+          .map((mov) => (typeof mov.observacion === "string" ? mov.observacion.trim() : ""))
+          .filter((motivo) => motivo !== ""),
+      ),
+    ];
+    if (motivos.length > 0) campos.push(["Motivo", motivos.join(", ")]);
+  }
+  return campos;
+}
+
+function ajusteStockFields(data: Record<string, unknown>, display?: Record<string, string>): [string, string][] {
+  const campos: [string, string][] = [];
+  const movimientos = arrayOf(data.movimientos);
+  if (movimientos.length > 0) {
+    const ajustes = movimientos
+      .map((mov, i) => {
+        const nombre = named(
+          display,
+          displayPath("movimientos", i, "material_id"),
+          mov.material_nombre ?? mov.material_id,
+        );
+        if (mov.tipo_ajuste === "stock_final") {
+          return `${nombre}: quedó en ${str(mov.valor)}`;
+        }
+        const signo = Number(mov.valor) >= 0 ? "+" : "";
+        return `${nombre}: ${signo}${str(mov.valor)}`;
+      })
+      .join(", ");
+    campos.push(["Ajustes", ajustes]);
+
+    const motivos = [
+      ...new Set(
+        movimientos
+          .map((mov) => (typeof mov.observacion === "string" ? mov.observacion.trim() : ""))
+          .filter((motivo) => motivo !== ""),
+      ),
+    ];
+    if (motivos.length > 0) campos.push(["Motivo", motivos.join(", ")]);
   }
   return campos;
 }
@@ -193,7 +234,17 @@ function mensajeFields(data: Record<string, unknown>): [string, string][] {
 
 const ACTION_META: Record<string, ActionMeta> = {
   "/bot/pedidoDeCompra": { tipo: "Pedido de material", destino: "Pedidos", fields: pedidoFields },
-  "/bot/stock": { tipo: "Uso de material", destino: "Stock", fields: stockFields },
+  "/bot/stock": {
+    tipo: (data) => {
+      const sentido = String(data.tipo ?? "").trim().toLowerCase();
+      return sentido === "entrada" || sentido === "ingreso"
+        ? "Ingreso de material"
+        : "Uso de material";
+    },
+    destino: "Stock",
+    fields: stockFields,
+  },
+  "/bot/stock/ajuste": { tipo: "Ajuste de stock", destino: "Stock", fields: ajusteStockFields },
   "/bot/retraso": { tipo: "Retraso", destino: "Cronograma", fields: retrasoFields },
   "/bot/tareas": { tipo: "Reporte de tarea", destino: "Tareas", fields: tareaFields },
   "/bot/tareas/:id/completar": {

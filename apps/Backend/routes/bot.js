@@ -6,7 +6,7 @@ import {
   crearPedidoDeCompra,
   registrarRetraso,
   actualizarStock,
-  crearMaterialDesdeBot,
+  ajustarStockDesdeBot,
 } from "../controllers/botController.js";
 import { registrarObrero, getUserByPhone } from "../controllers/obrerosController.js";
 import { crearTareaDesdeBot } from "../controllers/tareasController.js";
@@ -25,9 +25,6 @@ router.post("/mensaje", recibirMensaje);
 // Persistencia de la interpretación ejecutada (action_executed)
 router.patch("/mensaje/:id", actualizarAccionesMensaje);
 
-// Auto-crear material ("Ninguno de estos" en la encuesta)
-router.post("/materiales", crearMaterialDesdeBot);
-
 // Búsqueda de entidades por similitud (exacto → fuzzy → embeddings)
 router.get("/entidades/buscar", buscarEntidad);
 
@@ -35,6 +32,7 @@ router.get("/entidades/buscar", buscarEntidad);
 router.post("/pedidoDeCompra", crearPedidoDeCompra);
 router.post("/retraso", registrarRetraso);
 router.post("/stock", actualizarStock);
+router.post("/stock/ajuste", ajustarStockDesdeBot);
 
 // Tareas
 router.post("/tareas", crearTareaDesdeBot);

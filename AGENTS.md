@@ -18,11 +18,12 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`
 - Express: bot en puerto 3000, Backend API en puerto 3001
 - Existe `bun.lock` y `package-lock.json` — usar `bun install`
-- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (hoy: `endpointSchema.test.ts` — validación/repregunta/descripciones — y `answerParser.service.test.ts` — atajo determinista). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun test apps/Backend/services/embeddings.service.test.js`
+- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun test apps/Backend/services` (embeddings, entitySearch, stock)
 
 ## Arquitectura (lo que los nombres no dicen)
 
 - **LLM genera endpoint + JSON body, NO SQL**: `textToOperation()` devuelve `{endpoint, method, data, comment}`, no un `RawOperation` con action/table/data
+- **El bot solo escribe, nunca consulta**: si el mensaje es una pregunta, el `SYSTEM_PROMPT` indica devolver un array con `{error}` y el bot responde que no puede dar consultas (los datos se ven en la web). No hay endpoints GET de negocio en el schema
 - **Pending store es union type**: `PendingQuery = operation \| comprobante \| factura`; `ApiCall.method = "POST" | "GET" | "PATCH"` (`pendingQuery.store.ts`)
 - **Confirmación es ENCUESTA TEXTUAL NUMERADA, no Poll nativo**: `freetext.handler` y `image.handler` llaman `sendObraConfirmationText()` (lista "¿En qué obra?", respondé con número). Existe `sendObraPoll()` (Poll nativo de WhatsApp) pero **no se llama desde ningún flujo**. `handlePollVote()` sigue conectado en `client.ts` por si se reactiva
 - **Ruteo de mensajes** (`message.handler.ts`): texto numérico → `handleEntityTextReply` primero, luego `handleObraTextReply` si hay pending → `!comando` → `handleFreeText`. Audio se transcribe (`voice.handler` setea `message.body`) y cae al MISMO `handleFreeText`. Imagen → comprobante/factura → `sendObraConfirmationText`
@@ -37,14 +38,14 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 - El bot NO le pide ID al obrero: pide el nombre y lo resuelve contra las entidades de la obra vía `GET /bot/entidades/buscar` (Backend, `entitySearch.service.js`). Ya **no existe el catálogo** (`/bot/catalogo`, `neededCatalogTipos`, `ENDPOINT_CATALOG_KINDS` se eliminaron)
 - Backend: exacto normalizado → fuzzy Levenshtein → similitud coseno (pgvector + OpenAI). En `alta`/`baja` devuelve solo candidatos confiables (≥ `UMBRAL_BAJA`); en `ninguna` devuelve igual los parecidos más flojos para la encuesta
-- Bot (`entityResolution.service.ts` + `entityMatch.service.ts`): `alta` (umbral + margen) se aplica directo; `baja` y `ninguna` → encuesta con los candidatos; sin candidatos (catálogo vacío) pregunta sin opciones. **La resolución NO auto-crea materiales**; "Ninguno de estos" en materiales sí crea la entidad (elección explícita). El proveedor sin match y sin candidatos se descarta; con candidatos (aunque sean flojos) se encuesta y "Ninguno de estos" lo descarta
+- Bot (`entityResolution.service.ts` + `entityMatch.service.ts`): `alta` (umbral + margen) se aplica directo; `baja` y `ninguna` → encuesta con los candidatos; sin candidatos (catálogo vacío) pregunta sin opciones. **La resolución NO crea ni descarta entidades**: sin match, la operación se cancela y el bot avisa que la entidad se crea desde la web
 - **Tipos de entidad** (`EntityKind`): `material \| proveedor \| rubro \| tarea`. Slots en `entityResolution.service.ts` (revisa el contenedor raíz y los items de `items`/`movimientos`):
   - `material_nombre`/`nombre` → `material_id` (material)
   - `proveedor_nombre` → `proveedor_id` (proveedor)
   - `tarea` → `tarea_id` (**rubro**; endpoint `/bot/retraso` actualiza la tabla `rubros`)
   - `rubro_id` → `rubro_id` (rubro)
   - `tarea_nombre` → `tarea_id` (**tarea real**; endpoint completar)
-- En encuesta de **tarea**, "Ninguno de estos" **cancela la operación**
+- "Ninguno de estos" en cualquier encuesta **cancela la operación** (no se auto-crean entidades)
 - **El LLM NO genera UUIDs**: los campos-nombre se mandan con NOMBRE (regla del `SYSTEM_PROMPT`); la resolución es pipeline del bot
 
 ## Embeddings de entidades (pgvector + OpenAI)
@@ -52,7 +53,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Migración manual una vez: `apps/Backend/outputs/migracion_embeddings.sql` (habilita `vector` y agrega `embedding vector(1536)`, `embedding_model`, `embedding_updated_at` a `materiales`, `proveedores`, `rubros`, `tareas`). **Sin índice a propósito**: catálogos chicos filtrados por obra; agregar HNSW solo si crece y medido
 - `services/embeddings.service.js`: OpenAI `text-embedding-3-small` (configurable con `OPENAI_EMBEDDING_MODEL`), normaliza trim/espacios/minúsculas, lotes de 100, timeout 8s. `guardarEmbedding(s)` es best-effort (no lanza; la fila queda con embedding NULL)
 - `services/entitySearch.service.js` + `GET /bot/entidades/buscar`: resolución sin LLM (exacto normalizado → fuzzy Levenshtein → similitud coseno), auto-repara filas con embedding NULL antes de comparar, y si OpenAI falla sigue solo con fuzzy. Devuelve `{ confianza, candidatos }`; umbrales (`UMBRAL_ALTA/BAJA/MARGEN_ALTA`) provisorios a calibrar. Calibración: `cd apps/Backend && node scripts/probar_busqueda.js --tipo=material --obra=<uuid> --nombre="semento"`
-- **Regla**: todo write path que cree o cambie el nombre/título de una entidad llama `guardarEmbedding(s)` **después del commit** (nunca dentro de una transacción abierta). Hoy: materiales (`materialesController`, `botController.crearMaterialDesdeBot`, `pedidosController.crearPedidoWeb`), proveedores (`proveedoresController` crear/editar), rubros (`rubrosController` create/update, `obrasController` create obra), tareas (`tareasController` crear, crearTareaDesdeBot, actualizarTarea). Al agregar un write path nuevo, sumarlo
+- **Regla**: todo write path que cree o cambie el nombre/título de una entidad llama `guardarEmbedding(s)` **después del commit** (nunca dentro de una transacción abierta). Hoy: materiales (`materialesController`, `pedidosController.crearPedidoWeb`), proveedores (`proveedoresController` crear/editar), rubros (`rubrosController` create/update, `obrasController` create obra), tareas (`tareasController` crear, crearTareaDesdeBot, actualizarTarea). Al agregar un write path nuevo, sumarlo
 - Backfill/reproceso: `cd apps/Backend && node scripts/backfill_embeddings.js [--tipo=material|proveedor|rubro|tarea|all] [--obra=<uuid>] [--force]`
 
 ## ChatBot AI (preguntas en lenguaje natural → SQL → respuesta)
@@ -72,7 +73,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 - Migración manual una vez: `apps/Backend/outputs/migracion_stock_entregas.sql` (`materiales.ubicacion/foto_url/activo`, tabla `categorias_materiales`, columnas de entrega en `pedidos_materiales`, bucket público `materiales`)
 - Migración manual una vez: `apps/Backend/outputs/migracion_pedidos_costos.sql` (`pedidos_items.subtotal` columna generada `cantidad * precio_unitario`, `pedidos_materiales.total` persistido, backfill de `precio_unitario` desde `materiales.costo_unitario`)
-- `services/stock.service.js:aplicarMovimientoStock(client, …)` es el único lugar que suma/resta `stock_actual`, inserta en `movimientos_stock` (`entrada`/`salida`) y crea la alerta `stock_bajo`. Lo usan `POST /bot/stock`, `POST /materiales/:id/ajuste`, `PATCH /materiales/:id` (si cambia `stock_actual`) y `PATCH /pedidos/:id/entregar`. Requiere transacción abierta
+- `services/stock.service.js:aplicarMovimientoStock(client, …)` es el único lugar que suma/resta `stock_actual`, inserta en `movimientos_stock` (`entrada`/`salida`) y crea las alertas `stock_bajo` y `stock_negativo` (esta última solo al cruzar de >= 0 a < 0). **El stock puede quedar negativo: no se bloquea en ningún camino** (ni bot ni web). Lo usan `POST /bot/stock`, `POST /materiales/:id/ajuste`, `PATCH /materiales/:id` (si cambia `stock_actual`) y `PATCH /pedidos/:id/entregar`. Requiere transacción abierta
 - **Materiales**: `DELETE /materiales/:id` es soft delete (`activo=false`, por las FK de `pedidos_items`/`movimientos_stock`). Todo lookup de materiales por nombre (bot, `entitySearch`) filtra `activo`. `GET /materiales/:obra_id` y `GET /materiales/:obra_id/categorias` devuelven solo activos; `numeric` llega como string (el frontend hace `Number()`)
 - **Foto**: `POST /materiales/:id/foto` recibe la imagen cruda (`Content-Type` image/jpeg|png|webp, máx 5 MB), la sube al bucket `materiales` con la service role key y guarda la URL pública en `foto_url`
 - **Costo de pedidos**: el `precio_unitario` de cada ítem sale SIEMPRE de `materiales.costo_unitario` (nunca del LLM ni del frontend). `pedidos_items.subtotal` es columna generada (`cantidad * precio_unitario`) y `pedidos_materiales.total` se persiste al crear el pedido. `POST /pedidos` (web) recibe `items: [{ material_id, cantidad }]` — valida material activo de la obra, 400 si no existe; `POST /bot/pedidoDeCompra` recibe `items: [{ material_id, cantidad }]` (el LLM solo manda nombre/cantidad, el bot resuelve `material_id`). `GET /pedidos/:obra_id` devuelve `total` del pedido y `subtotal` por ítem. El frontend (`NewOrderModal`) elige el material de un `<select>` con los materiales de la obra y muestra precio unitario + total calculados
@@ -113,7 +114,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 ## Backend — rutas y flujo de tareas
 
-- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, `POST /bot/materiales`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock`, `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`
+- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock` (`tipo` `entrada`/`salida`, acepta `observacion` por movimiento), **`POST /bot/stock/ajuste`** (`tipo_ajuste` `delta`/`stock_final`), `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`. **No existe alta de materiales desde el bot** (solo web)
 - **`PATCH /bot/tareas/:id/completar`** (`tareasController.js:completarTareaDesdeBot`):
   - `id` en la **URL**; body acepta `{ telefono, completada?, porcentaje_avance?, mensaje_id? }`
   - `completada=false` → **reabre** (estado `pendiente`, limpia `completada_por`/`fecha_completada`, % = 0 o el dado); default → `completada`, % = 100 o el dado

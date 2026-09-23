@@ -7,6 +7,7 @@ export interface EndpointParam {
   isName?: boolean;
   prompt?: string;
   examples?: string[];
+  allowedValues?: string[];
   elementParams?: EndpointParam[];
 }
 
@@ -22,7 +23,87 @@ export const ENDPOINTS: EndpointSchema[] = [
     path: "/bot/stock",
     method: "POST",
     description:
-      "Descontar materiales del stock (ej: 'usé 10 bolsas de cemento')",
+      "Registrar movimientos de stock: entrada (llegó o ingresó material) o salida (se usó, se gastó, se rompió o salió de la obra)",
+    params: [
+      {
+        name: "obra_id",
+        type: "string",
+        description: "ID o nombre de la obra",
+        required: true,
+        source: "obra_poll",
+      },
+      {
+        name: "telefono",
+        type: "string",
+        description: "Teléfono del obrero",
+        required: true,
+        source: "user_phone",
+      },
+      {
+        name: "tipo",
+        type: "string",
+        description:
+          "Sentido del movimiento: 'entrada' si llegó o ingresó material a la obra, 'salida' si se usó, se gastó, se rompió o salió de la obra",
+        required: true,
+        source: "llm",
+        prompt: "¿Llegó material a la obra o salió/usaste material?",
+        examples: ["Llegaron 50 bolsas de cemento", "Usé 10 bolsas de cemento"],
+        allowedValues: ["entrada", "salida"],
+      },
+      {
+        name: "movimientos",
+        type: "array",
+        description:
+          "Lista de movimientos. Cada item: { nombre: string, cantidad: number, rubro_id?: string, observacion?: string }",
+        required: true,
+        source: "llm",
+        isName: true,
+        prompt: "¿Qué materiales y qué cantidad?",
+        elementParams: [
+          {
+            name: "nombre",
+            type: "string",
+            description: "Nombre del material",
+            required: true,
+            source: "llm",
+            isName: true,
+            prompt: "¿Qué material?",
+          },
+          {
+            name: "cantidad",
+            type: "number",
+            description: "Cantidad del movimiento",
+            required: true,
+            source: "llm",
+            prompt: "¿Qué cantidad?",
+          },
+          {
+            name: "rubro_id",
+            type: "string",
+            description:
+              "Nombre del rubro al que corresponde el movimiento, si el usuario lo menciona (ej: 'Albañilería')",
+            required: false,
+            source: "llm",
+            isName: true,
+          },
+          {
+            name: "observacion",
+            type: "string",
+            description:
+              "Motivo o detalle del movimiento si el usuario lo menciona (ej: 'rotura', 'devolución al proveedor')",
+            required: false,
+            source: "llm",
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    path: "/bot/stock/ajuste",
+    method: "POST",
+    description:
+      "Corregir el stock de un material sin movimiento físico: sumar/restar una cantidad o fijar el valor final (ej: 'sumá 5 bolsas al cemento', 'quedan 30 bolsas de cemento')",
     params: [
       {
         name: "obra_id",
@@ -42,28 +123,47 @@ export const ENDPOINTS: EndpointSchema[] = [
         name: "movimientos",
         type: "array",
         description:
-          "Lista de materiales usados. Cada item: { nombre: string, cantidad: number }",
+          "Lista de ajustes. Cada item: { nombre: string, tipo_ajuste: 'delta'|'stock_final', valor: number, observacion?: string }",
         required: true,
         source: "llm",
         isName: true,
-        prompt: "¿Qué materiales usaste y cuánto de cada uno?",
+        prompt: "¿Qué material querés ajustar y a cuánto?",
         elementParams: [
           {
             name: "nombre",
             type: "string",
-            description: "Nombre del material",
+            description: "Nombre del material a ajustar",
             required: true,
             source: "llm",
             isName: true,
-            prompt: "¿Qué material usaste?",
+            prompt: "¿Qué material querés ajustar?",
           },
           {
-            name: "cantidad",
-            type: "number",
-            description: "Cantidad usada",
+            name: "tipo_ajuste",
+            type: "string",
+            description:
+              "'delta' si el usuario pide sumar, restar, agregar o descontar una cantidad; 'stock_final' si dice cuánto queda realmente o corrige a un valor final",
             required: true,
             source: "llm",
-            prompt: "¿Cuánto usaste?",
+            prompt: "¿Querés sumar/restar una cantidad o corregir el valor final?",
+            allowedValues: ["delta", "stock_final"],
+            examples: ["Sumá 5 bolsas al cemento", "Quedan 30 bolsas de cemento"],
+          },
+          {
+            name: "valor",
+            type: "number",
+            description:
+              "Cantidad a sumar/restar (negativa si el usuario pide restar) si tipo_ajuste es 'delta'; valor final del stock si es 'stock_final'",
+            required: true,
+            source: "llm",
+            prompt: "¿Qué cantidad?",
+          },
+          {
+            name: "observacion",
+            type: "string",
+            description: "Motivo o detalle del ajuste si el usuario lo menciona",
+            required: false,
+            source: "llm",
           },
         ],
       },
@@ -295,7 +395,7 @@ export const ENDPOINTS: EndpointSchema[] = [
     path: "/bot/gastos",
     method: "POST",
     description:
-      "Registrar un gasto a partir de un mensaje de un obrero (ej: 'gastamos 500 pesos en carpintería', 'pagué 20000 de flete')",
+      "Registrar un gasto de dinero a partir de un mensaje de un obrero (ej: 'gastamos 500 pesos en carpintería', 'pagué 20000 de flete'). Solo para montos de dinero, no para cantidades de material",
     params: [
       {
         name: "obra_id",
@@ -314,10 +414,10 @@ export const ENDPOINTS: EndpointSchema[] = [
       {
         name: "monto",
         type: "number",
-        description: "Monto del gasto",
+        description: "Monto del gasto en dinero (no la cantidad de material)",
         required: true,
         source: "llm",
-        prompt: "¿Cuánto gastaste?",
+        prompt: "¿Cuánto gastaste? (monto en pesos o dólares)",
       },
       {
         name: "fecha",
@@ -353,7 +453,7 @@ export const ENDPOINTS: EndpointSchema[] = [
       },
     ],
   },
-  {
+  /*{
     path: "/bot/mensaje",
     method: "POST",
     description:
@@ -389,7 +489,7 @@ export const ENDPOINTS: EndpointSchema[] = [
         prompt: "¿Qué mensaje querés dejar asentado?",
       },
     ],
-  },
+  },*/
 ];
 
 function assertRequiredPrompts(): void {
@@ -430,6 +530,7 @@ export interface MissingField {
   prompt: string;
   context?: string;
   examples?: string[];
+  allowedValues?: string[];
   dataKey: string | null;
   itemIndex: number;
 }
@@ -481,6 +582,7 @@ export function collectMissingFields(
         type: param.type,
         prompt: param.prompt ?? `¿Me pasás el dato de "${param.name}"?`,
         examples: param.examples,
+        allowedValues: param.allowedValues,
         dataKey: null,
         itemIndex: 0,
       });
@@ -506,6 +608,7 @@ export function collectMissingFields(
           prompt: sub.prompt ?? `¿Me pasás el dato de "${sub.name}"?`,
           context,
           examples: sub.examples,
+          allowedValues: sub.allowedValues,
           dataKey: param.name,
           itemIndex,
         });
