@@ -30,8 +30,8 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Repregunta (clarification loop)**: si a una operación del LLM le faltan campos requeridos (`collectMissingFields` según el schema, incluye subcampos de `items`/`movimientos`), `freetext.handler` guarda una `Clarification` en el store y pregunta el `prompt` del primer campo faltante (definido por campo en `endpointSchema.ts`). `handleFreeText` delega a `clarification.handler` si hay repregunta pendiente (antes de cancelar pendings). Atajo sin LLM: si el campo preguntado (`pendingFieldPath`) es simple (número/booleano/palabra) y la respuesta parsea, `answerParser.service.ts` la escribe directo y se revalida; si no, `completeOperationFromReply` mergea con memoria (mensaje original + ops + últimos 2 intercambios), revalida y repregunta. Recién al completar sigue el flujo normal (`sendOperationConfirmation` → encuesta de obra → resolución de entidades). `!cancel`, una imagen nueva o un comando desconocido con pending cortan el loop
 - **Prompt de repregunta acotado**: `completeOperationFromReply` NO manda `ENDPOINTS_DESC` completo; manda `buildEndpointIndex()` (resumen de 1 línea) + `buildEndpointDescription(paths)` solo del/los endpoint(s) en curso (~1.3k chars vs ~3k antes). `textToOperation` sigue usando la descripción completa
 - **El bot NO ejecuta: registra operaciones**: tras resolver obra y entidades arma el lote y lo manda a `POST /bot/operaciones` con endpoint, method, payload final (IDs resueltos, params de path incluidos) y la metadata de la card (`tipo`, `destino`, `campos`, `confianza`). El Backend decide: ejecuta al toque las automáticas y deja el resto pendiente de aprobación. La ejecución (loopback + allowlist) y la interpolación de params de path viven en `services/operaciones.service.js` del Backend
-- **Comandos registrados**: `!iniciar`, `!ayuda`, `!cancel`, `!obras` — **NO existe `!confirm`**
-- **Whitelist de comandos sin verificar obra**: `!iniciar` y `!ayuda` (saltan `getUserObras`)
+- **Comandos registrados**: `!iniciar`, `!ayuda`, `!cancel`, `!obras`, `!invitacion` — **NO existe `!confirm`**
+- **Whitelist de comandos sin verificar obra**: `!iniciar`, `!ayuda` y `!invitacion` (saltan `getUserObras`)
 - **User cache**: `user.service.ts` cachea usuarios 5 min en Map en memoria
 
 ## Aprobación de operaciones (bandeja)
@@ -43,6 +43,15 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - `POST /bot/operaciones` crea la alerta `operacion_pendiente` (resuelta al aprobar/rechazar) y deriva el estado del mensaje con `actualizarEstadoMensaje()`: `pendiente_aprobacion | procesado | error | rechazado`
 - Frontend: `GET /mensajes/:obraId` (con membresía) devuelve cada mensaje con `operaciones[]`; la bandeja (`ScreenInbox`) aprueba/rechaza por operación y muestra contadores reales (dashboard/sidebar). `mensajes.action_executed` y `PATCH /bot/mensaje/:id` quedan **legacy** (historial)
 - Al agregar un endpoint de operación: sumarlo a `ENDPOINTS_OPERACION` con `auto` según política
+
+## Invitaciones de obreros (link cifrado de uso único)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_invitaciones.sql` (tabla `invitaciones`: obra, nombre, teléfono, rol, `expira_at`, `usada_at`/`usada_por`)
+- El frontend (`InviteTeamModal`) pide `POST /obreros/invitacion` (JWT + membresía) y arma el link `https://wa.me/<NEXT_PUBLIC_BOT_PHONE>?text=!invitacion <token>`
+- **Token**: AES-256-GCM (`INVITACION_SECRET`, 64 hex, mismo valor en Backend y Bot), formato `v1.<base64url(iv|tag|ciphertext)>`, cifra `{v, id, obra, nom, tel, exp}`. No se puede leer ni alterar: cualquier cambio invalida el tag GCM. TTL 7 días
+- El bot descifra (`invitaciones.service.ts`), valida vencimiento y teléfono (normalizado; el 9 de AR no cuenta) y llama `POST /bot/invitaciones/consumir` con `{token, telefono}`. El Backend descifra de nuevo y reclama la invitación con UPDATE condicional `usada_at IS NULL` (anti doble uso), crea/actualiza la persona por teléfono y la asocia a `miembros_obra`
+- El teléfono que vale es el del que manda el mensaje, no el del link: el link solo sirve desde el número invitado
+- `!invitacion` está en la whitelist (no exige obra previa); token vencido/usado/alterado responde error y no registra nada
 
 ## Resolución de entidades (nombres → IDs, sin LLM)
 
@@ -118,14 +127,15 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 ## Variables de entorno
 
-- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`
-- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI), `SELF_URL` (opcional; URL del loopback del executor de operaciones, default `http://127.0.0.1:${PORT}`)
+- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`, `INVITACION_SECRET` (links de invitación; mismo valor que Backend)
+- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI), `SELF_URL` (opcional; URL del loopback del executor de operaciones, default `http://127.0.0.1:${PORT}`), `INVITACION_SECRET` (links de invitación; mismo valor que Bot)
 - NUNCA comitear `.env`
 
 ## Backend — rutas y flujo de tareas
 
-- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, **`POST /bot/operaciones`** (cola de aprobación), `POST /bot/materiales`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock` (`tipo` `entrada`/`salida`, acepta `observacion` por movimiento), **`POST /bot/stock/ajuste`** (`tipo_ajuste` `delta`/`stock_final`), `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`. `PATCH /bot/mensaje/:id` queda legacy
+- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, **`POST /bot/operaciones`** (cola de aprobación), `POST /bot/materiales`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock` (`tipo` `entrada`/`salida`, acepta `observacion` por movimiento), **`POST /bot/stock/ajuste`** (`tipo_ajuste` `delta`/`stock_final`), `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`, **`POST /bot/invitaciones/consumir`**. `PATCH /bot/mensaje/:id` queda legacy
 - Rutas web de aprobación (`routes/operaciones.js`, JWT + membresía): `PATCH /operaciones/:id/aprobar | /rechazar | /reintentar`
+- Rutas web de equipo (`routes/obreros.js`, JWT + membresía): `GET /obreros/:obra_id`, **`POST /obreros/invitacion`** (crea el link cifrado del obrero)
 - **`PATCH /bot/tareas/:id/completar`** (`tareasController.js:completarTareaDesdeBot`):
   - `id` en la **URL**; body acepta `{ telefono, completada?, porcentaje_avance?, mensaje_id? }`
   - `completada=false` → **reabre** (estado `pendiente`, limpia `completada_por`/`fecha_completada`, % = 0 o el dado); default → `completada`, % = 100 o el dado

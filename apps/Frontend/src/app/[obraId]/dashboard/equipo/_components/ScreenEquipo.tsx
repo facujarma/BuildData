@@ -120,6 +120,7 @@ export function ScreenEquipo() {
 
       <InviteTeamModal
         open={inviteOpen}
+        obraId={obraId}
         onClose={() => setInviteOpen(false)}
         onSave={(raw) => {
           const d = raw as { mode?: string; name?: string; email?: string };

@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-09-23T23:40:46.403479+00:00",
+  "nodes": {
+    "apps_whatsapp_bot_src_client": {
+      "code_fingerprint": "7ca5834eeb4717ba14533d31761c9ab8aed66de433bceebb385c94dd07fc7b4b",
+      "label": "client.ts",
+      "last": "2026-09-23T23:34:50.418070+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-23T23:34:50.418070+00:00",
+          "outcome": "useful",
+          "q": "En el caso de builddata cual seria el costo de utilizar la api oficial de whatsapp y que tan dificil seria la migracion?"
+        }
+      ],
+      "score": 0.999904808,
+      "source_file": "apps/WhatsApp-Bot/src/client.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_whatsapp_bot_src_handlers_message_handler": {
+      "code_fingerprint": "11fb070b26301da76022c652b1f5346a1939d886e17f1a2824ce34282abee3fa",
+      "label": "message.handler.ts",
+      "last": "2026-09-23T23:34:50.418070+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-23T23:34:50.418070+00:00",
+          "outcome": "useful",
+          "q": "En el caso de builddata cual seria el costo de utilizar la api oficial de whatsapp y que tan dificil seria la migracion?"
+        }
+      ],
+      "score": 0.999904808,
+      "source_file": "apps/WhatsApp-Bot/src/handlers/message.handler.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_whatsapp_bot_src_services_api_service": {
+      "code_fingerprint": "17d314a3858eaf5e1346fd12c45b67463762413d1120efcfbb8921b832c16fe9",
+      "label": "api.service.ts",
+      "last": "2026-09-23T23:34:50.418070+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-23T23:34:50.418070+00:00",
+          "outcome": "useful",
+          "q": "En el caso de builddata cual seria el costo de utilizar la api oficial de whatsapp y que tan dificil seria la migracion?"
+        }
+      ],
+      "score": 0.999904808,
+      "source_file": "apps/WhatsApp-Bot/src/services/api.service.ts",
+      "status": "tentative",
+      "uses": 1
+    },
+    "apps_whatsapp_bot_src_services_pollconfirmation_service": {
+      "code_fingerprint": "dd36f84d753f3d7ce1b3a161346de2c43288cd4bf260e40dd57a1b624c320e5c",
+      "label": "pollConfirmation.service.ts",
+      "last": "2026-09-23T23:34:50.418070+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-23T23:34:50.418070+00:00",
+          "outcome": "useful",
+          "q": "En el caso de builddata cual seria el costo de utilizar la api oficial de whatsapp y que tan dificil seria la migracion?"
+        }
+      ],
+      "score": 0.999904808,
+      "source_file": "apps/WhatsApp-Bot/src/services/pollConfirmation.service.ts",
+      "status": "tentative",
+      "uses": 1
+    }
+  },
+  "version": 1
+}

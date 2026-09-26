@@ -10,6 +10,11 @@ export const MSG = {
   ERROR_UNKNOWN_COMMAND:     "🤔 Ese comando no lo conozco. Escribí *!ayuda* para ver los que tengo.",
   ERROR_CANCELLED_BAD_CMD:   "❌ No entendí el comando, así que cancelé lo que teníamos. Escribí *!ayuda* para ver los disponibles.",
   ERROR_NO_OBRA:            "⚠️ No tenés ninguna obra asociada a este número. Usá *!iniciar* para registrarte.",
+  ERROR_INVITACION_INVALIDA: "❌ El link no es válido o fue alterado. Pedí uno nuevo.",
+  ERROR_INVITACION_USADA:   "⚠️ Este link ya fue usado.",
+  ERROR_INVITACION_VENCIDA: "⌛ Este link ya venció. Pedí uno nuevo.",
+  ERROR_INVITACION_OTRO_TELEFONO: "⚠️ Este link fue generado para otro número de teléfono.",
+  ERROR_INVITACION_FALLO:   "❌ No pude usar el link. Probá de nuevo o pedí uno nuevo.",
   ERROR_PROCESSING:          "❌ Algo salió mal, probá de nuevo.",
   ERROR_MISSING_FIELDS:      "❌ Me falta información para completar eso. ¿Podés darme más detalles?",
 
@@ -26,6 +31,10 @@ export function MSG_LLM_ERROR(msg: string): string {
 
 export function MSG_OPERATION_GENERATED(json: string): string {
   return `✅ Entendido! Esto es lo que voy a hacer:\n\`\`\`json\n${json}\n\`\`\``;
+}
+
+export function MSG_BIENVENIDA(nombre: string, obra: string): string {
+  return `🎉 ¡Bienvenido, ${nombre}! Quedaste vinculado a la obra *${obra}*. Ya podés reportar avances y movimientos por acá.`;
 }
 
 export function MSG_TRANSCRIPTION(text: string): string {

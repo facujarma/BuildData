@@ -195,10 +195,11 @@ function QuickAddProveedor({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   );
 }
 
-function QuickAddEquipo({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+function QuickAddEquipo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   return (
     <InviteTeamModal
       open
+      obraId={obraId}
       onClose={onClose}
       onSave={(raw) => {
         const d = raw as { mode?: string; name?: string; email?: string };
@@ -358,7 +359,7 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
     case "proveedor":
       return <QuickAddProveedor obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "equipo":
-      return <QuickAddEquipo onClose={onClose} onDone={onDone} />;
+      return <QuickAddEquipo obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "foto":
       return <UploadPhotosModal obraId={obraId} onClose={onClose} onDone={onDone} />;
     default:

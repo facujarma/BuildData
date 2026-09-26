@@ -30,16 +30,16 @@
     "semantic_hash": "a085395e8c0de9f523635a3883efea03"
   },
   "apps/Backend/controllers/botController.js": {
-    "mtime": 1790434701.8879635,
-    "seen": 1790449986.92266,
-    "ast_hash": "964f5e0b34ef56d5131ce62eb81725b9",
+    "mtime": 1790204547.2972343,
+    "seen": 1790204695.6896732,
+    "ast_hash": "563ca5cb1cd6207dcd86910d1560f63a",
     "semantic_hash": ""
   },
   "apps/Backend/controllers/dashboardController.js": {
-    "mtime": 1790438527.94339,
-    "seen": 1790449986.922741,
-    "ast_hash": "93d67d075957f81edbff1159a2e243ce",
-    "semantic_hash": ""
+    "mtime": 1789265285.6639884,
+    "seen": 1789515629.7265582,
+    "ast_hash": "5a1a4744c847ec435667ac0886d40b95",
+    "semantic_hash": "5a1a4744c847ec435667ac0886d40b95"
   },
   "apps/Backend/controllers/gastosController.js": {
     "mtime": 1789771785.6118314,
@@ -60,9 +60,9 @@
     "semantic_hash": ""
   },
   "apps/Backend/controllers/obrerosController.js": {
-    "mtime": 1790449589.2223713,
-    "seen": 1790449986.923035,
-    "ast_hash": "ac402b7f08efe59393f25913872b7d9d",
+    "mtime": 1790121422.3636954,
+    "seen": 1790121510.9080794,
+    "ast_hash": "f97d019f596933e50b18c0c1aeeed11f",
     "semantic_hash": ""
   },
   "apps/Backend/controllers/pedidosController.js": {
@@ -168,9 +168,9 @@
     "semantic_hash": "11274c7da5abea6e8243997ec498600d"
   },
   "apps/Backend/routes/bot.js": {
-    "mtime": 1790449601.8258893,
-    "seen": 1790449986.9239798,
-    "ast_hash": "721f1660af8d45e00d1dad7602d105ff",
+    "mtime": 1790203748.120201,
+    "seen": 1790204695.6909692,
+    "ast_hash": "e04d1cff256f0ba73075269f1626968d",
     "semantic_hash": ""
   },
   "apps/Backend/routes/dashboard.js": {
@@ -198,10 +198,10 @@
     "semantic_hash": "2316a4a1815380ac48f948582ba60f89"
   },
   "apps/Backend/routes/obreros.js": {
-    "mtime": 1790449594.6731796,
-    "seen": 1790449986.9243975,
-    "ast_hash": "0a7e0df81bba22bfe95b2e105c9c695f",
-    "semantic_hash": ""
+    "mtime": 1781908162.405187,
+    "seen": 1789515629.7266731,
+    "ast_hash": "b9c61c654e2bb2f96211f3c9115c354b",
+    "semantic_hash": "b9c61c654e2bb2f96211f3c9115c354b"
   },
   "apps/Backend/routes/pedidos.js": {
     "mtime": 1790115191.1956558,
@@ -246,9 +246,9 @@
     "semantic_hash": "09a6356d5b19bf0575f941e5d8d3551b"
   },
   "apps/Backend/server.js": {
-    "mtime": 1790434498.221153,
-    "seen": 1790449986.9250374,
-    "ast_hash": "7b8605bd5dfe98660a08c60c90d6fb4e",
+    "mtime": 1790024625.5941265,
+    "seen": 1790026809.0367036,
+    "ast_hash": "d79c05783e2baf244be3c52dba4d3825",
     "semantic_hash": ""
   },
   "apps/Backend/services/personaService.js": {
@@ -450,9 +450,9 @@
     "semantic_hash": "6d75e7216768580c0ebf4381bd4d6091"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashSidebar.tsx": {
-    "mtime": 1790438932.5690792,
-    "seen": 1790449986.9285746,
-    "ast_hash": "942c9656bed0d897f706404f6c4495ef",
+    "mtime": 1790201723.7337804,
+    "seen": 1790204695.695588,
+    "ast_hash": "eabb56d36a4831ac3c1b4519f0c0b7a7",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashTopBar.tsx": {
@@ -462,15 +462,15 @@
     "semantic_hash": "375ec8b435c59d47109751512b52be01"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashboardContent.tsx": {
-    "mtime": 1790438884.3208704,
-    "seen": 1790449986.9287753,
-    "ast_hash": "a087739fc1579395599f6054f316388a",
+    "mtime": 1790031800.9248462,
+    "seen": 1790032119.0983882,
+    "ast_hash": "ea5662976087f06035d1501b9d35c721",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/DashboardDataContext.tsx": {
-    "mtime": 1790438766.3473673,
-    "seen": 1790449986.9287803,
-    "ast_hash": "48191a217ec51a21e6beefd992584c33",
+    "mtime": 1790031068.5954077,
+    "seen": 1790032119.0983932,
+    "ast_hash": "7ec30a7f82b90492a22d0070c982fbf3",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/EmptyDashboardContent.tsx": {
@@ -504,9 +504,9 @@
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/QuickAddModal.tsx": {
-    "mtime": 1790449783.6489868,
-    "seen": 1790449986.9292543,
-    "ast_hash": "0f6714bfcc7d40aaf9f2541b3f684dcc",
+    "mtime": 1790201723.733964,
+    "seen": 1790204695.696443,
+    "ast_hash": "362801cf713b0ac42a3341ecd32a2778",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/_components/SideDrawer.tsx": {
@@ -696,15 +696,15 @@
     "semantic_hash": "569775622f9842de4d520f81f80e0bad"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/equipo/_components/InviteTeamModal.tsx": {
-    "mtime": 1790449913.3100822,
-    "seen": 1790449986.9326515,
-    "ast_hash": "ae9823f57ff935d9c54b05cfdba5e635",
+    "mtime": 1790025901.8589666,
+    "seen": 1790026809.0432224,
+    "ast_hash": "da47f911e39a5379988af91e06f2afe7",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/equipo/_components/ScreenEquipo.tsx": {
-    "mtime": 1790449681.3687024,
-    "seen": 1790449986.9326558,
-    "ast_hash": "d51de347e5bd646f96becb911dca1725",
+    "mtime": 1790025908.1204226,
+    "seen": 1790026809.0432274,
+    "ast_hash": "82e6ad277305e9273603c40cfe224af6",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/equipo/_components/index.ts": {
@@ -732,9 +732,9 @@
     "semantic_hash": "6c69216bb1a1a1a5b3cdf6b082386575"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/ScreenInbox.tsx": {
-    "mtime": 1790439018.2579362,
-    "seen": 1790449986.9330308,
-    "ast_hash": "c52f7b426ca2a0ab6196507b8f84fd36",
+    "mtime": 1790031831.253057,
+    "seen": 1790032119.1018445,
+    "ast_hash": "21eaa44b32716b13cbc1e79818a61121",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/inbox/loading.tsx": {
@@ -780,9 +780,9 @@
     "semantic_hash": "17596e12d543cc36e7d91f849ca20965"
   },
   "apps/Frontend/src/app/[obraId]/dashboard/page.tsx": {
-    "mtime": 1790438878.426845,
-    "seen": 1790449986.9336848,
-    "ast_hash": "1d02e39f9123f484eb1f63a30b4f4e84",
+    "mtime": 1789769854.405001,
+    "seen": 1790026809.0443738,
+    "ast_hash": "e36dd97edee43bb9f53b35161114295d",
     "semantic_hash": ""
   },
   "apps/Frontend/src/app/[obraId]/dashboard/pedidos/_components/DeliveryModal.tsx": {
@@ -1482,16 +1482,16 @@
     "semantic_hash": ""
   },
   "apps/Frontend/src/services/dashboardService.ts": {
-    "mtime": 1790438735.4588964,
-    "seen": 1790449986.9442458,
-    "ast_hash": "fffec44fa59b46dce63c7d3e9c2185c6",
+    "mtime": 1790032087.5733182,
+    "seen": 1790032119.115517,
+    "ast_hash": "e7d37445708a6182c6108696b8090924",
     "semantic_hash": ""
   },
   "apps/Frontend/src/services/equipoService.ts": {
-    "mtime": 1790449649.8115163,
-    "seen": 1790449986.9442506,
-    "ast_hash": "e9eacea0bc64bffa82a01ba10257ca6c",
-    "semantic_hash": ""
+    "mtime": 1790031877.8642907,
+    "seen": 1790032119.115522,
+    "ast_hash": "6c967a27300b13e569a508a749e4a152",
+    "semantic_hash": "6c967a27300b13e569a508a749e4a152"
   },
   "apps/Frontend/src/services/mock/configuracionService.ts": {
     "mtime": 1790031068.0836773,
@@ -1560,15 +1560,15 @@
     "semantic_hash": ""
   },
   "apps/Frontend/src/types/dashboard.api.ts": {
-    "mtime": 1790438724.2349796,
-    "seen": 1790449986.9453628,
-    "ast_hash": "377d63af0ba9dff0527be782bbe68642",
+    "mtime": 1790032001.7099016,
+    "seen": 1790032119.1157537,
+    "ast_hash": "ad994f3945c0ca0f212c5fe9b5284d36",
     "semantic_hash": ""
   },
   "apps/Frontend/src/types/dashboard.ts": {
-    "mtime": 1790438729.916214,
-    "seen": 1790449986.9453676,
-    "ast_hash": "33b771561aa1e77ca94eca59dc170b72",
+    "mtime": 1790032001.7097597,
+    "seen": 1790032119.1157584,
+    "ast_hash": "ebfb70d9ffba1a40458237143108c791",
     "semantic_hash": ""
   },
   "apps/Frontend/src/types/gallery.ts": {
@@ -1578,9 +1578,9 @@
     "semantic_hash": "f26a3b07fcca77293ca37f78e3939cb5"
   },
   "apps/Frontend/src/types/inbox.ts": {
-    "mtime": 1790438196.1664855,
-    "seen": 1790449986.9454505,
-    "ast_hash": "25e7b4bdb4c523db2936ad534a701d42",
+    "mtime": 1790031023.5633657,
+    "seen": 1790032119.1158404,
+    "ast_hash": "d4f573ff7c19b4fd97544a822b8000c0",
     "semantic_hash": ""
   },
   "apps/Frontend/src/types/projects.ts": {
@@ -1608,16 +1608,16 @@
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/commands/ayuda.command.ts": {
-    "mtime": 1790432751.8308642,
-    "seen": 1790449986.9457467,
-    "ast_hash": "c178e796f97ac3763193336bf4adea14",
-    "semantic_hash": ""
+    "mtime": 1780269402.0900881,
+    "seen": 1789515629.7276971,
+    "ast_hash": "fd72178b107892f30701ee61f6cd34f1",
+    "semantic_hash": "fd72178b107892f30701ee61f6cd34f1"
   },
   "apps/WhatsApp-Bot/src/commands/buildings.command.ts": {
-    "mtime": 1790432754.1679156,
-    "seen": 1790449986.9457517,
-    "ast_hash": "5f57bbfb0be68be8c0c884aa462ee931",
-    "semantic_hash": ""
+    "mtime": 1780347534.728931,
+    "seen": 1789515629.7277026,
+    "ast_hash": "6308b0d558dc7381cf993edbae2790a9",
+    "semantic_hash": "6308b0d558dc7381cf993edbae2790a9"
   },
   "apps/WhatsApp-Bot/src/commands/confirmAndCancel.command.ts": {
     "mtime": 1789672844.8249192,
@@ -1632,27 +1632,27 @@
     "semantic_hash": "cc317bc6ff3909ebf54a7b2fa0f6ae88"
   },
   "apps/WhatsApp-Bot/src/commands/login.command.ts": {
-    "mtime": 1790432774.039353,
-    "seen": 1790449986.9459143,
-    "ast_hash": "4908e1548222cac0f3fc886f93bec1d3",
-    "semantic_hash": ""
+    "mtime": 1781220157.508056,
+    "seen": 1789515629.727712,
+    "ast_hash": "964323f83c087be956a1e7f35941b8fa",
+    "semantic_hash": "964323f83c087be956a1e7f35941b8fa"
   },
   "apps/WhatsApp-Bot/src/handlers/freetext.handler.ts": {
-    "mtime": 1790434811.2520828,
-    "seen": 1790449986.9459238,
-    "ast_hash": "b9bcde259b7f84be8e403d6304618235",
+    "mtime": 1789675696.1821866,
+    "seen": 1790026809.0580401,
+    "ast_hash": "9dbaf49f5246bbfdfa853affc7d96624",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/image.handler.ts": {
-    "mtime": 1790432768.91724,
-    "seen": 1790449986.9459283,
-    "ast_hash": "6605e37958ceafe03b0fd697f26d68ee",
+    "mtime": 1790122312.0363967,
+    "seen": 1790122439.7510183,
+    "ast_hash": "a8523d139bd9b2f2ff53bdd12e99afdb",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/message.handler.ts": {
-    "mtime": 1790449645.033556,
-    "seen": 1790449986.9459333,
-    "ast_hash": "9d317ec8fd6e61540b88e936f728ce43",
+    "mtime": 1790122312.037765,
+    "seen": 1790122439.7510245,
+    "ast_hash": "e6fc2b55eb6d09f9d131f4fda19d8bd4",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/pendingQuery.store.ts": {
@@ -1686,33 +1686,39 @@
     "semantic_hash": "a7b6d5136e8347e946590495cf1e56ad"
   },
   "apps/WhatsApp-Bot/src/services/api.service.ts": {
-    "mtime": 1790449623.0383546,
-    "seen": 1790449986.9464447,
-    "ast_hash": "a6014adcc8a7173c8f97643756b07794",
+    "mtime": 1790204656.6756632,
+    "seen": 1790204695.7143655,
+    "ast_hash": "b1e03533fd7d342eb613a0b9ca89341f",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/endpointSchema.ts": {
-    "mtime": 1790206316.3382423,
-    "seen": 1790449986.9465268,
-    "ast_hash": "4acf5fbe8a462c17545034237a295c56",
+    "mtime": 1790204602.8578043,
+    "seen": 1790204695.7143757,
+    "ast_hash": "6b69eaf1fe87c4e1a56ef3488cf0d593",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/entityResolution.service.ts": {
-    "mtime": 1790434848.9806745,
-    "seen": 1790449986.9466977,
-    "ast_hash": "f28f5ea75c17cefb15b81c7acb832e65",
+    "mtime": 1790122338.581891,
+    "seen": 1790122439.752808,
+    "ast_hash": "f4847ab8d36c7121cf8597081f7fc8e2",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/llm.service.ts": {
-    "mtime": 1790206332.685367,
-    "seen": 1790449986.946712,
-    "ast_hash": "8efc562612a0d2108a8722034c85c89c",
+    "mtime": 1790204272.472025,
+    "seen": 1790204695.7146075,
+    "ast_hash": "c247a0919d849801c75d64ff82bbb01e",
     "semantic_hash": ""
   },
+  "apps/WhatsApp-Bot/src/services/pathParams.service.ts": {
+    "mtime": 1789424683.8035278,
+    "seen": 1789515629.7277608,
+    "ast_hash": "a554301e51e7d9bb3acfc23b242bc3f1",
+    "semantic_hash": "a554301e51e7d9bb3acfc23b242bc3f1"
+  },
   "apps/WhatsApp-Bot/src/services/pollConfirmation.service.ts": {
-    "mtime": 1790437867.5852559,
-    "seen": 1790449986.9467216,
-    "ast_hash": "0f85bb836c5f49a2bb1f404d3d64d97b",
+    "mtime": 1790122420.2554789,
+    "seen": 1790122439.7529662,
+    "ast_hash": "84761a14b5bce0664d4f3494190944d9",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/transcription.service.ts": {
@@ -1734,10 +1740,10 @@
     "semantic_hash": "582f030a783835e582d9d02444492e81"
   },
   "apps/WhatsApp-Bot/src/shared/responses.ts": {
-    "mtime": 1790449631.1812434,
-    "seen": 1790449986.9470983,
-    "ast_hash": "8464b88b59e1a7cfa4129928604f789f",
-    "semantic_hash": ""
+    "mtime": 1781975950.8926423,
+    "seen": 1789515629.7277818,
+    "ast_hash": "a69f846718b9fdab9cda55cfb12a4cfc",
+    "semantic_hash": "a69f846718b9fdab9cda55cfb12a4cfc"
   },
   "apps/WhatsApp-Bot/src/types/api.types.ts": {
     "mtime": 1790121423.4671493,
@@ -1764,9 +1770,9 @@
     "semantic_hash": "c58fa00b937f5801cba8fec38421ae12"
   },
   "AGENTS.md": {
-    "mtime": 1790449949.1191578,
-    "seen": 1790449986.94735,
-    "ast_hash": "c079862a488c42cab8045a249bf11810",
+    "mtime": 1790204647.601032,
+    "seen": 1790204695.7154877,
+    "ast_hash": "d31f42e969be42fa81b043f51f9c083e",
     "semantic_hash": ""
   },
   "README.md": {
@@ -1859,6 +1865,18 @@
     "ast_hash": "44fd22a0d0daac4f2c97665424aa03b4",
     "semantic_hash": ""
   },
+  "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/HighlightedRaw.tsx": {
+    "mtime": 1789655997.6328864,
+    "seen": 1789656089.788666,
+    "ast_hash": "148f0073976a009f664fb1ffb14566fd",
+    "semantic_hash": ""
+  },
+  "apps/Frontend/src/app/[obraId]/dashboard/inbox/_components/InboxCorrectModal.tsx": {
+    "mtime": 1789656006.1723208,
+    "seen": 1789656089.7886724,
+    "ast_hash": "0b48d4891d7f4ac461b9aefb48d6de3b",
+    "semantic_hash": ""
+  },
   "apps/Backend/controllers/chatbotController.js": {
     "mtime": 1790024612.0610626,
     "seen": 1790026809.0349436,
@@ -1872,9 +1890,9 @@
     "semantic_hash": ""
   },
   "apps/Backend/controllers/mensajesController.js": {
-    "mtime": 1790434540.756545,
-    "seen": 1790449986.922957,
-    "ast_hash": "66b7ccc4ee2c3e230d56e36017d3ff0f",
+    "mtime": 1789658143.44321,
+    "seen": 1790026809.0350456,
+    "ast_hash": "2680c779fc76bec2e6faa6b64e68f8b8",
     "semantic_hash": ""
   },
   "apps/Backend/routes/chatbot.js": {
@@ -2022,9 +2040,9 @@
     "semantic_hash": ""
   },
   "apps/Frontend/src/services/mensajesService.ts": {
-    "mtime": 1790438212.52822,
-    "seen": 1790449986.944255,
-    "ast_hash": "bf879570ae3570b85fc18f5f10afe2f9",
+    "mtime": 1790031800.925927,
+    "seen": 1790032119.1155267,
+    "ast_hash": "90e9d443e62063fe22d6dad2241e53fa",
     "semantic_hash": ""
   },
   "apps/Frontend/src/types/chatbot.ts": {
@@ -2034,9 +2052,15 @@
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/handlers/clarification.handler.ts": {
-    "mtime": 1790432746.856755,
-    "seen": 1790449986.9459195,
-    "ast_hash": "9eba85751bfea3e02c8a7706cf1e93ce",
+    "mtime": 1789675692.7586489,
+    "seen": 1790026809.0580356,
+    "ast_hash": "d444fe1688f61b9739566f1e19a316c1",
+    "semantic_hash": ""
+  },
+  "apps/WhatsApp-Bot/src/services/actionExecuted.service.ts": {
+    "mtime": 1790204680.074014,
+    "seen": 1790204695.7143514,
+    "ast_hash": "8079b9433a1aa5f64a7afdf36c82d155",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/answerParser.service.test.ts": {
@@ -2052,9 +2076,9 @@
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/endpointSchema.test.ts": {
-    "mtime": 1790205806.6069942,
-    "seen": 1790205845.7132957,
-    "ast_hash": "b39e5cc3d575d115513c6f902e8ebdad",
+    "mtime": 1790204517.3831124,
+    "seen": 1790204695.7143707,
+    "ast_hash": "6c06af013ba27137451bbe04a9f118a9",
     "semantic_hash": ""
   },
   "apps/WhatsApp-Bot/src/services/entityMatch.service.test.ts": {
@@ -2094,9 +2118,9 @@
     "semantic_hash": ""
   },
   "apps/Backend/services/stock.service.js": {
-    "mtime": 1790205759.0230513,
-    "seen": 1790205845.6907985,
-    "ast_hash": "2d16355dbbcb058d14df4efdc611c891",
+    "mtime": 1790204559.3562827,
+    "seen": 1790204695.693166,
+    "ast_hash": "9a118b036d8d8fd26da9ec93ef9b0b63",
     "semantic_hash": ""
   },
   "apps/Frontend/src/services/proveedoresService.ts": {
@@ -2112,81 +2136,9 @@
     "semantic_hash": ""
   },
   "apps/Backend/services/stock.service.test.js": {
-    "mtime": 1790205798.9930956,
-    "seen": 1790205845.6908035,
-    "ast_hash": "63fde0a59cc87fe05a9a47c82abb190d",
-    "semantic_hash": ""
-  },
-  "apps/Backend/controllers/operacionesController.js": {
-    "mtime": 1790434234.456966,
-    "seen": 1790449986.9230397,
-    "ast_hash": "5b72a1b9cdba6f263dec0d42a66efb85",
-    "semantic_hash": ""
-  },
-  "apps/Backend/routes/operaciones.js": {
-    "mtime": 1790434302.1114116,
-    "seen": 1790449986.9244025,
-    "ast_hash": "8e851ae392fdd7c29daf651161c3f03c",
-    "semantic_hash": ""
-  },
-  "apps/Backend/services/invitaciones.service.js": {
-    "mtime": 1790449580.8430927,
-    "seen": 1790449986.9259377,
-    "ast_hash": "4209512de270265dbde37e7ad529f2e5",
-    "semantic_hash": ""
-  },
-  "apps/Backend/services/invitaciones.service.test.js": {
-    "mtime": 1790449703.3368294,
-    "seen": 1790449986.9259424,
-    "ast_hash": "edd812bb68a26ee1d283fc4c80401bd8",
-    "semantic_hash": ""
-  },
-  "apps/Backend/services/operaciones.service.js": {
-    "mtime": 1790434266.2531674,
-    "seen": 1790449986.9260201,
-    "ast_hash": "578dcf98c60ba595a34c7604cb4398c7",
-    "semantic_hash": ""
-  },
-  "apps/WhatsApp-Bot/src/commands/invitacion.command.ts": {
-    "mtime": 1790449637.12044,
-    "seen": 1790449986.9459097,
-    "ast_hash": "06ea68a4a0198ed8d408021a2c7f9289",
-    "semantic_hash": ""
-  },
-  "apps/WhatsApp-Bot/src/services/invitaciones.service.test.ts": {
-    "mtime": 1790449709.2758634,
-    "seen": 1790449986.9467025,
-    "ast_hash": "e6d2454f7aff98e6cbbc277db4aff766",
-    "semantic_hash": ""
-  },
-  "apps/WhatsApp-Bot/src/services/invitaciones.service.ts": {
-    "mtime": 1790449612.7462916,
-    "seen": 1790449986.9467075,
-    "ast_hash": "fe95a4496117b9437af61db324366505",
-    "semantic_hash": ""
-  },
-  "apps/WhatsApp-Bot/src/services/operationMetadata.service.ts": {
-    "mtime": 1790434759.1296663,
-    "seen": 1790449986.9467163,
-    "ast_hash": "6e6c93a08da84cdec5676f49cb4226b8",
-    "semantic_hash": ""
-  },
-  "apps/WhatsApp-Bot/src/shared/format.ts": {
-    "mtime": 1790432720.8521852,
-    "seen": 1790449986.9470937,
-    "ast_hash": "778755a51c507721a9eb8b85cf1b0d8a",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260923_233450_ba3d38f6_en_el_caso_de_builddata_cual_seria_el_costo_de_uti.md": {
-    "mtime": 1790206490.4186292,
-    "seen": 1790449986.9475505,
-    "ast_hash": "1a554d8e68c75508b10ebf1f7e1a9c75",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260923_234115_666c733b_me_gustaria_reemplazar_las_encuestas_numeradas_con.md": {
-    "mtime": 1790206875.3212278,
-    "seen": 1790449986.947555,
-    "ast_hash": "1001d97057ee5a357f79f8660b4d858d",
+    "mtime": 1790204524.4031413,
+    "seen": 1790204695.693171,
+    "ast_hash": "58e407820f5d362adb4f56f966c06f92",
     "semantic_hash": ""
   }
 }

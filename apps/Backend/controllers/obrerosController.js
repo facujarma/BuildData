@@ -1,4 +1,9 @@
 import { pool } from "../db.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import {
+  crearInvitacion,
+  consumirInvitacion,
+} from "../services/invitaciones.service.js";
 
 // GET /obreros/:obra_id — obreros de una obra
 export async function getObreros(req, res) {
@@ -80,6 +85,60 @@ export async function quitarObreroDeObra(req, res) {
       [obrero_id, obra_id]
     );
     res.json({ mensaje: "Obrero quitado de la obra" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// POST /obreros/invitacion — crea el link cifrado y de uso único para el obrero
+export async function crearInvitacionWeb(req, res) {
+  const { obra_id, nombre, telefono, rol } = req.body;
+  if (!obra_id || !nombre) {
+    return res.status(400).json({ error: "obra_id y nombre son requeridos" });
+  }
+  if (!(await esMiembroDeObra(req.personaId, obra_id))) {
+    return res.status(403).json({ error: "No pertenecés a esta obra" });
+  }
+
+  try {
+    const invitacion = await crearInvitacion({
+      obraId: obra_id,
+      nombre,
+      telefono,
+      rol,
+      creadaPor: req.personaId || null,
+    });
+    res.status(201).json(invitacion);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// POST /bot/invitaciones/consumir — el bot canjea el token cuando el obrero
+// manda el link. El token se descifra y se marca usado de forma atómica.
+export async function consumirInvitacionBot(req, res) {
+  const { token, telefono } = req.body;
+  if (!token || !telefono) {
+    return res.status(400).json({ error: "token y telefono son requeridos" });
+  }
+
+  try {
+    const resultado = await consumirInvitacion({ token, telefono });
+    if (resultado.error === "invalido") {
+      return res.status(400).json({ error: "invitación inválida" });
+    }
+    if (resultado.error === "usada") {
+      return res.status(409).json({ error: "invitación ya usada" });
+    }
+    if (resultado.error === "vencida") {
+      return res.status(410).json({ error: "invitación vencida" });
+    }
+    if (resultado.error === "otro_telefono") {
+      return res.status(403).json({ error: "el teléfono no coincide con la invitación" });
+    }
+    res.json(resultado);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });

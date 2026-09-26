@@ -8,7 +8,7 @@ import {
   actualizarStock,
   ajustarStockDesdeBot,
 } from "../controllers/botController.js";
-import { registrarObrero, getUserByPhone } from "../controllers/obrerosController.js";
+import { registrarObrero, getUserByPhone, consumirInvitacionBot } from "../controllers/obrerosController.js";
 import { crearTareaDesdeBot } from "../controllers/tareasController.js";
 import { completarTareaDesdeBot } from "../controllers/tareasController.js";
 import { crearGastoDesdeBot } from "../controllers/gastosController.js";
@@ -48,6 +48,9 @@ router.post("/gastos", crearGastoDesdeBot);
 // Obreros
 router.post("/obreros/registrar", registrarObrero);
 router.get("/obreros/telefono/:phone", getUserByPhone);
+
+// Invitaciones: el bot canjea el token cifrado del link
+router.post("/invitaciones/consumir", consumirInvitacionBot);
 
 
 export default router;

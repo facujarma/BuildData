@@ -2,6 +2,7 @@ import { Message, MessageTypes } from "whatsapp-web.js";
 import { getCommand, registerCommand } from "../commands/index";
 import { ayudaCommand } from "../commands/ayuda.command";
 import { loginCommand } from "../commands/login.command";
+import { invitacionCommand } from "../commands/invitacion.command";
 import { cancelCommand } from "../commands/confirmAndCancel.command";
 import { handleFreeText } from "./freetext.handler";
 import { handleAudio } from "./voice.handler";
@@ -23,12 +24,13 @@ import {
 registerCommand(ayudaCommand);
 registerCommand(cancelCommand);
 registerCommand(loginCommand);
+registerCommand(invitacionCommand);
 registerCommand(buildingsCommand);
 
 
 const PREFIX = "!";
 
-const WHITELISTED_COMMANDS = ["!iniciar", "!ayuda"];
+const WHITELISTED_COMMANDS = ["!iniciar", "!ayuda", "!invitacion"];
 
 function isWhitelisted(text: string): boolean {
   return WHITELISTED_COMMANDS.some((cmd) => text.startsWith(cmd));

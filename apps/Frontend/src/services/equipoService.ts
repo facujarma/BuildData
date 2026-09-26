@@ -36,6 +36,28 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+export interface InvitacionCreada {
+  id: string;
+  token: string;
+  expira_at: string;
+}
+
+export async function crearInvitacionObrero(
+  obraId: string,
+  datos: { nombre: string; telefono: string; rol?: string },
+): Promise<InvitacionCreada> {
+  const res = await fetch(`${API_URL}/obreros/invitacion`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ obra_id: obraId, ...datos }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function getEquipo(obraId: string): Promise<EquipoData> {
   const res = await fetch(`${API_URL}/obreros/${obraId}`, {
     headers: await authHeaders(),

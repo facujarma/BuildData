@@ -13,6 +13,15 @@ const AUTH_HEADERS = {
   "apikey": SUPABASE_SERVICE_KEY,
 };
 
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function apiRequest<T>(
   method: string,
   path: string,
@@ -29,9 +38,9 @@ async function apiRequest<T>(
       signal: controller.signal,
     });
 
-    if (res.status === 401) throw new Error("AUTH_FAILED: credenciales inválidas");
-    if (res.status === 403) throw new Error("AUTH_FORBIDDEN: sin permisos");
-    if (!res.ok) throw new Error(`API_ERROR: ${res.status}`);
+    if (res.status === 401) throw new ApiError(401, "AUTH_FAILED: credenciales inválidas");
+    if (res.status === 403) throw new ApiError(403, "AUTH_FORBIDDEN: sin permisos");
+    if (!res.ok) throw new ApiError(res.status, `API_ERROR: ${res.status}`);
 
     return res.json() as Promise<T>;
   } finally {
@@ -60,6 +69,25 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     if (error instanceof Error && error.message.startsWith("API_ERROR")) return null;
     throw error;
   }
+}
+
+// ──────────────────────────────────────────
+// Invitaciones de obreros (link cifrado de uso único)
+// ──────────────────────────────────────────
+
+export interface InvitacionConsumida {
+  persona: { id: string; nombre: string; telefono: string };
+  obra: { id: string; nombre: string };
+}
+
+export async function consumirInvitacion(
+  token: string,
+  telefono: string,
+): Promise<InvitacionConsumida> {
+  return apiRequest<InvitacionConsumida>("POST", "/bot/invitaciones/consumir", {
+    token,
+    telefono,
+  });
 }
 
 // ──────────────────────────────────────────

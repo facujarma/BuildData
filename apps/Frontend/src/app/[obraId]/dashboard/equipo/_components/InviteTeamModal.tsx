@@ -3,25 +3,42 @@
 import { useState, useEffect, useCallback } from "react";
 import { Xmark, Check, ArrowRight, ChevronRight, Persons, Comment } from "@gravity-ui/icons";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { crearInvitacionObrero } from "@/services/equipoService";
 import { ROLES } from "../data";
 
 interface InviteTeamModalProps {
   open: boolean;
+  obraId: string;
   onClose: () => void;
   onSave: (data: unknown) => void;
 }
 
-export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps) {
+const BOT_PHONE = (process.env.NEXT_PUBLIC_BOT_PHONE || "").replace(/\D/g, "");
+
+// Los links wa.me a celulares argentinos necesitan el 9 (54 9 <area> <numero>).
+function telefonoWhatsapp(telefono: string): string {
+  const digitos = telefono.replace(/\D/g, "");
+  if (digitos.startsWith("54") && digitos[2] !== "9") {
+    return `549${digitos.slice(2)}`;
+  }
+  return digitos;
+}
+
+export function InviteTeamModal({ open, obraId, onClose, onSave }: InviteTeamModalProps) {
   const [mode, setMode] = useState<"miembro" | "obrero" | null>(null);
   const [m, setM] = useState({ email: "", nombre: "", rol: "Sin asignar" });
   const [o, setO] = useState({ nombre: "", tel: "" });
   const [link, setLink] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setMode(null);
     setM({ email: "", nombre: "", rol: "Sin asignar" });
     setO({ nombre: "", tel: "" });
     setLink(null);
+    setGenerating(false);
+    setError(null);
   }, []);
 
   const close = useCallback(() => {
@@ -43,12 +60,26 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.email.trim());
   const obreroOk = o.nombre.trim().length >= 2 && o.tel.trim().length >= 6;
 
-  const genLink = () => {
-    if (!obreroOk) return;
-    let h = 0;
-    const s = o.nombre + o.tel + Date.now();
-    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-    setLink("wa.me/buildata/ob-" + h.toString(36).slice(0, 8));
+  const genLink = async () => {
+    if (!obreroOk || generating) return;
+    if (!BOT_PHONE) {
+      setError("Falta configurar NEXT_PUBLIC_BOT_PHONE");
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      const { token } = await crearInvitacionObrero(obraId, {
+        nombre: o.nombre.trim(),
+        telefono: o.tel.trim(),
+      });
+      const texto = encodeURIComponent(`!invitacion ${token}`);
+      setLink(`https://wa.me/${BOT_PHONE}?text=${texto}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo generar el link");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const saveMiembro = () => {
@@ -57,6 +88,9 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
   };
 
   const saveObrero = () => {
+    if (!link) return;
+    const destino = telefonoWhatsapp(o.tel);
+    window.open(`https://wa.me/${destino}?text=${encodeURIComponent(link)}`, "_blank", "noopener");
     onSave({ mode: "obrero", name: o.nombre.trim(), phone: o.tel.trim(), link });
     close();
   };
@@ -170,10 +204,26 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
                 <PhoneInput value={o.tel} onChange={(full) => { setO({ ...o, tel: full }); setLink(null); }} />
               </label>
               {link && (
-                <div className="flex items-center gap-2 bg-success-50 border border-[#BBF7D0] rounded-md px-3 py-[8px]">
-                  <Comment width={13} height={13} className="text-[#15803D] flex-none" />
-                  <code className="flex-1 min-w-0 text-[11px] text-[#15803D] font-semibold truncate">{link}</code>
-                  <span className="text-[10px] font-bold text-[#15803D]">link generado</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 bg-success-50 border border-[#BBF7D0] rounded-md px-3 py-[8px]">
+                    <Comment width={13} height={13} className="text-[#15803D] flex-none" />
+                    <code className="flex-1 min-w-0 text-[11px] text-[#15803D] font-semibold truncate" title={link}>{link}</code>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(link)}
+                      className="text-[10px] font-bold text-[#15803D] hover:underline flex-none"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-slate-500 leading-snug">
+                    Link de uso único, válido 7 días. Los datos viajan cifrados y el bot los valida al recibirlo.
+                  </div>
+                </div>
+              )}
+              {error && (
+                <div className="text-[11px] text-[#B91C1C] bg-[#FEF2F2] border border-[#FECACA] rounded-md px-3 py-[8px]">
+                  {error}
                 </div>
               )}
             </div>
@@ -189,10 +239,10 @@ export function InviteTeamModal({ open, onClose, onSave }: InviteTeamModalProps)
               ) : (
                 <button
                   onClick={genLink}
-                  disabled={!obreroOk}
-                  className={`inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors ${obreroOk ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"}`}
+                  disabled={!obreroOk || generating}
+                  className={`inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors ${obreroOk && !generating ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"}`}
                 >
-                  Generar link <ArrowRight width={14} height={14} />
+                  {generating ? "Generando…" : "Generar link"} <ArrowRight width={14} height={14} />
                 </button>
               )}
             </div>
