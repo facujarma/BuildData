@@ -5,8 +5,8 @@ export const ayudaCommand: Command = {
   description: "Muestra los comandos disponibles",
   execute: async (message) => {
     const lista = getAllCommands()
-      .map((c) => `*${c.name}* — ${c.description}`)
+      .map((c) => `• *${c.name}* — ${c.description}`)
       .join("\n");
-    await message.reply(`Comandos disponibles:\n\n${lista}`);
+    await message.reply(`🛠️ *Comandos disponibles*\n\n${lista}`);
   },
 };

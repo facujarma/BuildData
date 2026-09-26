@@ -71,7 +71,7 @@ export async function handleImage(
 
 function formatComprobante(data: ComprobanteData): string {
   return `
-✅ *Comprobante detectado*
+📄 *Comprobante detectado*
 
 🏦 *Entidad:* ${data.entidad || "-"}
 📋 *Tipo:* ${data.tipo || "-"}

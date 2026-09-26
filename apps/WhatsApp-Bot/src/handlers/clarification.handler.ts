@@ -19,8 +19,22 @@ import { getClient } from "../client";
 import { sendOperationConfirmation } from "../services/pollConfirmation.service";
 
 const MAX_ATTEMPTS = 3;
-const GENERIC_RETRY = "No te entendí, ¿me lo podés decir de otra forma?";
+const GENERIC_RETRY = "🤔 No te entendí, ¿me lo podés decir de otra forma?";
 const RECENT_TURNS = 2;
+
+// Emoji según el tipo de dato que se está pidiendo, para que la pregunta se vea más clara.
+function emojiCampo(type: MissingField["type"]): string {
+  switch (type) {
+    case "number":
+      return "🔢";
+    case "boolean":
+      return "✅";
+    case "array":
+      return "📋";
+    default:
+      return "✏️";
+  }
+}
 
 async function ask(
   phone: string,
@@ -37,7 +51,7 @@ async function ask(
   let text = question;
   if (state.attempts >= MAX_ATTEMPTS) {
     if (examples && examples.length > 0) {
-      text += `\n\nPor ejemplo: ${examples.map((e) => `_"${e}"_`).join(" o ")}`;
+      text += `\n\n💡 Por ejemplo: ${examples.map((e) => `_"${e}"_`).join(" o ")}`;
     }
     text += "\n\n_Si no sabés, respondé *!cancel* y lo dejamos para después._";
   }
@@ -86,7 +100,14 @@ async function concludeTurn(
   }
 
   const next = missing[0];
-  await ask(phone, chatId, state, formatMissingQuestion(next), next.path, next.examples);
+  await ask(
+    phone,
+    chatId,
+    state,
+    `${emojiCampo(next.type)} ${formatMissingQuestion(next)}`,
+    next.path,
+    next.examples,
+  );
 }
 
 function tryDeterministicAnswer(state: Clarification, reply: string): boolean {

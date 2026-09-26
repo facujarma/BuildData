@@ -6,8 +6,16 @@ export const buildingsCommand: Command = {
   description: "Muestra las obras en las que formas parte",
   execute: async (message) => {
     const phone = (await message.getContact()).number;
-    const obras = await getUserByPhone(phone)
+    const obras = await getUserByPhone(phone);
 
-    message.reply(obras ? `Formas parte de las siguientes obras:\n\n${obras.obras.map(o => `*${o.obra_nombre}* (ID: ${o.obra_id})`).join("\n")}` : "No formas parte de ninguna obra.");
+    if (!obras) {
+      await message.reply("🏗️ Todavía no formás parte de ninguna obra.");
+      return;
+    }
+
+    const lista = obras.obras
+      .map((o) => `• *${o.obra_nombre}*\n   ID: \`${o.obra_id}\``)
+      .join("\n");
+    await message.reply(`🏗️ *Tus obras*\n\n${lista}`);
   },
 };
