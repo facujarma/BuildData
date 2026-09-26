@@ -54,11 +54,11 @@ interface NavLink {
 
 type NavEntry = NavLink | NavGroup;
 
-function buildNavItems(obraId: string): NavEntry[] {
+function buildNavItems(obraId: string, operacionesPendientes: number): NavEntry[] {
   const p = `/${obraId}/dashboard`;
   return [
     { kind: "link", id: "dashboard",  label: "Dashboard",   href: p,                              icon: <LayoutHeaderCellsLarge width={16} height={16} /> },
-    { kind: "link", id: "inbox",      label: "Bandeja",     href: `${p}/inbox`,                   icon: <Envelope width={16} height={16} />,            badge: 3 },
+    { kind: "link", id: "inbox",      label: "Bandeja",     href: `${p}/inbox`,                   icon: <Envelope width={16} height={16} />,            badge: operacionesPendientes > 0 ? operacionesPendientes : undefined },
     { kind: "link", id: "cronograma", label: "Cronograma",  href: `${p}/cronograma`,              icon: <Calendar width={16} height={16} /> },
     {
       kind: "group", id: "materiales", label: "Materiales", base: `${p}/materiales`,
@@ -121,11 +121,11 @@ export function DashSidebar({
   projectLabel?: string;
 }) {
   const pathname = usePathname();
-  const { obraName, obraProgress, obraId } = useDashboardData();
+  const { obraName, obraProgress, obraId, operacionesPendientes } = useDashboardData();
   const { profile, logout } = useAuth();
   const projectLabel = explicitLabel ?? obraName;
   const obraLoading = !projectLabel;
-  const navItems = buildNavItems(obraId);
+  const navItems = buildNavItems(obraId, operacionesPendientes);
   const p = `/${obraId}/dashboard`;
   const nombre = (profile?.nombre as string | undefined)?.trim() || "Usuario";
 

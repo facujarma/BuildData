@@ -23,6 +23,7 @@ interface DashboardStats {
   alertasDelta: string;
   pedidos: number;
   pedidosPendientes: number;
+  operacionesPendientes: number;
   tareasCompletadas: number;
   tareasTotal: number;
 }

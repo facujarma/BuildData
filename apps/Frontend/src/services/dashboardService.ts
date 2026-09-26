@@ -29,6 +29,7 @@ function transformDashboard(api: ApiDashboardResponse): DashboardData {
       alertasDelta:      `+${api.stats.alertasDeltaHoy} hoy`,
       pedidos:           api.stats.pedidos,
       pedidosPendientes: api.stats.pedidosPendientes,
+      operacionesPendientes: api.stats.operacionesPendientes,
       tareasCompletadas: api.stats.tareasCompletadas,
       tareasTotal:       api.stats.tareasTotal,
     },

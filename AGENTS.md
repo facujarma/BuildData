@@ -29,10 +29,20 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Ruteo de mensajes** (`message.handler.ts`): texto numérico → `handleEntityTextReply` primero, luego `handleObraTextReply` si hay pending → `!comando` → `handleFreeText`. Audio se transcribe (`voice.handler` setea `message.body`) y cae al MISMO `handleFreeText`. Imagen → comprobante/factura → `sendObraConfirmationText`
 - **Repregunta (clarification loop)**: si a una operación del LLM le faltan campos requeridos (`collectMissingFields` según el schema, incluye subcampos de `items`/`movimientos`), `freetext.handler` guarda una `Clarification` en el store y pregunta el `prompt` del primer campo faltante (definido por campo en `endpointSchema.ts`). `handleFreeText` delega a `clarification.handler` si hay repregunta pendiente (antes de cancelar pendings). Atajo sin LLM: si el campo preguntado (`pendingFieldPath`) es simple (número/booleano/palabra) y la respuesta parsea, `answerParser.service.ts` la escribe directo y se revalida; si no, `completeOperationFromReply` mergea con memoria (mensaje original + ops + últimos 2 intercambios), revalida y repregunta. Recién al completar sigue el flujo normal (`sendOperationConfirmation` → encuesta de obra → resolución de entidades). `!cancel`, una imagen nueva o un comando desconocido con pending cortan el loop
 - **Prompt de repregunta acotado**: `completeOperationFromReply` NO manda `ENDPOINTS_DESC` completo; manda `buildEndpointIndex()` (resumen de 1 línea) + `buildEndpointDescription(paths)` solo del/los endpoint(s) en curso (~1.3k chars vs ~3k antes). `textToOperation` sigue usando la descripción completa
-- **`executePending()` SÍ ejecuta la API real**: arma el payload (agrega `obra_id`, `telefono`, `mensaje_id`), **interpola params de path** (ej: `:id` → `tarea_id`) vía `services/pathParams.service.ts`, y llama `callEndpoint()` (`api.service.ts`, fetch a `API_URL` con service role key)
+- **El bot NO ejecuta: registra operaciones**: tras resolver obra y entidades arma el lote y lo manda a `POST /bot/operaciones` con endpoint, method, payload final (IDs resueltos, params de path incluidos) y la metadata de la card (`tipo`, `destino`, `campos`, `confianza`). El Backend decide: ejecuta al toque las automáticas y deja el resto pendiente de aprobación. La ejecución (loopback + allowlist) y la interpolación de params de path viven en `services/operaciones.service.js` del Backend
 - **Comandos registrados**: `!iniciar`, `!ayuda`, `!cancel`, `!obras` — **NO existe `!confirm`**
 - **Whitelist de comandos sin verificar obra**: `!iniciar` y `!ayuda` (saltan `getUserObras`)
 - **User cache**: `user.service.ts` cachea usuarios 5 min en Map en memoria
+
+## Aprobación de operaciones (bandeja)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_operaciones.sql` (tabla `operaciones_bot` + `alertas.operacion_id`). Una fila por operación con payload, metadata de card, estado (`pendiente | ejecutando | ejecutada | rechazada | error`), resultado/error, aprobador y timestamps
+- **Política** (`services/operaciones.service.js`, `ENDPOINTS_OPERACION`): requieren aprobación pedidos, stock (uso/ingreso/ajuste), gastos (texto/imagen) y retraso; son automáticas tareas (crear/completar). `obras.aprobacion_automatica` auto-aprueba TODO en esa obra
+- El ejecutor corre por **loopback** a `http://127.0.0.1:${PORT}` (`SELF_URL` lo override) con la service key y una **allowlist** (`esEndpointPermitido`): un endpoint fuera de la lista se rechaza (anti-SSRF). Interpola params de path y usa UPDATE condicional `pendiente|error → ejecutando` (anti doble ejecución); guarda `resultado`/`error_detalle`
+- `PATCH /operaciones/:id/aprobar | /rechazar | /reintentar` (`routes/operaciones.js`, JWT + membresía; **sin roles por ahora**). Al aprobar un pedido se inyecta `aprobado_por` y nace `aprobado` (sin doble aprobación)
+- `POST /bot/operaciones` crea la alerta `operacion_pendiente` (resuelta al aprobar/rechazar) y deriva el estado del mensaje con `actualizarEstadoMensaje()`: `pendiente_aprobacion | procesado | error | rechazado`
+- Frontend: `GET /mensajes/:obraId` (con membresía) devuelve cada mensaje con `operaciones[]`; la bandeja (`ScreenInbox`) aprueba/rechaza por operación y muestra contadores reales (dashboard/sidebar). `mensajes.action_executed` y `PATCH /bot/mensaje/:id` quedan **legacy** (historial)
+- Al agregar un endpoint de operación: sumarlo a `ENDPOINTS_OPERACION` con `auto` según política
 
 ## Resolución de entidades (nombres → IDs, sin LLM)
 
@@ -109,12 +119,13 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 ## Variables de entorno
 
 - **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`
-- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI)
+- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI), `SELF_URL` (opcional; URL del loopback del executor de operaciones, default `http://127.0.0.1:${PORT}`)
 - NUNCA comitear `.env`
 
 ## Backend — rutas y flujo de tareas
 
-- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock` (`tipo` `entrada`/`salida`, acepta `observacion` por movimiento), **`POST /bot/stock/ajuste`** (`tipo_ajuste` `delta`/`stock_final`), `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`. **No existe alta de materiales desde el bot** (solo web)
+- Rutas `/bot/*` (`routes/bot.js`, auth = service role key): `POST /bot/mensaje`, `GET /bot/entidades/buscar`, **`POST /bot/operaciones`** (cola de aprobación), `POST /bot/materiales`, `POST /bot/pedidoDeCompra`, `POST /bot/retraso`, `POST /bot/stock` (`tipo` `entrada`/`salida`, acepta `observacion` por movimiento), **`POST /bot/stock/ajuste`** (`tipo_ajuste` `delta`/`stock_final`), `POST /bot/tareas`, **`PATCH /bot/tareas/:id/completar`**, `POST /bot/gastos`, `POST /bot/obreros/registrar`, `GET /bot/obreros/telefono/:phone`. `PATCH /bot/mensaje/:id` queda legacy
+- Rutas web de aprobación (`routes/operaciones.js`, JWT + membresía): `PATCH /operaciones/:id/aprobar | /rechazar | /reintentar`
 - **`PATCH /bot/tareas/:id/completar`** (`tareasController.js:completarTareaDesdeBot`):
   - `id` en la **URL**; body acepta `{ telefono, completada?, porcentaje_avance?, mensaje_id? }`
   - `completada=false` → **reabre** (estado `pendiente`, limpia `completada_por`/`fecha_completada`, % = 0 o el dado); default → `completada`, % = 100 o el dado

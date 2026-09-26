@@ -2,39 +2,20 @@ import type { ApiCall } from "../handlers/pendingQuery.store";
 import { getEndpointSchema } from "./endpointSchema";
 import type { ComprobanteData, FacturaData } from "./vision.service";
 
-// Un elemento de mensajes.action_executed: el registro de UNA llamada ejecutada.
-// El frontend lo usa para renderizar la "Interpretación de la IA"
-// (tipo → destino, campos, confianza, resultado aplicado).
-export interface ActionExecuted {
-  endpoint: string;
-  method: string;
+// Metadata de una operación del bot: lo que la bandeja usa para renderizar la
+// card de "Interpretación de la IA" (tipo → destino, campos legibles, confianza).
+export interface OperationMetadata {
   tipo: string;
   destino: string;
+  campos: [string, string][];
   confianza?: number;
   comment?: string;
-  campos: [string, string][];
-  data: Record<string, unknown>;
-  result?: unknown;
-  estado: "ejecutado" | "error";
-  error?: string;
-  ejecutado_at: string;
-}
-
-export interface ActionOutcome {
-  body: Record<string, unknown>;
-  result?: unknown;
-  error?: unknown;
 }
 
 // Clave del nombre legible de una entidad resuelta dentro de data.
 // Ej: ("items", 0, "material_id") → "items[0].material_id"; (null, 0, "tarea_id") → "tarea_id".
 export function displayPath(dataKey: string | null, itemIndex: number, targetKey: string): string {
   return dataKey ? `${dataKey}[${itemIndex}].${targetKey}` : targetKey;
-}
-
-export function formatError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 export function clamp01(value: number): number {
@@ -282,56 +263,29 @@ function fallbackFields(data: Record<string, unknown>): [string, string][] {
   return campos;
 }
 
-export function buildActionExecuted(op: ApiCall, outcome: ActionOutcome): ActionExecuted {
+// Metadata de una operación resuelta, antes de ejecutarse. `payload` es el body
+// final (con IDs resueltos y params de path incluidos).
+export function buildOperationMetadata(
+  op: ApiCall,
+  payload: Record<string, unknown>,
+): OperationMetadata {
   const meta = ACTION_META[op.endpoint];
-  // Mezcla: op.data conserva los campos de path (ej. tarea_id) que se sacan del body.
-  const data = { ...op.data, ...outcome.body };
+  const data = { ...op.data, ...payload };
   const tipo = typeof meta?.tipo === "function" ? meta.tipo(data) : meta?.tipo;
 
-  const action: ActionExecuted = {
-    endpoint: op.endpoint,
-    method: op.method,
+  const metadata: OperationMetadata = {
     tipo: tipo ?? getEndpointSchema(op.endpoint)?.description ?? op.endpoint,
     destino: meta?.destino ?? "—",
     campos: meta ? meta.fields(data, op.display) : fallbackFields(data),
-    // data mezclada: conserva los params de path (ej. tarea_id) que se sacan del body.
-    data,
-    estado: outcome.error ? "error" : "ejecutado",
-    ejecutado_at: new Date().toISOString(),
   };
-  if (typeof op.confianza === "number") action.confianza = clamp01(op.confianza);
-  if (op.comment) action.comment = op.comment;
-  if (outcome.result !== undefined) action.result = outcome.result;
-  if (outcome.error) action.error = formatError(outcome.error);
-  return action;
+  if (typeof op.confianza === "number") metadata.confianza = clamp01(op.confianza);
+  if (op.comment) metadata.comment = op.comment;
+  return metadata;
 }
 
-function documentAction(
-  tipo: string,
-  payload: Record<string, unknown>,
-  campos: [string, string][],
-  outcome: { result?: unknown; error?: unknown },
-): ActionExecuted {
-  const action: ActionExecuted = {
-    endpoint: "/bot/gastos",
-    method: "POST",
-    tipo,
-    destino: "Gastos",
-    campos,
-    data: payload,
-    estado: outcome.error ? "error" : "ejecutado",
-    ejecutado_at: new Date().toISOString(),
-  };
-  if (outcome.result !== undefined) action.result = outcome.result;
-  if (outcome.error) action.error = formatError(outcome.error);
-  return action;
-}
-
-export function buildComprobanteAction(
+export function buildComprobanteMetadata(
   data: ComprobanteData,
-  payload: Record<string, unknown>,
-  outcome: { result?: unknown; error?: unknown },
-): ActionExecuted {
+): OperationMetadata {
   const campos: [string, string][] = [];
   add(campos, "Entidad", data.entidad);
   add(campos, "Tipo", data.tipo);
@@ -340,14 +294,10 @@ export function buildComprobanteAction(
   add(campos, "Origen", data.origen);
   add(campos, "Destino", data.destino);
   add(campos, "N° Operación", data.numeroOperacion);
-  return documentAction("Comprobante", payload, campos, outcome);
+  return { tipo: "Comprobante", destino: "Gastos", campos };
 }
 
-export function buildFacturaAction(
-  data: FacturaData,
-  payload: Record<string, unknown>,
-  outcome: { result?: unknown; error?: unknown },
-): ActionExecuted {
+export function buildFacturaMetadata(data: FacturaData): OperationMetadata {
   const campos: [string, string][] = [];
   add(campos, "Tipo", data.tipoFactura);
   add(campos, "N° Factura", data.numero);
@@ -365,5 +315,5 @@ export function buildFacturaAction(
   add(campos, "Subtotal", data.subtotal);
   add(campos, "IVA", data.iva);
   add(campos, "Total", data.total);
-  return documentAction("Factura", payload, campos, outcome);
+  return { tipo: "Factura", destino: "Gastos", campos };
 }

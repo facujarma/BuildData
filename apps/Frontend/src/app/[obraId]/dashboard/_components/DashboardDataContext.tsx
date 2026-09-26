@@ -24,6 +24,8 @@ interface ContextValue {
   obraName: string;
   obraProgress: number;
   setObraInfo: (id: string, name: string, progress: number) => void;
+  operacionesPendientes: number;
+  setOperacionesPendientes: (n: number) => void;
 }
 
 const noop = async () => {};
@@ -37,6 +39,8 @@ const DashboardDataContext = createContext<ContextValue>({
   obraName: "",
   obraProgress: 0,
   setObraInfo: () => {},
+  operacionesPendientes: 0,
+  setOperacionesPendientes: () => {},
 });
 
 export function DashboardDataProvider({ children }: { children: ReactNode }) {
@@ -52,6 +56,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   const [obraId, setObraId] = useState("");
   const [obraName, setObraName] = useState("");
   const [obraProgress, setObraProgress] = useState(0);
+  const [operacionesPendientes, setOperacionesPendientes] = useState(0);
   const setObraInfo = useCallback((id: string, name: string, progress: number) => {
     setObraId(id);
     setObraName(name);
@@ -59,7 +64,7 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <DashboardDataContext.Provider value={{ data, setLookupData, refreshDashboard, setRefreshDashboardRef, obraId, obraName, obraProgress, setObraInfo }}>
+    <DashboardDataContext.Provider value={{ data, setLookupData, refreshDashboard, setRefreshDashboardRef, obraId, obraName, obraProgress, setObraInfo, operacionesPendientes, setOperacionesPendientes }}>
       {children}
     </DashboardDataContext.Provider>
   );

@@ -39,14 +39,6 @@ async function apiRequest<T>(
   }
 }
 
-export async function callEndpoint(
-  method: "POST" | "GET" | "PATCH",
-  path: string,
-  body?: Record<string, unknown>,
-): Promise<unknown> {
-  return apiRequest<unknown>(method, path, body);
-}
-
 export async function registerUser(
   phone: string,
   name: string,
@@ -97,14 +89,40 @@ export async function registrarMensaje(payload: {
   return apiRequest<{ id: string }>("POST", "/bot/mensaje", payload);
 }
 
-// Persiste la interpretación ya ejecutada del mensaje (columna mensajes.action_executed).
-export async function actualizarMensajeAcciones(
-  mensajeId: string,
-  payload: {
-    action_executed: unknown[];
-    estado_procesamiento?: "procesado" | "error";
-    error_detalle?: string;
-  },
-): Promise<void> {
-  await apiRequest("PATCH", `/bot/mensaje/${mensajeId}`, payload);
+// ──────────────────────────────────────────
+// Operaciones del mensaje (cola de aprobación)
+// ──────────────────────────────────────────
+
+export interface OperacionRegistrada {
+  id: string;
+  endpoint: string;
+  estado: "pendiente" | "ejecutando" | "ejecutada" | "rechazada" | "error";
+  tipo?: string | null;
+  error_detalle?: string | null;
+}
+
+export interface OperacionParaRegistrar {
+  endpoint: string;
+  method: string;
+  payload: Record<string, unknown>;
+  tipo: string;
+  destino: string;
+  campos: [string, string][];
+  comment?: string;
+  confianza?: number;
+  display?: Record<string, string>;
+}
+
+// El Backend decide qué ejecutar y qué dejar pendiente de aprobación.
+export async function registrarOperaciones(body: {
+  obra_id: string;
+  mensaje_id?: string;
+  telefono: string;
+  operaciones: OperacionParaRegistrar[];
+}): Promise<{ operaciones: OperacionRegistrada[] }> {
+  return apiRequest<{ operaciones: OperacionRegistrada[] }>(
+    "POST",
+    "/bot/operaciones",
+    body,
+  );
 }

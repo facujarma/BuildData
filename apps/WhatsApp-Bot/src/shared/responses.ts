@@ -7,13 +7,14 @@ export const MSG = {
   ERROR_AUDIO_DOWNLOAD:      "❌ No pude descargar el audio, grabálo de nuevo.",
   ERROR_TRANSCRIPTION:       "❌ No entendí el audio, ¿podés repetirlo?",
   ERROR_UNKNOWN_DOCUMENT:    "❌ No reconocí el documento. Mandá una foto más clara del comprobante o factura.",
-  ERROR_UNKNOWN_COMMAND:     "Ese comando no lo conozco. Escribí *!ayuda* para ver los que tengo.",
+  ERROR_UNKNOWN_COMMAND:     "🤔 Ese comando no lo conozco. Escribí *!ayuda* para ver los que tengo.",
   ERROR_CANCELLED_BAD_CMD:   "❌ No entendí el comando, así que cancelé lo que teníamos. Escribí *!ayuda* para ver los disponibles.",
   ERROR_NO_OBRA:            "⚠️ No tenés ninguna obra asociada a este número. Usá *!iniciar* para registrarte.",
   ERROR_PROCESSING:          "❌ Algo salió mal, probá de nuevo.",
   ERROR_MISSING_FIELDS:      "❌ Me falta información para completar eso. ¿Podés darme más detalles?",
 
-  SUCCESS_DATA_SAVED:        "✅ Listo, ya quedó guardado.",
+  SUCCESS_DATA_SAVED:        "✅ ¡Listo! Ya quedó guardado.",
+  SUCCESS_DATA_PENDING_APPROVAL: "✅ Lo registré. Queda pendiente de aprobación en la bandeja de la app.",
   SUCCESS_DATA_CANCELLED:    "❌ Dale, lo cancelé.",
 
   PROMPT_CONFIRM: "¿Todo bien? Mandá *!confirm* si está OK o *!cancel* para cancelar.",
@@ -28,5 +29,5 @@ export function MSG_OPERATION_GENERATED(json: string): string {
 }
 
 export function MSG_TRANSCRIPTION(text: string): string {
-  return `Escuché esto: "${text}"`;
+  return `🎤 Escuché esto: "${text}"`;
 }

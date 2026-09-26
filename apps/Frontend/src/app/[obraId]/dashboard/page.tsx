@@ -18,7 +18,8 @@ export default function DashboardPage({
   const { obraId } = use(params);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
-  const { setRefreshDashboardRef, setObraInfo } = useDashboardData();
+  const { setRefreshDashboardRef, setObraInfo, setOperacionesPendientes } =
+    useDashboardData();
 
   const refresh = useCallback(async () => {
     if (!obraId) return;
@@ -27,10 +28,11 @@ export default function DashboardPage({
       const fresh = await getDashboard(obraId);
       setData(fresh);
       setObraInfo(obraId, fresh.obra.name, fresh.stats.avanceTotal);
+      setOperacionesPendientes(fresh.stats.operacionesPendientes);
     } finally {
       setLoading(false);
     }
-  }, [obraId, setObraInfo]);
+  }, [obraId, setObraInfo, setOperacionesPendientes]);
 
   useEffect(() => {
     setRefreshDashboardRef(refresh);

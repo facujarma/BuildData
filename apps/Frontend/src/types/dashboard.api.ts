@@ -48,6 +48,7 @@ interface ApiDashboardStats {
   alertasDeltaHoy: number;    // ej: 1 (el front formatea como "+1 hoy")
   pedidos: number;
   pedidosPendientes: number;
+  operacionesPendientes: number;
   tareasCompletadas: number;
   tareasTotal: number;
 }

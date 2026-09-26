@@ -1,10 +1,32 @@
 import { supabase } from "@/lib/supabaseClient";
-import type { InboxKind, InboxMessage, InboxState } from "@/types/inbox";
+import type {
+  InboxKind,
+  InboxMessage,
+  InboxState,
+  Operacion,
+} from "@/types/inbox";
 
 import { formatMessageTime } from "@/lib/format";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+interface OperacionRow {
+  id: string;
+  endpoint: string;
+  method: string;
+  tipo?: string | null;
+  destino?: string | null;
+  comment?: string | null;
+  confianza?: number | null;
+  campos?: [string, string][] | null;
+  estado: string;
+  error_detalle?: string | null;
+  ejecutada_at?: string | null;
+  created_at: string;
+}
+
+// Mensajes viejos (previos a la cola de operaciones): su interpretación quedó en
+// action_executed. Se mapean como operaciones ya ejecutadas para no perder historial.
 interface ActionExecutedRow {
   endpoint?: string;
   method?: string;
@@ -15,7 +37,6 @@ interface ActionExecutedRow {
   campos?: [string, string][];
   estado?: string;
   error?: string;
-  result?: { id?: string } & Record<string, unknown>;
 }
 
 interface MensajeRow {
@@ -26,12 +47,19 @@ interface MensajeRow {
   error_detalle: string | null;
   created_at: string;
   action_executed: ActionExecutedRow[] | null;
+  operaciones: OperacionRow[] | null;
   usuario_nombre: string | null;
   rol: string | null;
 }
 
-interface InboxData {
-  items: InboxMessage[];
+async function authHeaders(): Promise<Record<string, string>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session?.access_token || ""}`,
+  };
 }
 
 function shortId(id: string): string {
@@ -45,87 +73,108 @@ function kindFromTipo(tipo: string | null): InboxKind {
   return "text";
 }
 
-// Un mensaje puede tener varias acciones ejecutadas (ej: pedido + stock).
-// Se concatenan los campos de todas, desambiguando labels repetidos.
-function mergeCampos(actions: ActionExecutedRow[]): [string, string][] {
-  if (actions.length <= 1) return actions[0]?.campos ?? [];
-  const campos: [string, string][] = [];
-  for (const action of actions) {
-    for (const [key, value] of action.campos ?? []) {
-      const label = campos.some(([k]) => k === key)
-        ? `${action.tipo ?? "Acción"} · ${key}`
-        : key;
-      campos.push([label, value]);
-    }
+function toOperacion(row: OperacionRow): Operacion {
+  const operacion: Operacion = {
+    id: row.id,
+    endpoint: row.endpoint,
+    method: row.method,
+    tipo: row.tipo ?? "Operación",
+    destino: row.destino ?? "—",
+    campos: Array.isArray(row.campos) ? row.campos : [],
+    estado: (row.estado as Operacion["estado"]) ?? "pendiente",
+    created_at: row.created_at,
+  };
+  if (typeof row.confianza === "number") operacion.confianza = row.confianza;
+  if (row.comment) operacion.comment = row.comment;
+  if (row.error_detalle) operacion.errorDetalle = row.error_detalle;
+  if (row.ejecutada_at) operacion.ejecutadaAt = row.ejecutada_at;
+  return operacion;
+}
+
+function legacyOperacion(row: ActionExecutedRow, index: number): Operacion {
+  return {
+    id: `legacy-${index}`,
+    endpoint: row.endpoint ?? "",
+    method: row.method ?? "",
+    tipo: row.tipo ?? "Operación",
+    destino: row.destino ?? "—",
+    campos: row.campos ?? [],
+    confianza: row.confianza,
+    estado: row.estado === "error" ? "error" : "ejecutada",
+    errorDetalle: row.error,
+    created_at: "",
+  };
+}
+
+function estadoDeMensaje(row: MensajeRow, operaciones: Operacion[]): InboxState {
+  if (operaciones.some((o) => o.estado === "pendiente" || o.estado === "ejecutando")) {
+    return "pending";
   }
-  return campos;
+  if (operaciones.some((o) => o.estado === "error")) return "error";
+  if (operaciones.some((o) => o.estado === "ejecutada")) return "confirmed";
+  if (operaciones.length > 0) return "discarded";
+
+  // Sin operaciones: nota guardada o mensaje sin acción.
+  if (row.estado_procesamiento === "pendiente_aprobacion") return "pending";
+  if (row.estado_procesamiento === "error") return "error";
+  if (row.estado_procesamiento === "rechazado") return "discarded";
+  return "confirmed";
 }
 
 function toInboxMessage(row: MensajeRow): InboxMessage {
-  const actions = row.action_executed ?? [];
-  const primary = actions[0];
-  const destinos = [
-    ...new Set(actions.map((a) => a.destino).filter((d): d is string => Boolean(d))),
-  ];
-  const conf = actions.find((a) => typeof a.confianza === "number")?.confianza;
-  const errores = row.error_detalle
-    ? [row.error_detalle]
-    : actions
-        .filter((a) => a.estado === "error" && a.error)
-        .map((a) => a.error as string);
-  const applied = actions
-    .filter((a) => a.estado !== "error")
-    .map((a) => `${a.destino ?? "Obra"} actualizado`);
+  const nuevas = Array.isArray(row.operaciones) ? row.operaciones : [];
+  const legacy = Array.isArray(row.action_executed) ? row.action_executed : [];
+  const operaciones =
+    nuevas.length > 0
+      ? nuevas.map(toOperacion)
+      : legacy.map(legacyOperacion);
 
-  const kind = kindFromTipo(row.tipo);
-  const state: InboxState = row.estado_procesamiento === "procesado" ? "confirmed" : "pending";
-
-  const message: InboxMessage = {
-    id: shortId(row.id),
-    dir: "in",
-    kind,
+  return {
+    id: row.id,
+    shortId: shortId(row.id),
+    kind: kindFromTipo(row.tipo),
     from: row.usuario_nombre ?? "Desconocido",
     role: row.rol ?? "",
     time: formatMessageTime(row.created_at),
     raw: row.contenido ?? "",
-    state,
-    mapped: [],
-    loose: [],
-    parse: primary
-      ? {
-          tipo: primary.tipo ?? "Operación",
-          destino: destinos.join(" + ") || "—",
-          campos: mergeCampos(actions),
-        }
-      : undefined,
-    applied: applied.length > 0 ? applied : undefined,
-    warn:
-      errores.length > 0
-        ? `No se pudo ejecutar: ${errores.join(" · ")}`
-        : undefined,
+    state: estadoDeMensaje(row, operaciones),
+    operaciones,
   };
+}
 
-  if (typeof conf === "number") message.conf = conf;
-  if (kind === "photo") message.photos = 1;
-  if (state === "confirmed") {
-    message.by = "Bot";
-    message.at = formatMessageTime(row.created_at);
-  }
-
-  return message;
+export interface InboxData {
+  items: InboxMessage[];
 }
 
 export async function getInbox(obraId: string): Promise<InboxData> {
-  const { data: { session } } = await supabase.auth.getSession();
-
   const res = await fetch(`${API_URL}/mensajes/${obraId}`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session?.access_token || ""}`,
-    },
+    headers: await authHeaders(),
   });
 
   if (!res.ok) throw new Error(`Mensajes fetch failed: ${res.status}`);
   const rows = (await res.json()) as MensajeRow[];
   return { items: rows.map(toInboxMessage) };
+}
+
+async function accionOperacion(id: string, accion: string): Promise<void> {
+  const res = await fetch(`${API_URL}/operaciones/${id}/${accion}`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `No se pudo ${accion} la operación (${res.status})`);
+  }
+}
+
+export async function aprobarOperacion(id: string): Promise<void> {
+  return accionOperacion(id, "aprobar");
+}
+
+export async function rechazarOperacion(id: string): Promise<void> {
+  return accionOperacion(id, "rechazar");
+}
+
+export async function reintentarOperacion(id: string): Promise<void> {
+  return accionOperacion(id, "reintentar");
 }

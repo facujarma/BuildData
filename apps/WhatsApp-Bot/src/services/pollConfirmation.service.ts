@@ -11,14 +11,19 @@ import {
   PendingQuery,
   ApiCall,
 } from "../handlers/pendingQuery.store";
-import { callEndpoint, registrarMensaje, actualizarMensajeAcciones } from "./api.service";
 import {
-  ActionExecuted,
-  buildActionExecuted,
-  buildComprobanteAction,
-  buildFacturaAction,
-} from "./actionExecuted.service";
+  registrarMensaje,
+  registrarOperaciones,
+  OperacionParaRegistrar,
+  OperacionRegistrada,
+} from "./api.service";
+import {
+  buildComprobanteMetadata,
+  buildFacturaMetadata,
+  buildOperationMetadata,
+} from "./operationMetadata.service";
 import { MSG } from "../shared/responses";
+import { emojiNumero, listaNumerada } from "../shared/format";
 import { Obra } from "../types/api.types";
 import {
   resolveOperationEntities,
@@ -27,7 +32,6 @@ import {
   EntityKind,
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
-import { interpolatePathParams } from "./pathParams.service";
 
 // Los montos de vision.service.ts llegan en formato argentino ("$1.234,56") — hay que
 // convertirlos a number antes de mandarlos a /bot/gastos, que espera monto: number.
@@ -36,106 +40,81 @@ function parseMontoArg(raw: string): number {
   return parseFloat(normalized) || 0;
 }
 
-// Persiste en mensajes.action_executed lo que efectivamente se ejecutó
-// (también los errores) para que el frontend pueda renderizar la interpretación.
-async function persistActions(pending: PendingQuery, actions: ActionExecuted[]): Promise<void> {
-  if (!pending.mensaje_id || actions.length === 0) return;
-  const failed = actions.filter((a) => a.estado === "error");
-  try {
-    await actualizarMensajeAcciones(pending.mensaje_id, {
-      action_executed: actions,
-      estado_procesamiento: failed.length > 0 ? "error" : "procesado",
-      error_detalle:
-        failed.length > 0
-          ? failed.map((a) => `${a.endpoint}: ${a.error ?? "error"}`).join(" | ")
-          : undefined,
-    });
-  } catch (error) {
-    console.error("[executePending] no se pudo guardar action_executed:", error);
-  }
-}
+// Arma el lote de operaciones del mensaje y lo registra en el Backend. El
+// Backend decide: ejecuta al toque (tareas u obra con aprobacion_automatica) o
+// deja la operación pendiente de aprobación en la bandeja. No se manda
+// `mensaje_id` en el payload para que los endpoints de negocio no pisen el
+// estado del mensaje (lo administra el servicio de operaciones).
+async function registrarOperacionesDelMensaje(
+  pending: PendingQuery,
+  obra: Obra,
+  phone: string,
+): Promise<OperacionRegistrada[]> {
+  const operaciones: OperacionParaRegistrar[] = [];
+  const base = { obra_id: pending.obra_id, telefono: phone };
 
-async function executePending(pending: PendingQuery, obraNombre: string, phone: string): Promise<void> {
-  const tag = `obra "${obraNombre}"`;
-  const actions: ActionExecuted[] = [];
+  if (pending.type === "operation") {
+    for (const op of pending.operation) {
+      // La nota ya es el mensaje crudo: no se re-ejecuta.
+      if (op.endpoint === "/bot/mensaje") continue;
 
-  try {
-    switch (pending.type) {
-      case "operation": {
-        for (const op of pending.operation) {
-          const { endpoint, method, data } = op;
-          const payload: Record<string, unknown> = {
-            ...data,
-            obra_id: pending.obra_id,
-            telefono: phone,
-            mensaje_id: pending.mensaje_id,
-          };
-          for (const userPhoneField of getUserPhoneFields(endpoint)) {
-            if (payload[userPhoneField] == null) payload[userPhoneField] = phone;
-          }
-          const { path, body } = interpolatePathParams(endpoint, payload);
-          console.log(`[executePending] → ${method} ${path} para ${tag}`);
-          console.log(`[executePending] payload: ${JSON.stringify(body)}`);
-          try {
-            const result = await callEndpoint(method, path, body);
-            console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-            actions.push(buildActionExecuted(op, { body, result }));
-          } catch (error) {
-            console.error(`[executePending] error llamando ${endpoint}:`, error);
-            actions.push(buildActionExecuted(op, { body, error }));
-            throw error;
-          }
-        }
-        break;
+      const payload: Record<string, unknown> = { ...op.data, ...base };
+      for (const userPhoneField of getUserPhoneFields(op.endpoint)) {
+        if (payload[userPhoneField] == null) payload[userPhoneField] = phone;
       }
-      case "comprobante": {
-        const d = pending.data;
-        const payload = {
-          obra_id: pending.obra_id,
-          telefono: phone,
-          monto: parseMontoArg(d.monto),
-          moneda: d.moneda || "ARS",
-          descripcion: `${d.entidad} - ${d.tipo}`,
-          origen: "bot_imagen",
-          comprobante_detalle: d,
-        };
-        console.log(`[executePending] → POST /bot/gastos (comprobante) para ${tag}`);
-        try {
-          const result = await callEndpoint("POST", "/bot/gastos", payload);
-          console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-          actions.push(buildComprobanteAction(d, payload, { result }));
-        } catch (error) {
-          actions.push(buildComprobanteAction(d, payload, { error }));
-          throw error;
-        }
-        break;
-      }
-      case "factura": {
-        const d = pending.data;
-        const payload = {
-          obra_id: pending.obra_id,
-          telefono: phone,
-          monto: parseMontoArg(d.total),
-          moneda: "ARS",
-          descripcion: `Factura ${d.tipoFactura} ${d.numero} de ${d.emisor}`,
-          origen: "bot_imagen",
-          comprobante_detalle: d,
-        };
-        console.log(`[executePending] → POST /bot/gastos (factura) para ${tag}`);
-        try {
-          const result = await callEndpoint("POST", "/bot/gastos", payload);
-          console.log(`[executePending] respuesta: ${JSON.stringify(result)}`);
-          actions.push(buildFacturaAction(d, payload, { result }));
-        } catch (error) {
-          actions.push(buildFacturaAction(d, payload, { error }));
-          throw error;
-        }
-        break;
-      }
+      operaciones.push({
+        endpoint: op.endpoint,
+        method: op.method,
+        payload,
+        ...buildOperationMetadata(op, payload),
+        display: op.display,
+      });
     }
-  } finally {
-    await persistActions(pending, actions);
+  } else if (pending.type === "comprobante") {
+    const d = pending.data;
+    const payload = {
+      ...base,
+      monto: parseMontoArg(d.monto),
+      moneda: d.moneda || "ARS",
+      descripcion: `${d.entidad} - ${d.tipo}`,
+      origen: "bot_imagen",
+      comprobante_detalle: d,
+    };
+    operaciones.push({
+      endpoint: "/bot/gastos",
+      method: "POST",
+      payload,
+      ...buildComprobanteMetadata(d),
+    });
+  } else {
+    const d = pending.data;
+    const payload = {
+      ...base,
+      monto: parseMontoArg(d.total),
+      moneda: "ARS",
+      descripcion: `Factura ${d.tipoFactura} ${d.numero} de ${d.emisor}`,
+      origen: "bot_imagen",
+      comprobante_detalle: d,
+    };
+    operaciones.push({
+      endpoint: "/bot/gastos",
+      method: "POST",
+      payload,
+      ...buildFacturaMetadata(d),
+    });
   }
+
+  console.log(
+    `[operaciones] registrando ${operaciones.length} operación(es) para obra "${obra.obra_nombre}"`,
+  );
+  const { operaciones: registradas } = await registrarOperaciones({
+    obra_id: obra.obra_id,
+    mensaje_id: pending.mensaje_id,
+    telefono: phone,
+    operaciones,
+  });
+  console.log(`[operaciones] estados: ${registradas.map((o) => o.estado).join(", ")}`);
+  return registradas;
 }
 
 function entityKindLabel(kind: EntityKind): string {
@@ -173,15 +152,13 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
       [
         `🤔 No encontré "*${question.entity}*" entre los *${entityKindPlural(question.kind)}* cargados en la obra.`,
         "",
-        `Respondé *0* para cancelar la operación.`,
+        `Respondé ${emojiNumero(0)} para cancelar la operación.`,
       ].join("\n"),
     );
     return;
   }
 
-  const lista = question.options
-    .map((o, i) => `*${i + 1}.* ${o.nombre}`)
-    .join("\n");
+  const lista = listaNumerada(question.options.map((o) => o.nombre));
 
   await client.sendMessage(
     chatId,
@@ -190,8 +167,8 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
       "",
       lista,
       "",
-      `*${question.options.length + 1}.* Ninguno de estos`,
-      `*0.* ❌ Cancelar`,
+      `${emojiNumero(question.options.length + 1)} Ninguno de estos`,
+      `${emojiNumero(0)} ❌ Cancelar`,
       "",
       "Respondé con el número.",
     ].join("\n"),
@@ -199,11 +176,12 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
 }
 
 /**
- * Flujo completo de ejecución tras elegir la obra:
+ * Flujo completo tras elegir la obra:
  * 1) registra el mensaje crudo (POST /bot/mensaje) → mensaje_id
- * 2) pide el catálogo y resuelve nombres → IDs (LLM + auto-creación)
+ * 2) resuelve nombres → IDs por similitud (Backend /bot/entidades/buscar)
  * 3) si algo queda dudoso → encuesta al usuario (y queda en pausa)
- * 4) si todo resuelto → executePending real → mensaje de éxito
+ * 4) si todo resuelto → registra las operaciones (POST /bot/operaciones);
+ *    el Backend ejecuta las automáticas y deja el resto pendiente de aprobación
  */
 async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: string, chatId: string): Promise<void> {
   pending.obra_id = obra.obra_id;
@@ -241,11 +219,26 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
   clearEntityPending(phone);
   clearPending(phone);
   try {
-    await executePending(pending, obra.obra_nombre, phone);
-    await client.sendMessage(chatId, MSG.SUCCESS_DATA_SAVED);
+    const registradas = await registrarOperacionesDelMensaje(pending, obra, phone);
+    const pendientes = registradas.filter((o) => o.estado === "pendiente").length;
+    const errores = registradas.filter((o) => o.estado === "error").length;
+
+    if (errores > 0) {
+      await client.sendMessage(
+        chatId,
+        "❌ No pude registrar la operación. Intentá de nuevo.",
+      );
+    } else if (pendientes > 0) {
+      await client.sendMessage(chatId, MSG.SUCCESS_DATA_PENDING_APPROVAL);
+    } else {
+      await client.sendMessage(chatId, MSG.SUCCESS_DATA_SAVED);
+    }
   } catch (error) {
-    console.error("[prepareAndExecute] error ejecutando:", error);
-    await client.sendMessage(chatId, "❌ Ocurrió un error al ejecutar la operación. Intentá de nuevo.");
+    console.error("[prepareAndExecute] error registrando operaciones:", error);
+    await client.sendMessage(
+      chatId,
+      "❌ Ocurrió un error al registrar la operación. Intentá de nuevo.",
+    );
   }
 }
 
@@ -268,11 +261,11 @@ export async function handleEntityTextReply(phone: string, raw: string, chatId: 
   const { pending, obra, question } = state;
   const n = question.options.length;
   if (selectedIndex < 1 || selectedIndex > n + 1) {
-    await client.sendMessage(chatId, "❌ Esa opción no existe. Escribí un número de la lista o *0* para cancelar.");
+    await client.sendMessage(chatId, `❌ Esa opción no existe. Respondé con un número de la lista o ${emojiNumero(0)} para cancelar.`);
     return true;
   }
   if (n === 0) {
-    await client.sendMessage(chatId, "❌ No hay opciones para elegir. Escribí *0* para cancelar.");
+    await client.sendMessage(chatId, `❌ No hay opciones para elegir. Respondé ${emojiNumero(0)} para cancelar.`);
     return true;
   }
 
@@ -394,8 +387,8 @@ export async function sendOperationConfirmation(
   const client = getClient();
   const primaryComment = ops[0].comment || "Estoy procesando tu solicitud...";
   const extra =
-    ops.length > 1 ? ` Voy a hacer ${ops.length} pedidos en total.` : "";
-  await client.sendMessage(chatId, `Ok! ${primaryComment}${extra}`);
+    ops.length > 1 ? ` Voy a hacer ${ops.length} operaciones en total.` : "";
+  await client.sendMessage(chatId, `👍 Ok! ${primaryComment}${extra}`);
 
   await sendObraConfirmationText(phone, chatId, {
     type: "operation",
@@ -419,13 +412,19 @@ export async function sendObraConfirmationText(
 
   setPending(phone, pendingQuery);
 
-  const lista = user.obras
-    .map((o, i) => `*${i + 1}.* ${o.obra_nombre}`)
-    .join("\n");
+  const lista = listaNumerada(user.obras.map((o) => o.obra_nombre));
 
   await client.sendMessage(
     chatId,
-    `¿En qué obra?\n\n${lista}\n\n*0.* ❌ Cancelar\n\nRespondé con el número.`,
+    [
+      "🏗️ *¿En qué obra?*",
+      "",
+      lista,
+      "",
+      `${emojiNumero(0)} ❌ Cancelar`,
+      "",
+      "Respondé con el número.",
+    ].join("\n"),
   );
 }
 
@@ -457,7 +456,7 @@ export async function handleObraTextReply(
 
   const obra = user.obras[selectedIndex - 1];
   if (!obra) {
-    await client.sendMessage(chatId, "❌ No encontré esa opción. Intenta de nuevo.");
+    await client.sendMessage(chatId, "❌ No encontré esa opción. Probá de nuevo.");
     return true;
   }
 

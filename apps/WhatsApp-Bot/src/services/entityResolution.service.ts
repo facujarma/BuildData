@@ -5,7 +5,7 @@ import {
   mapearResultadoBusqueda,
 } from "./entityMatch.service";
 import { buscarEntidades } from "./api.service";
-import { displayPath } from "./actionExecuted.service";
+import { displayPath } from "./operationMetadata.service";
 
 export type EntityKind = "material" | "proveedor" | "rubro" | "tarea";
 

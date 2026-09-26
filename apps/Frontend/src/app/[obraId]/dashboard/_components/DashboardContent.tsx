@@ -122,8 +122,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
     mesEnCurso: 14,
   };
 
-  // No hay endpoint de mensajes pendientes: se mantiene mock, consistente con el Inbox.
-  const mensajesPorConfirmar = 3;
+  const mensajesPorConfirmar = stats.operacionesPendientes;
   const alertasCriticas = stats.alertasCriticas;
 
   const totalAvance = categories.length

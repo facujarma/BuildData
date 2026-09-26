@@ -1,38 +1,35 @@
-type InboxDir = "in" | "out";
 export type InboxKind = "audio" | "photo" | "text";
-export type InboxState = "pending" | "confirmed" | "discarded" | "sent";
+export type InboxState = "pending" | "confirmed" | "discarded" | "error";
+export type OperacionEstado =
+  | "pendiente"
+  | "ejecutando"
+  | "ejecutada"
+  | "rechazada"
+  | "error";
 
-export interface InboxLooseFragment {
-  txt: string;
-  why: string;
-}
-
-interface InboxParse {
+export interface Operacion {
+  id: string;
+  endpoint: string;
+  method: string;
   tipo: string;
   destino: string;
   campos: [string, string][];
+  confianza?: number;
+  comment?: string;
+  estado: OperacionEstado;
+  errorDetalle?: string;
+  ejecutadaAt?: string;
+  created_at: string;
 }
 
 export interface InboxMessage {
   id: string;
-  dir: InboxDir;
+  shortId: string;
   kind: InboxKind;
-  from?: string;
-  to?: string;
+  from: string;
   role: string;
   time: string;
-  dur?: string;
-  photos?: number;
   raw: string;
-  conf?: number;
   state: InboxState;
-  by?: string;
-  at?: string;
-  note?: string;
-  mapped?: string[];
-  loose?: InboxLooseFragment[];
-  parse?: InboxParse;
-  applied?: string[];
-  trigger?: string;
-  warn?: string;
+  operaciones: Operacion[];
 }

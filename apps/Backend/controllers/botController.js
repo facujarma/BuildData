@@ -109,11 +109,13 @@ export async function actualizarAccionesMensaje(req, res) {
 // Facu detectó que se pidió material → crea el pedido. Si la obra tiene aprobacion_automatica
 // activada, el pedido queda aprobado y listo para comprar; si no (default), queda pendiente
 // para que el admin lo apruebe desde el panel (PATCH /pedidos/:id/aprobar|rechazar).
-// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad}], rubro_id?, urgente?, nota?, fecha_llegada_estimada? }
+// Body esperado: { obra_id, proveedor_id, telefono, mensaje_id, items: [{material_id, cantidad}], rubro_id?, urgente?, nota?, fecha_llegada_estimada?, aprobado_por? }
 // El precio unitario y el total salen del catálogo de materiales (materiales.costo_unitario).
 // solicitado_por se resuelve automáticamente desde telefono → persona que hizo el pedido.
+// `aprobado_por` (uuid de persona) lo manda el executor cuando la operación se
+// aprueba desde la bandeja: el pedido nace aprobado para no pedir doble aprobación.
 export async function crearPedidoDeCompra(req, res) {
-  const { obra_id, proveedor_id, telefono, mensaje_id, items, rubro_id, urgente, nota, fecha_llegada_estimada } = req.body;
+  const { obra_id, proveedor_id, telefono, mensaje_id, items, rubro_id, urgente, nota, fecha_llegada_estimada, aprobado_por } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "items debe ser un array no vacío" });
@@ -126,6 +128,7 @@ export async function crearPedidoDeCompra(req, res) {
   try {
     const obra = await client.query(`SELECT aprobacion_automatica FROM obras WHERE id = $1`, [obra_id]);
     const autoApprove = obra.rows[0]?.aprobacion_automatica || false;
+    const aprobado = autoApprove || Boolean(aprobado_por);
 
     await client.query("BEGIN");
 
@@ -166,20 +169,21 @@ export async function crearPedidoDeCompra(req, res) {
 
     // Crear el pedido (solicitado_por = obrero que lo pidió, resuelto desde su teléfono)
     const pedido = await client.query(
-      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, rubro_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por, total)
-       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END, $6, $7, $8, $9, $10)
+      `INSERT INTO pedidos_materiales (obra_id, proveedor_id, rubro_id, estado, aprobado, fecha_aprobacion, urgente, nota, fecha_llegada_estimada, solicitado_por, total, aprobado_por)
+       VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         obra_id,
         proveedor_id,
         rubro_id || null,
-        autoApprove ? "aprobado" : "pendiente",
-        autoApprove,
+        aprobado ? "aprobado" : "pendiente",
+        aprobado,
         urgente || false,
         nota || null,
         fecha_llegada_estimada || null,
         usuario_id,
         total,
+        aprobado_por || null,
       ]
     );
     const pedido_id = pedido.rows[0].id;
@@ -193,14 +197,16 @@ export async function crearPedidoDeCompra(req, res) {
       );
     }
 
-    // Alerta: informativa si se aprobó solo, de acción si necesita que alguien decida
+    // Alerta: informativa si se aprobó solo, de acción si necesita que alguien
+    // decida. Si nace aprobado porque se aprobó desde la bandeja, no hay alerta
+    // (la aprobación ya queda registrada en la operación).
     if (autoApprove) {
       await client.query(
         `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
          VALUES ($1, 'pedido_aprobado_automaticamente', 'Pedido de compra creado y aprobado automáticamente', 'media', $2, 'Pedido aprobado automáticamente', 'El pedido de compra se generó y quedó aprobado', 'attention')`,
         [obra_id, usuario_id]
       );
-    } else {
+    } else if (!aprobado_por) {
       await client.query(
         `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
          VALUES ($1, 'pedido_pendiente', 'Nuevo pedido de compra requiere aprobación', 'alta', $2, 'Nuevo pedido de compra', 'Requiere aprobación para ejecutar la compra', 'attention')`,

@@ -54,6 +54,16 @@ export async function getDashboard(req, res) {
       [obraId]
     );
     const pedidos = pedidosResult.rows[0];
+
+    // Operaciones del bot esperando aprobación (bandeja)
+    const operacionesResult = await pool.query(
+      `SELECT COUNT(*) AS pendientes
+       FROM operaciones_bot
+       WHERE obra_id = $1 AND estado IN ('pendiente','ejecutando')`,
+      [obraId]
+    );
+    const operacionesPendientes = parseInt(operacionesResult.rows[0].pendientes) || 0;
+
     const pedidosResultRaw = await pool.query(
       `SELECT
           id,
@@ -206,6 +216,7 @@ const pedidosConItems = await Promise.all(
         alertasDeltaHoy: parseInt(alertasStats.hoy),
         pedidos: parseInt(pedidos.total),
         pedidosPendientes: parseInt(pedidos.pendientes),
+        operacionesPendientes,
         tareasCompletadas: parseInt(tareas.completadas),
         tareasTotal: parseInt(tareas.total),
       },

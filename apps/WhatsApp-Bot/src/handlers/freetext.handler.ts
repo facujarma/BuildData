@@ -15,7 +15,7 @@ import {
   formatMissingQuestion,
   MissingField,
 } from "../services/endpointSchema";
-import { clamp01 } from "../services/actionExecuted.service";
+import { clamp01 } from "../services/operationMetadata.service";
 import { sendOperationConfirmation } from "../services/pollConfirmation.service";
 import { handleClarificationReply } from "./clarification.handler";
 import { MSG, MSG_LLM_ERROR } from "../shared/responses";

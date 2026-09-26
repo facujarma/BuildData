@@ -26,6 +26,7 @@ import reportesRoutes from "./routes/reportes.js";
 import obrerosRoutes from "./routes/obreros.js";
 import pedidosRoutes from "./routes/pedidos.js";
 import mensajesRoutes from "./routes/mensajes.js";
+import operacionesRoutes from "./routes/operaciones.js";
 import chatbotRoutes from "./routes/chatbot.js";
 import { verificarInactividad } from "./controllers/alertasController.js";
 
@@ -98,6 +99,9 @@ app.use("/pedidos", pedidosRoutes);
 
 // Mensajes del bot (bandeja de WhatsApp)
 app.use("/mensajes", mensajesRoutes);
+
+// Aprobación/rechazo de operaciones del bot
+app.use("/operaciones", operacionesRoutes);
 
 // ChatBot AI (preguntas en lenguaje natural → SQL)
 app.use("/chat", chatbotRoutes);
