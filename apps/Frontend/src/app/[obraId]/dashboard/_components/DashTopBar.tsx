@@ -24,7 +24,6 @@ const CRUMB_MAP: Record<string, string> = {
 const SUB_MAP: Record<string, string> = {
   pedidos: "Pedidos",
   stock: "Stock",
-  proveedores: "Proveedores",
   presupuesto: "Presupuesto",
   recibos: "Comprobantes",
   actividad: "Actividad",
@@ -32,19 +31,12 @@ const SUB_MAP: Record<string, string> = {
   reportes: "Reportes",
 };
 
-const GROUP_DEFAULT_SUB: Record<string, string> = {
-  materiales: "pedidos",
-  costos: "presupuesto",
-  registro: "actividad",
-};
-
 function Crumb() {
   const pathname = usePathname();
   const sp = useSearchParams();
   const segment = pathname.split("/").filter(Boolean).pop() || "dashboard";
   const crumb = CRUMB_MAP[segment] || "Dashboard";
-  const subId = sp.get("v") || GROUP_DEFAULT_SUB[segment];
-  const sub = SUB_MAP[subId || ""];
+  const sub = SUB_MAP[sp.get("v") || ""];
   return (
     <div className="text-[12px] text-slate-500">
       {crumb}
