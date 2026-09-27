@@ -18,14 +18,17 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`
 - Express: bot en puerto 3000, Backend API en puerto 3001
 - Existe `bun.lock` y `package-lock.json` — usar `bun install`
-- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun test apps/Backend/services` (embeddings, entitySearch, stock)
+- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`, `message.adapter.test.ts` — teléfono/jid y votos de poll —, `pollMessage.store.test.ts` — store de polls —). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun test apps/Backend/services` (embeddings, entitySearch, stock)
 
 ## Arquitectura (lo que los nombres no dicen)
 
 - **LLM genera endpoint + JSON body, NO SQL**: `textToOperation()` devuelve `{endpoint, method, data, comment}`, no un `RawOperation` con action/table/data
 - **El bot solo escribe, nunca consulta**: si el mensaje es una pregunta, el `SYSTEM_PROMPT` indica devolver un array con `{error}` y el bot responde que no puede dar consultas (los datos se ven en la web). No hay endpoints GET de negocio en el schema
 - **Pending store es union type**: `PendingQuery = operation \| comprobante \| factura`; `ApiCall.method = "POST" | "GET" | "PATCH"` (`pendingQuery.store.ts`)
-- **Confirmación es ENCUESTA TEXTUAL NUMERADA, no Poll nativo**: `freetext.handler` y `image.handler` llaman `sendObraConfirmationText()` (lista "¿En qué obra?", respondé con número). Existe `sendObraPoll()` (Poll nativo de WhatsApp) pero **no se llama desde ningún flujo**. `handlePollVote()` sigue conectado en `client.ts` por si se reactiva
+- **Confirmación con POLL NATIVA (con fallback a texto numerado)**: `freetext.handler` y `image.handler` llaman `sendObraConfirmationText()` ("🏗️ ¿En qué obra?"). Se manda una poll de Baileys (`sendPoll`, opciones "N. nombre" + "0. ❌ Cancelar") y, si no se puede (opciones <2 o >12), cae al texto numerado de siempre. Los votos llegan por `messages.upsert` como `pollUpdateMessage`: `handlePollVoteMessage` los desencripta (`decryptPollVote` con combos PN/LID), mapea la opción por su número y reusa `handleObraTextReply`/`handleEntityTextReply`; al votar **se borra la poll** (`{ delete: key }`). El mensaje original enviado se guarda en `baileys/pollMessage.store.ts` (memoria, TTL 24h) porque v7 ya no desencripta votos solo
+- **Transporte = Baileys (WebSocket, sin Chromium)**: `client.ts` arma el socket con auth state propio en Mongo (`baileys/mongoAuthState.service.ts`, colección `baileys_auth`), reconecta salvo `loggedOut` y en `messages.upsert` envuelve cada `WAMessage` con `baileys/message.adapter.ts` (`buildMessage`) en la interfaz `Message` de `types/message.types.ts` que usan handlers y comandos. El adaptador resuelve `body`/`type`, y el teléfono con `getPhoneFromMessage` (si el jid es `@lid` usa `remoteJidAlt`; ignora grupos/broadcasts)
+- **`getClient()` ahora es un facade**: expone solo `sendMessage(chatId, text)` sobre el socket de Baileys (`client.ts`), por eso `pollConfirmation.service.ts` y `clarification.handler.ts` no cambiaron su forma de enviar
+- **Media sin parches**: `downloadMedia()` del adaptador usa `downloadMediaMessage` de Baileys (adiós `whatsappPatch.service.ts` y `window.require` a módulos internos de WhatsApp Web)
 - **Ruteo de mensajes** (`message.handler.ts`): texto numérico → `handleEntityTextReply` primero, luego `handleObraTextReply` si hay pending → `!comando` → `handleFreeText`. Audio se transcribe (`voice.handler` setea `message.body`) y cae al MISMO `handleFreeText`. Imagen → comprobante/factura → `sendObraConfirmationText`
 - **Repregunta (clarification loop)**: si a una operación del LLM le faltan campos requeridos (`collectMissingFields` según el schema, incluye subcampos de `items`/`movimientos`), `freetext.handler` guarda una `Clarification` en el store y pregunta el `prompt` del primer campo faltante (definido por campo en `endpointSchema.ts`). `handleFreeText` delega a `clarification.handler` si hay repregunta pendiente (antes de cancelar pendings). Atajo sin LLM: si el campo preguntado (`pendingFieldPath`) es simple (número/booleano/palabra) y la respuesta parsea, `answerParser.service.ts` la escribe directo y se revalida; si no, `completeOperationFromReply` mergea con memoria (mensaje original + ops + últimos 2 intercambios), revalida y repregunta. Recién al completar sigue el flujo normal (`sendOperationConfirmation` → encuesta de obra → resolución de entidades). `!cancel`, una imagen nueva o un comando desconocido con pending cortan el loop
 - **Prompt de repregunta acotado**: `completeOperationFromReply` NO manda `ENDPOINTS_DESC` completo; manda `buildEndpointIndex()` (resumen de 1 línea) + `buildEndpointDescription(paths)` solo del/los endpoint(s) en curso (~1.3k chars vs ~3k antes). `textToOperation` sigue usando la descripción completa
@@ -178,11 +181,10 @@ Idioma bot:      español rioplatense, *negrita* WhatsApp, bloques ```, emojis �
 ## Seguridad y gotchas
 
 - `.env` contiene `GROQ_API_KEY`, `MONGO_URI`, `SUPABASE_SERVICE_ROLE_KEY` — NUNCA comitear
-- Dockerfile: build desde raíz del monorepo, solo copia `apps/WhatsApp-Bot/` al container
-- `mongoStore.ts` busca session zips en `.wwebjs_auth/`
-- `randomDelay(1000, 10000)` entre mensaje y respuesta (anti-detección)
-- En producción Puppeteer: `--no-sandbox --disable-setuid-sandbox`
-- `getPhoneNumber()` usa `message.getContact().number` (sin @c.us)
+- Dockerfile: build desde raíz del monorepo, solo copia `apps/WhatsApp-Bot/` al container (sin Chromium/Puppeteer)
+- La sesión de WhatsApp vive en Mongo (`baileys_auth`): no necesita disco persistente; sí se pierde si se borra la DB
+- **Una sola instancia por sesión**: dos procesos con el mismo `baileys_auth` se pisan con error 440 (`connectionReplaced`). La reconexión de `client.ts` tiene guard anti-duplicados y backoff 5s→60s
+- `getPhoneFromMessage()` (`baileys/message.adapter.ts`) saca el número del jid y usa `remoteJidAlt` cuando el jid es `@lid` (rollout LID de WhatsApp)
 - `tsconfig.json` `module: commonjs` (no ESM a pesar de `"type": "module"` en root package.json)
 - `tsc --noEmit` en WhatsApp-Bot falla por FALTAS de tipos pre-existentes (`qrcode-terminal`, `express`) — ignorar esos 2 errores
 - Los params de path (ej: `/bot/tareas/:id/completar`) se interpolan en el payload con la clave resuelta (`tarea_id`) y se **sacan del body**; el body que llega al backend no debe contener IDs de path
@@ -191,7 +193,7 @@ Idioma bot:      español rioplatense, *negrita* WhatsApp, bloques ```, emojis �
 
 | App | Puerto | Stack | Estado |
 |------|--------|-------|--------|
-| WhatsApp-Bot | 3000 | whatsapp-web.js, Express (keep-alive) | ✅ Funcional |
+| WhatsApp-Bot | 3000 | Baileys (WebSocket) + Express (keep-alive) | ✅ Funcional |
 | Backend | 3001 | Express + Supabase/PostgreSQL (rutas REST `/` + `/bot/*`) | ✅ Implementado |
 | Frontend | Next.js default | Next.js 16, React 19, TailwindCSS 4 | 🚧 En desarrollo |
 
