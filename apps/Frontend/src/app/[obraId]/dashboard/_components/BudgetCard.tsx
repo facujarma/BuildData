@@ -1,6 +1,6 @@
 "use client";
 
-import { ChartBar, FileArrowDown } from "@gravity-ui/icons";
+import { ChartBar } from "@gravity-ui/icons";
 import Button from "@/components/ui/Button";
 import type { BudgetOverview, BudgetItem } from "@/types/dashboard";
 import { formatARSCompact } from "@/lib/format";
@@ -14,7 +14,7 @@ interface Props {
 
 export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport }: Props) {
   const ejecutadoPct = budget.total > 0 ? Math.round((budget.ejecutado / budget.total) * 100) : 0;
-  const comprometidoPct = 0;
+  const comprometidoPct = Math.round(budget.comprometidoPct) || 0;
   const librePct = budget.total > 0 ? Math.round((budget.disponible / budget.total) * 100) : 0;
 
   return (
@@ -89,7 +89,7 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
       </div>
 
       <div className="border-t border-white/10 pt-3 space-y-[6px] mb-4">
-        {budgetBreakdown.map((r) => (
+        {budgetBreakdown.slice(0, 3).map((r) => (
           <div
             key={r.name}
             className="grid grid-cols-[1fr_auto] items-center text-[11px]"
@@ -115,7 +115,7 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
 
       <div className="flex gap-2 mt-auto">
         <Button variant="accent" size="sm" onClick={onViewBreakdown}>
-          Ver desglose
+          Ver presupuesto
         </Button>
         <Button
           variant="ghost"

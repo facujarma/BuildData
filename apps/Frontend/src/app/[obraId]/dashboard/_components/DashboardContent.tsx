@@ -19,14 +19,16 @@ import ProgressByTradeCards from "./ProgressByTradeCards";
 import CriticalAlertsCard from "./CriticalAlertsCard";
 import { BudgetCard } from "./BudgetCard";
 import { ActivityFeed } from "./ActivityFeed";
-import { TasksInProgressCard } from "./TasksInProgressCard";
+import { TasksInProgressCard, TasksInProgressBody } from "./TasksInProgressCard";
 import { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 import { SideDrawer } from "./SideDrawer";
 import { completeCronogramaTask } from "@/services/cronogramaService";
+import { getAlertas } from "@/services/alertasService";
 import { useToast, DashToast } from "./useToast";
 import { CategoryModal, type CategoryFormData } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
 import type { DashboardData, TaskItem } from "@/types/dashboard";
+import type { AlertaItem } from "../alertas/data";
 import { formatARSCompact } from "@/lib/format";
 
 const STATE_MAP: Record<string, { dot: string; label: string }> = {
@@ -57,6 +59,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
   const [drawer, setDrawer] = useState<{ kind: string; catId?: string } | null>(null);
   const [catModal, setCatModal] = useState<{ initial: CategoryFormData | null } | null>(null);
   const [categories, setCategories] = useState<CategoryFormData[]>([]);
+  const [alertasFull, setAlertasFull] = useState<AlertaItem[]>([]);
 
   const {
     obra,
@@ -115,6 +118,17 @@ export function DashboardContent({ data, onNavigate }: Props) {
     }
   }, [tasks, categories.length]);
 
+  useEffect(() => {
+    if (!obraId) return;
+    let active = true;
+    getAlertas(obraId)
+      .then((d) => {
+        if (active) setAlertasFull(d.alerts.filter((a) => a.state !== "resolved"));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [obraId]);
+
   const pedidosMock = {
     porAprobar: stats.pedidosPendientes,
     enTransito: 4,
@@ -166,6 +180,19 @@ export function DashboardContent({ data, onNavigate }: Props) {
   const drawerCat = drawer && drawer.kind === "rubro"
     ? categories.find((c) => c.id === drawer.catId)
     : null;
+
+  const drawerAlerts: AlertaItem[] = alertasFull.length > 0
+    ? alertasFull
+    : alerts.map((a, i) => ({
+        id: `dash-${i}`,
+        lvl: a.tone === "critical" ? "critical" : "attention",
+        state: "open",
+        cat: "General",
+        title: a.title,
+        who: a.subtitle,
+        time: a.time,
+        desc: a.subtitle,
+      }));
 
   return (
     <>
@@ -262,7 +289,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
       </div>
 
       {/* Progress + Criticals */}
-      <div className="grid grid-cols-[2fr_1fr] gap-3 mb-4">
+      <div className="grid grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
         <ProgressByTradeCards
           data={tradeProgress}
           onItemClick={(name) => {
@@ -272,8 +299,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
             }));
             if (cat) setDrawer({ kind: "rubro", catId: cat.id });
           }}
-          onNewCategory={() => setCatModal({ initial: null })}
-          onViewAll={() => setDrawer({ kind: "avance" })}
+          onManageRubros={() => handleNav("Rubros")}
         />
         <CriticalAlertsCard
           alerts={alerts}
@@ -293,6 +319,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
         <ActivityFeed
           items={activityFeed}
           onItemClick={() => handleNav("Actividad")}
+          onViewAll={() => handleNav("Actividad")}
         />
       </div>
 
@@ -335,8 +362,8 @@ export function DashboardContent({ data, onNavigate }: Props) {
 
       <SideDrawer
         open={drawer?.kind === "alerts"}
-        title="Alertas críticas"
-        subtitle={`${alerts.filter((a) => a.tone === "critical").length} sin resolver`}
+        title="Alertas activas"
+        subtitle="Críticas e importantes"
         onClose={() => setDrawer(null)}
         footer={
           <Button variant="primary" size="sm" className="flex-1 justify-center" onClick={() => { setDrawer(null); handleNav("Alertas"); }}>
@@ -344,19 +371,57 @@ export function DashboardContent({ data, onNavigate }: Props) {
           </Button>
         }
       >
-        <div className="space-y-3">
-          {alerts.map((a, i) => (
-            <div
-              key={i}
-              className={`border rounded-lg p-3 ${a.tone === "critical" ? "bg-critical-50 border-[#FECACA]" : "bg-attention-50 border-[#FDE68A]"}`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <CircleExclamation width={13} height={13} className={a.tone === "critical" ? "text-[#B91C1C]" : "text-[#A16207]"} />
-                <span className="text-[13px] font-bold text-slate-950">{a.title}</span>
-              </div>
-              <div className="text-[11px] text-slate-600">{a.subtitle} · hace {a.time}</div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {[
+            { l: "Críticas",    v: drawerAlerts.filter((a) => a.lvl === "critical").length, t: "text-[#B91C1C]" },
+            { l: "Importantes", v: drawerAlerts.filter((a) => a.lvl === "attention").length, t: "text-[#A16207]" },
+            { l: "Moderadas",   v: drawerAlerts.filter((a) => a.lvl === "moderate").length, t: "text-slate-600" },
+            { l: "En progreso", v: drawerAlerts.filter((a) => a.state === "progress").length, t: "text-[#1D4ED8]" },
+          ].map((m) => (
+            <div key={m.l} className="border border-slate-200 rounded-lg p-3">
+              <div className={"text-[22px] font-extrabold tnum leading-none " + m.t}>{m.v}</div>
+              <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mt-1">{m.l}</div>
             </div>
           ))}
+        </div>
+        <div className="space-y-4">
+          {Object.entries(drawerAlerts.reduce<Record<string, AlertaItem[]>>((acc, a) => {
+            (acc[a.cat] = acc[a.cat] || []).push(a);
+            return acc;
+          }, {})).map(([cat, items]) => (
+            <div key={cat}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-600">{cat}</span>
+                <span className="text-[10px] text-slate-400">· {items.length}</span>
+              </div>
+              <div className="space-y-2">
+                {items.map((a) => {
+                  const crit = a.lvl === "critical";
+                  const mod = a.lvl === "moderate";
+                  return (
+                    <div key={a.id} className={"border rounded-lg p-3 " + (crit ? "bg-critical-50 border-[#FECACA]" : mod ? "bg-slate-50 border-slate-200" : "bg-attention-50 border-[#FDE68A]")}>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-[9px] font-bold text-slate-400 tnum">{a.id}</span>
+                        <DPill tone={crit ? "criticalSolid" : mod ? "slate" : "attentionSolid"}>{crit ? "CRÍTICA" : mod ? "MODERADA" : "IMPORTANTE"}</DPill>
+                        {a.state === "progress" && <DPill tone="info">EN PROGRESO</DPill>}
+                      </div>
+                      <div className="text-[13px] font-bold text-slate-950 leading-tight">{a.title}</div>
+                      {a.desc && (
+                        <div className="flex items-start gap-1 text-[11px] text-slate-700 mt-1">
+                          <CircleExclamation width={11} height={11} className={"mt-[1px] flex-none " + (crit ? "text-[#B91C1C]" : mod ? "text-slate-500" : "text-[#A16207]")} />
+                          <span>{a.desc}</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-slate-500 mt-[3px]">Reportó {a.who} · {a.time}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {drawerAlerts.length === 0 && (
+            <div className="text-center text-slate-400 text-[12px] py-8">Sin alertas activas</div>
+          )}
         </div>
       </SideDrawer>
 
@@ -391,7 +456,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
 
       <SideDrawer
         open={drawer?.kind === "tareas"}
-        title="Tareas de hoy"
+        title="Tareas en curso"
         subtitle={`${stats.tareasCompletadas} de ${stats.tareasTotal} completadas`}
         onClose={() => setDrawer(null)}
         footer={
@@ -400,49 +465,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
           </Button>
         }
       >
-        <div className="mb-4">
-          <div className="bg-slate-100 h-[8px] rounded-full overflow-hidden">
-            <div style={{ width: `${Math.round((stats.tareasCompletadas / stats.tareasTotal) * 100)}%` }} className="h-full bg-success rounded-full" />
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            {Math.round((stats.tareasCompletadas / stats.tareasTotal) * 100)}% de las tareas de hoy completadas
-          </div>
-        </div>
-        <div className="space-y-2">
-          {tasks.map((t) => {
-            const statusTone: Record<string, "success" | "info" | "slate"> = {
-              completada: "success",
-              en_progreso: "info",
-              pendiente: "slate",
-            };
-            const priorityTone: Record<string, "critical" | "attention" | "info" | "slate"> = {
-              critica: "critical",
-              alta: "attention",
-              media: "info",
-              baja: "slate",
-            };
-            return (
-              <div key={t.id} className="border border-slate-200 rounded-lg p-3">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[13px] font-bold text-slate-950 truncate">{t.title}</span>
-                  <DPill tone={priorityTone[t.priority] || "slate"}>{t.priority}</DPill>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <DPill tone={statusTone[t.status] || "slate"}>{t.status}</DPill>
-                  {t.dueDate && (
-                    <span className="text-[10px] text-slate-500">Vence: {t.dueDate}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-slate-100 h-[6px] rounded-full overflow-hidden">
-                    <div style={{ width: t.progressPercent + "%" }} className="h-full bg-primary rounded-full" />
-                  </div>
-                  <span className="text-[11px] font-bold tnum w-[34px] text-right">{t.progressPercent}%</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <TasksInProgressBody tasks={tasks} onComplete={handleTaskComplete} />
       </SideDrawer>
 
       {/* Budget breakdown */}

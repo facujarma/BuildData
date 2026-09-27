@@ -1,40 +1,36 @@
 "use client";
 
 import { DCard } from "@/components/ui/DCard";
-import { Plus, ChevronRight } from "@gravity-ui/icons";
+import { ChevronRight } from "@gravity-ui/icons";
 import type { TradeProgress } from "@/types/dashboard";
 import Button from "@/components/ui/Button";
 
 interface Props {
   data: TradeProgress[];
   onItemClick?: (name: string) => void;
-  onNewCategory?: () => void;
-  onViewAll?: () => void;
+  onManageRubros?: () => void;
 }
 
-function ProgressByTradeCards({ data, onItemClick, onNewCategory, onViewAll }: Props) {
+function ProgressByTradeCards({ data, onItemClick, onManageRubros }: Props) {
   return (
-    <DCard padding="p-0">
-      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+    <DCard padding="p-0" className="flex flex-col">
+      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
         <div>
           <div className="text-[14px] font-bold text-slate-950">
             Avance por rubro
           </div>
           <div className="text-[11px] text-slate-500 mt-[1px]">
-            Comparado con el presupuesto inicial
+            Calculado con las tareas de cada rubro
           </div>
         </div>
-        <Button
-          icon={<Plus width={16} height={16} />}
-          variant="secondary"
-          size="sm"
-          className="justify-center"
-          onClick={onNewCategory}
+        <button
+          onClick={onManageRubros}
+          className="text-[11px] font-bold text-primary hover:underline flex-none"
         >
-          Nuevo Rubro
-        </Button>
+          Administrar →
+        </button>
       </div>
-      <div className="p-3 space-y-1">
+      <div className="p-3">
         {data.map((r) => (
           <button
             key={r.name}
@@ -58,13 +54,11 @@ function ProgressByTradeCards({ data, onItemClick, onNewCategory, onViewAll }: P
           </button>
         ))}
       </div>
-      {onViewAll && (
-        <div className="px-3 pb-3">
-          <Button variant="secondary" size="sm" className="w-full justify-center" onClick={onViewAll}>
-            Ver todos los avances
-          </Button>
-        </div>
-      )}
+      <div className="p-3 border-t border-slate-200 mt-auto">
+        <Button variant="secondary" size="sm" className="w-full justify-center" onClick={onManageRubros}>
+          Ver todos los rubros
+        </Button>
+      </div>
     </DCard>
   );
 }

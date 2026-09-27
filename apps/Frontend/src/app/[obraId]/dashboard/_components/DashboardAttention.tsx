@@ -15,22 +15,20 @@ export function DashboardAttention({ mensajes, pedidos, alertas, alertasCriticas
     {
       n: mensajes,
       label: "mensajes por confirmar",
-      sub: "La IA ya los interpretó — revisá antes de aplicar",
+      sub: "Revisalos antes de que impacten en la obra",
       to: "inbox",
       tone: "bg-white border-slate-200",
       badge: "bg-primary text-white",
       cta: "Revisar",
-      always: false,
     },
     {
       n: pedidos,
       label: "pedidos por aprobar",
-      sub: pedidos > 0 ? `${pedidos} esperando tu aprobación` : "Sin pedidos pendientes",
+      sub: "Sin aprobar no se despachan",
       to: "pedidos",
       tone: "bg-attention-50 border-[#FDE68A]",
       badge: "bg-accent text-slate-950",
       cta: "Aprobar",
-      always: true,
     },
     {
       n: alertas,
@@ -40,9 +38,8 @@ export function DashboardAttention({ mensajes, pedidos, alertas, alertasCriticas
       tone: "bg-critical-50 border-[#FECACA]",
       badge: "bg-critical text-white",
       cta: "Ver",
-      always: false,
     },
-  ].filter((a) => a.n > 0 || a.always);
+  ].filter((a) => a.n > 0);
 
   const total = actions.reduce((a, x) => a + x.n, 0);
 

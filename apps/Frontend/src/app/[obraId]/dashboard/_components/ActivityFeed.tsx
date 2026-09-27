@@ -2,20 +2,22 @@
 
 import { DAvatar } from "@/components/ui/DAvatar";
 import { DCard } from "@/components/ui/DCard";
+import Button from "@/components/ui/Button";
 import type { ActivityFeedItem } from "@/types/dashboard";
 
 interface Props {
   items: ActivityFeedItem[];
   onItemClick?: (item: ActivityFeedItem) => void;
+  onViewAll?: () => void;
 }
 
-export function ActivityFeed({ items, onItemClick }: Props) {
+export function ActivityFeed({ items, onItemClick, onViewAll }: Props) {
   return (
-    <DCard padding="p-0">
+    <DCard padding="p-0" className="flex flex-col">
       <div className="px-5 py-3 border-b border-slate-200">
         <div className="text-[14px] font-bold">Avances de hoy</div>
       </div>
-      <div className="divide-y divide-slate-200">
+      <div className="divide-y divide-slate-200 flex-1">
         {items.length === 0 ? (
           <div className="px-4 py-12 text-center text-slate-400 text-[12px]">
             Sin actividad registrada hoy
@@ -41,6 +43,11 @@ export function ActivityFeed({ items, onItemClick }: Props) {
             </button>
           ))
         )}
+      </div>
+      <div className="p-3 border-t border-slate-200 mt-auto">
+        <Button variant="secondary" size="sm" className="w-full justify-center" onClick={onViewAll}>
+          Ver todos los avances
+        </Button>
       </div>
     </DCard>
   );

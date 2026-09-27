@@ -1,32 +1,28 @@
 "use client";
 
 import type React from "react";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutHeaderCellsLarge,
-  Envelope,
+  Comment,
   Calendar,
   Box,
-  Cubes3,
   Car,
-  ChartBar,
+  CircleDollar,
   Receipt,
-  Clock,
   Picture,
   ChartLine,
   CircleExclamation,
+  CircleInfo,
   Persons,
   Gear,
-  Person,
-  ChevronLeft,
+  ChevronUp,
   ChevronDown,
-  ArrowRightFromSquare,
 } from "@gravity-ui/icons";
 import { useDashboardData } from "./DashboardDataContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { DAvatar } from "@/components/ui/DAvatar";
+import { getAlertas } from "@/services/alertasService";
 
 interface BaseItem {
   id: string;
@@ -49,42 +45,42 @@ interface NavLink {
   label: string;
   href: string;
   icon: React.ReactNode;
-  badge?: string | number;
+  badge?: number;
 }
 
 type NavEntry = NavLink | NavGroup;
 
-function buildNavItems(obraId: string, operacionesPendientes: number): NavEntry[] {
+function buildNavItems(obraId: string, operacionesPendientes: number, alertasAbiertas: number): NavEntry[] {
   const p = `/${obraId}/dashboard`;
   return [
     { kind: "link", id: "dashboard",  label: "Dashboard",   href: p,                              icon: <LayoutHeaderCellsLarge width={16} height={16} /> },
-    { kind: "link", id: "inbox",      label: "Bandeja",     href: `${p}/inbox`,                   icon: <Envelope width={16} height={16} />,            badge: operacionesPendientes > 0 ? operacionesPendientes : undefined },
+    { kind: "link", id: "inbox",      label: "Bandeja",     href: `${p}/inbox`,                   icon: <Comment width={16} height={16} />,            badge: operacionesPendientes },
     { kind: "link", id: "cronograma", label: "Cronograma",  href: `${p}/cronograma`,              icon: <Calendar width={16} height={16} /> },
     {
       kind: "group", id: "materiales", label: "Materiales", base: `${p}/materiales`,
       icon: <Box width={16} height={16} />,
       children: [
-        { id: "pedidos",     label: "Pedidos",     icon: <Box width={13} height={13} /> },
-        { id: "stock",       label: "Stock",       icon: <Cubes3 width={13} height={13} /> },
-        { id: "proveedores", label: "Proveedores", icon: <Car width={13} height={13} /> },
+        { id: "pedidos",     label: "Pedidos",     icon: <Car width={14} height={14} /> },
+        { id: "stock",       label: "Stock",       icon: <Box width={14} height={14} /> },
+        { id: "proveedores", label: "Proveedores", icon: <Car width={14} height={14} /> },
       ],
     },
     {
       kind: "group", id: "costos", label: "Costos", base: `${p}/costos`,
-      icon: <ChartBar width={16} height={16} />,
+      icon: <CircleDollar width={16} height={16} />,
       children: [
-        { id: "presupuesto", label: "Presupuesto",  icon: <ChartBar width={13} height={13} /> },
-        { id: "recibos",     label: "Comprobantes", icon: <Receipt width={13} height={13} /> },
+        { id: "presupuesto", label: "Presupuesto",  icon: <CircleDollar width={14} height={14} /> },
+        { id: "recibos",     label: "Comprobantes", icon: <Receipt width={14} height={14} /> },
       ],
     },
-    { kind: "link", id: "alertas",    label: "Alertas",     href: `${p}/alertas`,                icon: <CircleExclamation width={16} height={16} />,   badge: 2 },
+    { kind: "link", id: "alertas",    label: "Alertas",     href: `${p}/alertas`,                icon: <CircleExclamation width={16} height={16} />,   badge: alertasAbiertas },
     {
       kind: "group", id: "registro", label: "Registro", base: `${p}/registro`,
       icon: <Picture width={16} height={16} />,
       children: [
-        { id: "actividad", label: "Actividad", icon: <Clock width={13} height={13} /> },
-        { id: "galeria",   label: "Galería",   icon: <Picture width={13} height={13} /> },
-        { id: "reportes",  label: "Reportes",  icon: <ChartLine width={13} height={13} /> },
+        { id: "actividad", label: "Actividad", icon: <Comment width={14} height={14} /> },
+        { id: "galeria",   label: "Galería",   icon: <Picture width={14} height={14} /> },
+        { id: "reportes",  label: "Reportes",  icon: <ChartLine width={14} height={14} /> },
       ],
     },
     { kind: "link", id: "equipo",     label: "Equipo",      href: `${p}/equipo`,                 icon: <Persons width={16} height={16} /> },
@@ -94,23 +90,47 @@ function buildNavItems(obraId: string, operacionesPendientes: number): NavEntry[
 function ChildNav({ group, pathname }: { group: NavGroup; pathname: string }) {
   const sp = useSearchParams();
   const v = sp.get("v");
+  const activeId = v && group.children.some((c) => c.id === v) ? v : group.children[0]?.id;
   return (
-    <div className="pl-[10px] mt-1 ml-6 border-l border-white/10 flex flex-col gap-[2px]">
+    <div className="relative pl-3 my-1 flex flex-col gap-[2px]">
       {group.children.map((c) => {
-        const href = `${group.base}?v=${c.id}`;
-        const on = pathname.startsWith(group.base) && v === c.id;
+        const on = pathname.startsWith(group.base) && activeId === c.id;
         return (
           <Link
             key={c.id}
-            href={href}
-            className={`flex items-center gap-[8px] px-2 py-[6px] rounded-md text-[11px] font-medium transition-colors
-              ${on ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/[0.06] hover:text-white"}`}
+            href={`${group.base}?v=${c.id}`}
+            className={`relative flex items-center gap-[9px] pl-[22px] pr-3 py-[7px] rounded-md text-[12px] font-semibold text-left transition-colors
+              ${on ? "bg-white/[0.09] text-white" : "text-white/55 hover:bg-white/[0.05] hover:text-white/85"}`}
           >
-            <span className={on ? "text-accent" : "text-white/45"}>{c.icon}</span>
-            <span>{c.label}</span>
+            <span className={on ? "text-accent" : "text-white/40"}>{c.icon}</span>
+            <span className="flex-1">{c.label}</span>
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+function GroupItem({ group, pathname }: { group: NavGroup; pathname: string }) {
+  const sp = useSearchParams();
+  const v = sp.get("v");
+  const activeId = v && group.children.some((c) => c.id === v) ? v : group.children[0]?.id;
+  const on = pathname.startsWith(group.base);
+  return (
+    <div>
+      <Link
+        href={`${group.base}?v=${activeId}`}
+        className={`relative flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left transition-colors
+          ${on ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white"}`}
+      >
+        {on && <span className="absolute -left-3 top-[8px] bottom-[8px] w-[3px] bg-accent rounded" />}
+        <span className={on ? "text-accent" : "text-white/55"}>{group.icon}</span>
+        <span className="flex-1">{group.label}</span>
+        <span className={on ? "text-white/60" : "text-white/35"}>
+          {on ? <ChevronUp width={13} height={13} /> : <ChevronDown width={13} height={13} />}
+        </span>
+      </Link>
+      {on && <ChildNav group={group} pathname={pathname} />}
     </div>
   );
 }
@@ -122,14 +142,24 @@ export function DashSidebar({
 }) {
   const pathname = usePathname();
   const { obraName, obraProgress, obraId, operacionesPendientes } = useDashboardData();
-  const { profile, logout } = useAuth();
+  const [alertasAbiertas, setAlertasAbiertas] = useState(0);
   const projectLabel = explicitLabel ?? obraName;
   const obraLoading = !projectLabel;
-  const navItems = buildNavItems(obraId, operacionesPendientes);
   const p = `/${obraId}/dashboard`;
-  const nombre = (profile?.nombre as string | undefined)?.trim() || "Usuario";
 
-  const isGroupOn = (g: NavGroup) => pathname.startsWith(g.base);
+  useEffect(() => {
+    if (!obraId) return;
+    let active = true;
+    getAlertas(obraId)
+      .then((d) => {
+        if (active) setAlertasAbiertas(d.alerts.filter((a) => a.state !== "resolved").length);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [obraId]);
+
+  const navItems = buildNavItems(obraId, operacionesPendientes, alertasAbiertas);
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
@@ -154,27 +184,20 @@ export function DashSidebar({
           ) : (
             <>
               <div className="text-[13px] font-bold mt-[2px] truncate">{projectLabel}</div>
-              {obraProgress > 0 ? (
-                <>
-                  <div className="text-[11px] text-white/60 mt-[1px]">{Math.round(obraProgress)}% completa</div>
-                  <div className="h-[3px] rounded-full bg-white/10 mt-[6px] overflow-hidden">
-                    <div className="h-full bg-accent" style={{ width: `${Math.min(100, obraProgress)}%` }} />
-                  </div>
-                </>
-              ) : (
-                <div className="text-[11px] text-white/60 mt-[1px]">0% completa</div>
-              )}
+              <div className="text-[11px] text-white/60 mt-[1px]">{Math.round(obraProgress)}% completa</div>
             </>
           )}
         </div>
-        <Link href="/projects" className="flex items-center rounded-md mt-4 font-semibold text-white/70 hover:text-white transition-colors">
-          <ChevronLeft width={10} height={10} className="text-white/55" />
-          <span className="flex-1 text-[10px]">Volver a mis obras</span>
+        <Link
+          href="/projects"
+          className="mt-2 flex w-full items-center  gap-[6px] text-[11px] font-bold tracking-[0.04em] text-white/70 bg-white/[0.06] hover:bg-white/[0.12] hover:text-white rounded-md px-[10px] py-[6px] transition-colors"
+        >
+          <span className="text-[14px] leading-none">←</span> Mis obras
         </Link>
       </div>
 
       {/* Nav */}
-      <nav className="px-3 flex-1 flex flex-col gap-1 overflow-y-auto">
+      <nav className="px-3 flex-1 min-h-0 overflow-y-auto flex flex-col gap-1">
         {navItems.map((s) => {
           if (s.kind === "link") {
             const on = isActive(s.href);
@@ -197,30 +220,15 @@ export function DashSidebar({
             );
           }
 
-          const on = isGroupOn(s);
           return (
-            <div key={s.id}>
-              <Link
-                href={`${s.base}?v=${s.children[0].id}`}
-                className={`relative flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left transition-colors
-                  ${on ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white"}`}
-              >
-                {on && <span className="absolute -left-3 top-[8px] bottom-[8px] w-[3px] bg-accent rounded" />}
-                <span className={on ? "text-accent" : "text-white/55"}>{s.icon}</span>
-                <span className="flex-1">{s.label}</span>
-                <span className="text-white/35"><ChevronDown width={12} height={12} /></span>
-              </Link>
-              {on && (
-                <Suspense fallback={null}>
-                  <ChildNav group={s} pathname={pathname} />
-                </Suspense>
-              )}
-            </div>
+            <Suspense key={s.id} fallback={null}>
+              <GroupItem group={s} pathname={pathname} />
+            </Suspense>
           );
         })}
       </nav>
 
-      {/* Settings + Perfil */}
+      {/* Footer */}
       <div className="px-3 pb-2 pt-1 flex flex-col gap-1">
         <Link
           href={`${p}/configuracion`}
@@ -229,31 +237,13 @@ export function DashSidebar({
           <span className={isActive(`${p}/configuracion`) ? "text-accent" : "text-white/55"}><Gear width={16} height={16} /></span>
           <span className="flex-1">Configuración</span>
         </Link>
-        <Link
-          href={`${p}/perfil`}
-          className={`flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold transition-colors ${isActive(`${p}/perfil`) ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white"}`}
+        <button
+          type="button"
+          className="flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
         >
-          <span className={isActive(`${p}/perfil`) ? "text-accent" : "text-white/55"}><Person width={16} height={16} /></span>
-          <span className="flex-1">Mi perfil</span>
-        </Link>
-      </div>
-
-      {/* Footer user */}
-      <div className="px-3 pb-3 pt-1 border-t border-white/10">
-        <div className="flex items-center gap-[10px] px-2 py-[7px] rounded-lg">
-          <DAvatar size={32} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-bold truncate">{nombre}</div>
-            <div className="text-[10px] text-white/55">Administrador</div>
-          </div>
-          <button
-            onClick={() => void logout()}
-            title="Cerrar sesión"
-            className="text-white/50 hover:text-critical transition-colors flex-none"
-          >
-            <ArrowRightFromSquare width={15} height={15} />
-          </button>
-        </div>
+          <span className="text-white/55"><CircleInfo width={16} height={16} /></span>
+          <span className="flex-1">Ayuda y soporte</span>
+        </button>
       </div>
     </aside>
   );
