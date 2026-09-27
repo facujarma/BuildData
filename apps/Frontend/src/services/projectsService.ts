@@ -14,7 +14,7 @@ interface CreateObraInput {
   inicio: string;
   fin: string;
   status?: string;
-  team: { name: string; phone: string; role: string }[];
+  team?: { name: string; phone: string; role: string }[];
   waConnect: boolean;
   presupuestoTotal?: number;
   rubros?: { nombre: string; presupuesto?: number }[];
@@ -121,7 +121,7 @@ export async function createObra(input: CreateObraInput): Promise<any> {
     myRole: "director",
     presupuestoTotal: input.presupuestoTotal ?? 1_000_000,
     rubros: input.rubros || [],
-    team: input.team.map((t) => t.name),
+    team: (input.team || []).map((t) => t.name),
     clientName: input.clientName,
     clientContact: input.clientContact,
     clientCuit: input.clientCuit,

@@ -18,7 +18,7 @@ export const PEOPLE = [
 export const MORE_PEOPLE = [
 
 ];
-export const DEFAULT_RUBROS = [
+export const DEFAULT_RUBROS: string[] = [
 ];
 
 export const TEAM_ROLES_LIST = [

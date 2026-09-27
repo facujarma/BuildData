@@ -93,55 +93,90 @@ export async function crearObra(req, res) {
   const { name, code, status, type, address, city, province, zip, country,
     startDate, endDate, myRole, team, presupuestoTotal, rubros } = req.body;
 
-  if (!name || !code || !type || !address || !city || !province || !myRole || !presupuestoTotal || !rubros?.length) {
-    return res.status(400).json({ code: "VALIDATION_ERROR", message: "Faltan campos requeridos" });
+  const faltantes = [];
+  if (!name) faltantes.push("name");
+  if (!type) faltantes.push("type");
+  if (!address) faltantes.push("address");
+  const rubrosValidos = (Array.isArray(rubros) ? rubros : [])
+    .filter((rubro) => rubro && String(rubro.nombre || "").trim());
+  if (rubrosValidos.length === 0) faltantes.push("rubros");
+  if (faltantes.length > 0) {
+    return res.status(400).json({
+      code: "VALIDATION_ERROR",
+      message: "Faltan campos requeridos",
+      missing: faltantes,
+    });
   }
 
+  const rol = myRole || "director";
   const client = await pool.connect();
   const rubrosCreados = [];
   try {
     await client.query("BEGIN");
 
-    // Verificar código único
-    const existing = await client.query(`SELECT id FROM obras WHERE code = $1`, [code]);
-    if (existing.rows.length > 0) {
-      await client.query("ROLLBACK");
-      return res.status(422).json({ code: "DUPLICATE_CODE", message: `Ya existe una obra con el código ${code}` });
+    // Código: el que vino, o uno generado único
+    let codigo = String(code || "").trim();
+    if (codigo) {
+      const existing = await client.query(`SELECT id FROM obras WHERE code = $1`, [codigo]);
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(422).json({ code: "DUPLICATE_CODE", message: `Ya existe una obra con el código ${codigo}` });
+      }
+    } else {
+      for (let intento = 0; intento < 5 && !codigo; intento++) {
+        const candidato = `OBR-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+        const dup = await client.query(`SELECT id FROM obras WHERE code = $1`, [candidato]);
+        if (dup.rows.length === 0) codigo = candidato;
+      }
+      if (!codigo) {
+        await client.query("ROLLBACK");
+        return res.status(500).json({ code: "SERVER_ERROR", message: "No se pudo generar el código de obra" });
+      }
     }
 
     const obra = await client.query(
       `INSERT INTO obras (nombre, code, type, direccion, city, province, zip, country, fecha_inicio, fecha_fin_estimada, estado)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [name, code, type, address, city, province, zip || null, country || 'ar', startDate || null, endDate || null, status || 'planificacion']
+      [name, codigo, type, address, city || null, province || null, zip || null, country || 'ar', startDate || null, endDate || null, status || 'planificacion']
     );
     const obra_id = obra.rows[0].id;
 
-    // Vincular creador
-    await client.query(
-      `INSERT INTO personas (auth_user_id) VALUES ($1)
-       ON CONFLICT (auth_user_id) DO NOTHING`,
+    // Vincular creador (persona existente o creada con su nombre)
+    const personaExistente = await client.query(
+      `SELECT id FROM personas WHERE auth_user_id = $1`,
       [req.user.id]
     );
+    let personaId = personaExistente.rows[0]?.id;
+    if (!personaId) {
+      const metadata = req.user.user_metadata || {};
+      const nombrePersona = metadata.nombre || metadata.full_name || metadata.name
+        || (req.user.email ? req.user.email.split("@")[0] : "Usuario");
+      const nuevaPersona = await client.query(
+        `INSERT INTO personas (auth_user_id, nombre) VALUES ($1,$2) RETURNING id`,
+        [req.user.id, nombrePersona]
+      );
+      personaId = nuevaPersona.rows[0].id;
+    }
     await client.query(
-      `INSERT INTO miembros_obra (persona_id, obra_id, rol)
-       SELECT id, $2, $3 FROM personas WHERE auth_user_id = $1
+      `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1,$2,$3)
        ON CONFLICT (persona_id, obra_id) DO NOTHING`,
-      [req.user.id, obra_id, myRole]
+      [personaId, obra_id, rol]
     );
 
-    // Vincular equipo adicional
-    if (team?.length) {
+    // Equipo adicional (bloqueado en el front por ahora: solo personas ya registradas)
+    if (Array.isArray(team) && team.length > 0) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       for (const userId of team) {
-        await client.query(
-          `INSERT INTO personas (auth_user_id) VALUES ($1)
-           ON CONFLICT (auth_user_id) DO NOTHING`,
+        if (typeof userId !== "string" || !uuidRe.test(userId)) continue;
+        const persona = await client.query(
+          `SELECT id FROM personas WHERE auth_user_id = $1`,
           [userId]
         );
+        if (!persona.rows[0]) continue;
         await client.query(
-          `INSERT INTO miembros_obra (persona_id, obra_id, rol)
-           SELECT id, $2, 'operario' FROM personas WHERE auth_user_id = $1
+          `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1,$2,'operario')
            ON CONFLICT (persona_id, obra_id) DO NOTHING`,
-          [userId, obra_id]
+          [persona.rows[0].id, obra_id]
         );
       }
     }
@@ -149,20 +184,21 @@ export async function crearObra(req, res) {
     // Presupuesto total
     await client.query(
       `INSERT INTO presupuestos (obra_id, total) VALUES ($1,$2)`,
-      [obra_id, presupuestoTotal]
+      [obra_id, Number(presupuestoTotal) || 0]
     );
 
     // Rubros
-    for (const rubro of rubros) {
+    for (const rubro of rubrosValidos) {
+      const nombreRubro = String(rubro.nombre).trim();
       const rubroResult = await client.query(
         `INSERT INTO rubros (obra_id, nombre) VALUES ($1,$2) RETURNING id`,
-        [obra_id, rubro.nombre]
+        [obra_id, nombreRubro]
       );
       await client.query(
         `INSERT INTO presupuesto_rubros (rubro_id, cap) VALUES ($1,$2)`,
-        [rubroResult.rows[0].id, rubro.presupuesto || 0]
+        [rubroResult.rows[0].id, Number(rubro.presupuesto) || 0]
       );
-      rubrosCreados.push({ id: rubroResult.rows[0].id, nombre: rubro.nombre });
+      rubrosCreados.push({ id: rubroResult.rows[0].id, nombre: nombreRubro });
     }
 
     await client.query("COMMIT");

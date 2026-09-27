@@ -9,7 +9,7 @@ import { Step4 } from "./Step4";
 import { Step5 } from "./Step5";
 import { Step6 } from "./Step6";
 import { SuccessState } from "./SuccessState";
-import { DEFAULT_RUBROS, STEPS, PERSON_MAP } from "@/app/projects/data/wizard";
+import { DEFAULT_RUBROS, STEPS } from "@/app/projects/data/wizard";
 import { createObra } from "@/services/projectsService";
 
 const totalSteps = STEPS.length;
@@ -28,7 +28,7 @@ const validateStep = (step: number, data: any): Record<string, string> => {
     if (!data.address.trim()) e.address = "La dirección es obligatoria";
   }
   if (step === 3) {
-    if (!data.team.length) e.team = "Seleccioná al menos una persona del equipo";
+    return e;
   }
   if (step === 4) {
     if (data.startDate && data.endDate && data.endDate < data.startDate) {
@@ -65,8 +65,8 @@ const INITIAL_DATA = {
   province: "",
   zip: "",
   country: "ar",
-  team: ["JM"],
-  teamRoles: { JM: "Director de obra" } as Record<string, string>,
+  team: [],
+  teamRoles: {} as Record<string, string>,
   startDate: "",
   endDate: "",
   client: { name: "", contact: "", cuit: "", email: "", phone: "", notes: "" },
@@ -80,9 +80,10 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) { setStep(1); setData(INITIAL_DATA); setError(""); setErrors({}); }
+    if (open) { setStep(1); setData(INITIAL_DATA); setError(""); setErrors({}); setCreatedId(null); }
   }, [open]);
 
   const setDataAndClear = (d: any) => { setData(d); setErrors({}); };
@@ -105,24 +106,19 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
         tipo: data.type,
         status: data.status,
         plantilla: "plantilla",
-        direccion: data.address + (data.city ? ", " + data.city : ""),
+        direccion: data.address,
         ciudad: data.city,
         provincia: data.province,
         zip: data.zip,
         pais: data.country,
         inicio: data.startDate,
         fin: data.endDate,
-        team: data.team.map((id: string) => {
-          const person = PERSON_MAP[id];
-          return {
-            name: person?.name || id,
-            phone: "",
-            role: data.teamRoles?.[id] || person?.role || "",
-          };
-        }),
+        team: [],
         waConnect: false,
         presupuestoTotal: Number(data.budgetTotal) || 0,
-        rubros: (data.rubros || []).map((r: any) => ({ nombre: r.name, presupuesto: Number(r.amount) || 0 })),
+        rubros: (data.rubros || [])
+          .filter((r) => r.name.trim())
+          .map((r) => ({ nombre: r.name.trim(), presupuesto: Number(r.amount) || 0 })),
         clientName: data.client.name,
         clientContact: data.client.contact,
         clientCuit: data.client.cuit,
@@ -130,7 +126,8 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
         clientPhone: data.client.phone,
         clientNotes: data.client.notes,
       };
-      await createObra(mapped);
+      const created = await createObra(mapped);
+      setCreatedId(created?.id ? String(created.id) : null);
       setStep(step + 1);
     } catch (e: any) {
       setError(e.message || "Error al crear obra");
@@ -165,7 +162,10 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
     if (step === 3) return true;
     if (step === 4) return true;
     if (step === 5) return !!(data.client.name.trim());
-    if (step === 6) return budgetTotal > 0 && budgetSum <= budgetTotal;
+    if (step === 6) {
+      const hasNamedRubro = (data.rubros || []).some((r) => r.name.trim());
+      return budgetTotal > 0 && hasNamedRubro && budgetSum <= budgetTotal;
+    }
     return false;
   })();
 
@@ -174,7 +174,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
       <div className="bg-white w-full max-w-[900px] max-h-[calc(100vh-32px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-in" onClick={(e) => e.stopPropagation()}>
 
         {step > totalSteps ? (
-          <SuccessState data={data} onClose={onClose} />
+          <SuccessState data={data} obraId={createdId} onClose={onClose} />
         ) : (
           <>
             {/* Header */}
@@ -238,7 +238,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
               <div className="flex-1 overflow-y-auto p-6">
                 {step === 1 && <Step1 data={data} setData={setDataAndClear} errors={errors} />}
                 {step === 2 && <Step2 data={data} setData={setDataAndClear} errors={errors} />}
-                {step === 3 && <Step3 data={data} setData={setDataAndClear} errors={errors} />}
+                {step === 3 && <Step3 />}
                 {step === 4 && <Step4 data={data} setData={setDataAndClear} errors={errors} />}
                 {step === 5 && <Step5 data={data} setData={setDataAndClear} errors={errors} />}
                 {step === 6 && <Step6 data={data} setData={setDataAndClear} errors={errors} />}

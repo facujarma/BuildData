@@ -4,7 +4,7 @@ import { ArrowRight } from "@gravity-ui/icons";
 import { TYPES } from "@/app/projects/data/wizard";
 import { formatNumber } from "@/lib/format";
 
-export function SuccessState({ data, onClose }: { data: any; onClose: () => void }) {
+export function SuccessState({ data, obraId, onClose }: { data: any; obraId?: string | null; onClose: () => void }) {
   return (
     <div className="flex flex-col">
       <div className="blueprint-bg px-8 py-10 text-center text-white relative overflow-hidden">
@@ -25,7 +25,7 @@ export function SuccessState({ data, onClose }: { data: any; onClose: () => void
           <div className="text-slate-500">Nombre</div><div className="font-bold text-slate-950 text-right truncate">{data.name || "—"}</div>
           <div className="text-slate-500">Tipo</div><div className="font-bold text-slate-950 text-right">{TYPES.find((t: any) => t.id === data.type)?.name || "—"}</div>
           <div className="text-slate-500">Ubicación</div><div className="font-bold text-slate-950 text-right truncate">{data.address ? `${data.address}${data.city ? ", " + data.city : ""}` : "—"}</div>
-          <div className="text-slate-500">Equipo</div><div className="font-bold text-slate-950 text-right">{data.team.length} persona{data.team.length === 1 ? "" : "s"}</div>
+          <div className="text-slate-500">Equipo</div><div className="font-bold text-slate-950 text-right">{data.team.length > 0 ? `${data.team.length} persona${data.team.length === 1 ? "" : "s"}` : "Vos (Director de obra)"}</div>
           <div className="text-slate-500">Cliente</div><div className="font-bold text-slate-950 text-right truncate">{data.client?.name || "—"}</div>
           <div className="text-slate-500">Presupuesto</div><div className="font-bold text-slate-950 text-right tnum">AR$ {formatNumber(data.budgetTotal)}</div>
         </div>
@@ -33,7 +33,7 @@ export function SuccessState({ data, onClose }: { data: any; onClose: () => void
 
       <div className="border-t border-slate-200 px-8 py-4 flex items-center justify-between bg-slate-50">
         <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950">Más tarde</button>
-        <a href="/dashboard" className="inline-flex items-center gap-2 text-[13px] font-bold bg-primary hover:bg-primary-700 text-white rounded-md px-4 py-[9px]">
+        <a href={obraId ? `/${obraId}/dashboard` : "/projects"} className="inline-flex items-center gap-2 text-[13px] font-bold bg-primary hover:bg-primary-700 text-white rounded-md px-4 py-[9px]">
           Ir al dashboard <ArrowRight width={14} height={14} />
         </a>
       </div>
