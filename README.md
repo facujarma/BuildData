@@ -22,7 +22,7 @@ BuildData/
 | Componente       | Tecnología                                     |
 |------------------|------------------------------------------------|
 | Monorepo         | [Turborepo](https://turbo.build/) + Bun        |
-| WhatsApp Bot     | [whatsapp-web.js](https://wwebjs.dev/)         |
+| WhatsApp Bot     | [Baileys](https://baileys.wiki) (WebSocket, sin navegador) |
 | IA (texto→SQL)   | Groq API (Llama 3.3 70B)                       |
 | IA (voz→texto)   | Groq API (Whisper Large V3 Turbo)              |
 | Base de datos    | MongoDB (MongoDB Atlas)                        |
@@ -115,7 +115,7 @@ npx turbo run dev --filter=frontend
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    WhatsApp Client                       │
-│  (whatsapp-web.js con Puppeteer headless)                │
+│  (Baileys sobre WebSocket, sin Chromium)                 │
 └───────────────────────┬─────────────────────────────────┘
                         │
               ┌─────────┴──────────┐
@@ -172,8 +172,8 @@ npx turbo run dev --filter=frontend
 
 ### Persistencia de sesión
 
-- Las sesiones de WhatsApp se almacenan en **MongoDB** mediante `RemoteAuth` con un `mongoStore` custom
-- `backupSyncIntervalMs: 300_000` (5 minutos)
+- Las sesiones de WhatsApp se almacenan en **MongoDB** (colección `baileys_auth`) vía un auth state propio (`useMongoAuthState`)
+- Las credenciales se guardan en cada `creds.update` y las signal keys en cada mensaje
 - Permite reiniciar el bot sin re-escanear el QR
 
 ---
@@ -200,11 +200,13 @@ La base de datos gestiona obras de construcción con las siguientes tablas:
 
 | Comando | Descripción |
 |---------|-------------|
+| `!iniciar` | Te registra en una obra. Uso: `!iniciar [nombre] [obra_id]` |
 | `!ayuda` | Muestra la lista de comandos disponibles |
-| `!confirm` | Confirma y ejecuta la consulta SQL pendiente |
-| `!cancel` | Cancela la consulta SQL pendiente |
+| `!obras` | Muestra las obras en las que formas parte |
+| `!invitacion` | Vincula tu WhatsApp a una obra con el link que te compartieron |
+| `!cancel` | Cancela la carga de datos pendiente |
 
-> Cualquier mensaje de texto o audio sin el prefijo `!` se interpreta como una solicitud de generación de SQL.
+> Cualquier mensaje de texto o audio sin el prefijo `!` se interpreta como una operación: el LLM genera endpoint + JSON, el bot lo confirma con una encuesta numerada y lo registra en el Backend (aprobación automática o bandeja de pendientes según la política).
 
 ---
 
@@ -222,8 +224,7 @@ docker run --env-file apps/WhatsApp-Bot/.env whatsapp-bot
 
 El Dockerfile incluye:
 - Base `oven/bun:1.3.12`
-- Dependencias de Chromium para Puppeteer headless
-- Instalación de Chrome específico (`146.0.7680.31`)
+- Solo dependencias de producción (sin Chromium/Puppeteer)
 
 ---
 

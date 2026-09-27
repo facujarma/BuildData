@@ -74,5 +74,3 @@ apps/Frontend/TMP/
 # ————————————————————————
 apps/WhatsApp-Bot/session/
 apps/WhatsApp-Bot/session.json
-apps/WhatsApp-Bot/.wwebjs_auth/
-apps/WhatsApp-Bot/.wwebjs_cache/

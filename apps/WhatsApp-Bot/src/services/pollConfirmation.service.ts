@@ -1,5 +1,16 @@
-import { Message, Poll } from "whatsapp-web.js";
+import {
+  decryptPollVote,
+  getAggregateVotesInPollMessage,
+  getKeyAuthor,
+  jidNormalizedUser,
+  normalizeMessageContent,
+  type proto,
+  type WAMessage,
+  type WASocket,
+} from "@whiskeysockets/baileys";
 import { getClient } from "../client";
+import { parsePollOptionIndex, resolveKeyPhone } from "../baileys/message.adapter";
+import { getPollMessage, removePollMessage } from "../baileys/pollMessage.store";
 import { getUserObras } from "./user.service";
 import {
   setPending,
@@ -159,19 +170,32 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
   }
 
   const lista = listaNumerada(question.options.map((o) => o.nombre));
+  const fallback = () =>
+    client.sendMessage(
+      chatId,
+      [
+        `🤔 No estoy seguro de qué ${entityKindLabel(question.kind)} es "*${question.entity}*". Elegí uno:`,
+        "",
+        lista,
+        "",
+        `${emojiNumero(question.options.length + 1)} Ninguno de estos`,
+        `${emojiNumero(0)} ❌ Cancelar`,
+        "",
+        "Respondé con el número.",
+      ].join("\n"),
+    );
 
-  await client.sendMessage(
+  const values = [
+    ...question.options.map((o, i) => `${i + 1}. ${o.nombre}`),
+    `${question.options.length + 1}. Ninguno de estos`,
+    "0. ❌ Cancelar",
+  ];
+
+  await sendPollOrText(
     chatId,
-    [
-      `🤔 No estoy seguro de qué ${entityKindLabel(question.kind)} es "*${question.entity}*". Elegí uno:`,
-      "",
-      lista,
-      "",
-      `${emojiNumero(question.options.length + 1)} Ninguno de estos`,
-      `${emojiNumero(0)} ❌ Cancelar`,
-      "",
-      "Respondé con el número.",
-    ].join("\n"),
+    `🤔 ¿Qué ${entityKindLabel(question.kind)} es "${question.entity}"?`,
+    values,
+    fallback,
   );
 }
 
@@ -288,91 +312,6 @@ export async function handleEntityTextReply(phone: string, raw: string, chatId: 
   return true;
 }
 
-// ──────────────────────────────────────────
-// Poll nativo — código muerto. El hook WAWebAddonPollVoteTableMode de
-// whatsapp-web.js no emite vote_update con la versión actual de WhatsApp Web.
-// Se usa el sistema de texto numerado (sendEntityQuestion / handleEntityTextReply
-// / sendObraConfirmationText / handleObraTextReply).
-// ──────────────────────────────────────────
-// export async function sendObraPoll(
-//   phone: string,
-//   chatId: string,
-//   pendingQuery: PendingQuery,
-// ): Promise<void> {
-//   const user = await getUserObras(phone);
-//   const client = getClient();
-//   if (!user || user.obras.length === 0) {
-//     await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
-//     return;
-//   }
-//
-//   setPending(phone, pendingQuery);
-//
-//   const options = user.obras.map((o) => o.obra_nombre);
-//   options.push("❌ Cancelar");
-//
-//   const poll = new Poll("¿En qué obra?", options, {
-//     allowMultipleAnswers: false,
-//     messageSecret: undefined,
-//   });
-//   await client.sendMessage(chatId, poll);
-// }
-//
-// export async function handlePollVote(
-//   voterPhone: string,
-//   selectedOptionName: string,
-//   pollMessage: Message,
-// ): Promise<void> {
-//   try {
-//     console.log(`[handlePollVote] Voto de ${voterPhone}: "${selectedOptionName}"`);
-//     const pending = getPending(voterPhone);
-//     const client = getClient();
-//
-//     if (!pending) {
-//       console.log(`[handlePollVote] Sin pendiente para ${voterPhone}, borrando poll`);
-//       await pollMessage.delete(true);
-//       return;
-//     }
-//
-//     const chatId = pollMessage.id.remote;
-//     console.log(`[handlePollVote] chatId: ${chatId}`);
-//
-//     if (selectedOptionName === "❌ Cancelar") {
-//       clearPending(voterPhone);
-//       await pollMessage.delete(true);
-//       await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
-//       return;
-//     }
-//
-//     const user = await getUserObras(voterPhone);
-//     if (!user) {
-//       clearPending(voterPhone);
-//       await pollMessage.delete(true);
-//       await client.sendMessage(chatId, MSG.ERROR_NO_OBRA);
-//       return;
-//     }
-//
-//     const obra = user.obras.find((o) => o.obra_nombre === selectedOptionName);
-//     if (!obra) {
-//       await client.sendMessage(chatId, "❌ No encontré esa obra. Intenta de nuevo.");
-//       return;
-//     }
-//
-//     pending.obra_id = obra.obra_id;
-//     await prepareAndExecute(pending, obra, voterPhone, chatId);
-//     await pollMessage.delete(true);
-//   } catch (error) {
-//     console.error("[handlePollVote] Error:", error);
-//     try {
-//       const client = getClient();
-//       const chatId = pollMessage.id?.remote;
-//       if (chatId) {
-//         await client.sendMessage(chatId, "❌ Ocurrió un error al ejecutar la operación. Intentá de nuevo.");
-//       }
-//     } catch {}
-//   }
-// }
-
 /**
  * Respuesta "Ok!" + encuesta de obra para una operación ya validada.
  * Reutilizada por el flujo normal (freetext) y por el de repregunta.
@@ -413,19 +352,136 @@ export async function sendObraConfirmationText(
   setPending(phone, pendingQuery);
 
   const lista = listaNumerada(user.obras.map((o) => o.obra_nombre));
+  const fallback = () =>
+    client.sendMessage(
+      chatId,
+      [
+        "🏗️ *¿En qué obra?*",
+        "",
+        lista,
+        "",
+        `${emojiNumero(0)} ❌ Cancelar`,
+        "",
+        "Respondé con el número.",
+      ].join("\n"),
+    );
 
-  await client.sendMessage(
-    chatId,
-    [
-      "🏗️ *¿En qué obra?*",
-      "",
-      lista,
-      "",
-      `${emojiNumero(0)} ❌ Cancelar`,
-      "",
-      "Respondé con el número.",
-    ].join("\n"),
-  );
+  const values = [
+    ...user.obras.map((o, i) => `${i + 1}. ${o.obra_nombre}`),
+    "0. ❌ Cancelar",
+  ];
+
+  await sendPollOrText(chatId, "🏗️ ¿En qué obra?", values, fallback);
+}
+
+const MAX_POLL_OPTIONS = 12;
+
+async function sendPollOrText(
+  chatId: string,
+  question: string,
+  values: string[],
+  fallback: () => Promise<unknown>,
+): Promise<void> {
+  if (values.length < 2 || values.length > MAX_POLL_OPTIONS) {
+    await fallback();
+    return;
+  }
+
+  try {
+    await getClient().sendPoll(chatId, question, values);
+  } catch (error) {
+    console.error("[poll] no se pudo enviar la encuesta nativa, se usa texto:", error);
+    await fallback();
+  }
+}
+
+export async function handlePollVoteMessage(sock: WASocket, voteMessage: WAMessage): Promise<void> {
+  const content = normalizeMessageContent(voteMessage.message);
+  const pollUpdate = content?.pollUpdateMessage;
+  const creationKey = pollUpdate?.pollCreationMessageKey;
+  if (!pollUpdate?.vote || !creationKey?.id) return;
+
+  const creation = getPollMessage(creationKey.id);
+  const pollEncKey = creation?.message?.messageContextInfo?.messageSecret;
+  if (!creation?.message || !pollEncKey) {
+    console.warn(`[poll] falta el mensaje original de la encuesta (${creationKey.id})`);
+    return;
+  }
+
+  const vote = decryptVote(sock, pollUpdate.vote, pollEncKey, creationKey.id, voteMessage);
+  if (!vote) return;
+
+  const optionName = getVotedOptionName(creation.message, voteMessage, vote);
+  const index = optionName ? parsePollOptionIndex(optionName) : undefined;
+  const phone = await resolveKeyPhone(sock, voteMessage.key);
+  const chatId = voteMessage.key.remoteJid;
+  if (!optionName || index === undefined || !phone || !chatId) return;
+
+  console.log(`[poll] voto de ${phone}: "${optionName}"`);
+  await deletePollMessage(sock, chatId, creation);
+  if (await handleEntityTextReply(phone, String(index), chatId)) return;
+  await handleObraTextReply(phone, String(index), chatId);
+}
+
+async function deletePollMessage(
+  sock: WASocket,
+  chatId: string,
+  creation: WAMessage,
+): Promise<void> {
+  try {
+    await sock.sendMessage(chatId, { delete: creation.key });
+    removePollMessage(creation.key.id);
+  } catch (error) {
+    console.error("[poll] no se pudo borrar la encuesta:", error);
+  }
+}
+
+function decryptVote(
+  sock: WASocket,
+  vote: proto.Message.IPollEncValue,
+  pollEncKey: Uint8Array,
+  pollMsgId: string,
+  voteMessage: WAMessage,
+): proto.Message.IPollVoteMessage | undefined {
+  const voterJids = unique([
+    getKeyAuthor(voteMessage.key, sock.user?.id),
+    voteMessage.key.remoteJidAlt,
+    voteMessage.key.participantAlt,
+    voteMessage.key.remoteJid,
+  ]);
+  const creatorJids = unique([
+    sock.user?.id ? jidNormalizedUser(sock.user.id) : undefined,
+    sock.user?.lid ? jidNormalizedUser(sock.user.lid) : undefined,
+  ]);
+
+  for (const pollCreatorJid of creatorJids) {
+    for (const voterJid of voterJids) {
+      try {
+        return decryptPollVote(vote, { pollCreatorJid, pollMsgId, pollEncKey, voterJid });
+      } catch {
+        // combinación incorrecta: probamos la siguiente
+      }
+    }
+  }
+
+  console.warn(`[poll] no se pudo desencriptar el voto (${voteMessage.key.id})`);
+  return undefined;
+}
+
+function getVotedOptionName(
+  pollCreation: proto.IMessage,
+  voteMessage: WAMessage,
+  vote: proto.Message.IPollVoteMessage,
+): string | undefined {
+  const aggregation = getAggregateVotesInPollMessage({
+    message: pollCreation,
+    pollUpdates: [{ pollUpdateMessageKey: voteMessage.key, vote }],
+  });
+  return aggregation.find((option) => option.voters.length > 0)?.name;
+}
+
+function unique(values: (string | null | undefined)[]): string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
 export async function handleObraTextReply(
