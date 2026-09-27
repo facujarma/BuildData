@@ -1,4 +1,4 @@
-import { Message, MessageTypes } from "whatsapp-web.js";
+import { Message, MessageTypes } from "../types/message.types";
 import { getCommand, registerCommand } from "../commands/index";
 import { ayudaCommand } from "../commands/ayuda.command";
 import { loginCommand } from "../commands/login.command";

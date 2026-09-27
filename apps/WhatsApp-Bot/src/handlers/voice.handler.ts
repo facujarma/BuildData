@@ -1,4 +1,4 @@
-import { Message } from "whatsapp-web.js";
+import { Message } from "../types/message.types";
 import { transcribeAudio } from "../services/transcription.service";
 import { handleFreeText } from "./freetext.handler";
 import { MSG, MSG_TRANSCRIPTION } from "../shared/responses";

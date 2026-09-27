@@ -1,4 +1,4 @@
-import { Message } from "whatsapp-web.js";
+import { Message } from "../types/message.types";
 import { textToOperation } from "../services/llm.service";
 import {
   clearPending,
