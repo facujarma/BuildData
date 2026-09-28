@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
-import { formatARS, formatDate, formatDateShort, formatNumber } from "@/lib/format";
+import { formatARS, formatDate, formatDateShort, formatNumber, formatTime } from "@/lib/format";
 
 export interface NewPedidoPayload {
   proveedor_id: string;
@@ -75,9 +75,9 @@ function fmtUnit(precio: number | null, unidad: string | null): string {
 
 function mapEntrega(row: RawPedido): PedidoItem["delivery"] {
   if (row.estado !== "entregado" || !row.fecha_entrega) return undefined;
-  const hora = row.fecha_entrega.slice(11, 16);
+  const hora = formatTime(row.fecha_entrega);
   return {
-    date: `${formatDate(row.fecha_entrega.slice(0, 10))}${hora && hora !== "00:00" ? ` · ${hora}` : ""}`,
+    date: `${formatDate(row.fecha_entrega)}${hora && hora !== "00:00" ? ` · ${hora}` : ""}`,
     loc: row.ubicacion_entrega || "",
     receiver: row.recibido_por || "",
     doc: row.documento_receptor || "",
@@ -104,6 +104,7 @@ function mapRawToItem(row: RawPedido): PedidoItem {
     date: formatDateShort(row.fecha_llegada_estimada),
     dateISO: row.fecha_llegada_estimada,
     ordered: formatDateShort(row.fecha),
+    orderedISO: row.fecha,
     state: ESTADO_DB_UI[row.estado] || row.estado || "draft",
     total,
     unit: first ? fmtUnit(first.precio_unitario, first.unidad) : "",

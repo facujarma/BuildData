@@ -24,6 +24,7 @@ import { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 import { SideDrawer } from "./SideDrawer";
 import { completeCronogramaTask } from "@/services/cronogramaService";
 import { getAlertas } from "@/services/alertasService";
+import { getPedidos } from "@/services/pedidosService";
 import { useToast, DashToast } from "./useToast";
 import { CategoryModal, type CategoryFormData } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
@@ -60,6 +61,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
   const [catModal, setCatModal] = useState<{ initial: CategoryFormData | null } | null>(null);
   const [categories, setCategories] = useState<CategoryFormData[]>([]);
   const [alertasFull, setAlertasFull] = useState<AlertaItem[]>([]);
+  const [pedidosResumen, setPedidosResumen] = useState({ porAprobar: 0, enTransito: 0, demorados: 0, mesEnCurso: 0 });
 
   const {
     obra,
@@ -129,12 +131,28 @@ export function DashboardContent({ data, onNavigate }: Props) {
     return () => { active = false; };
   }, [obraId]);
 
-  const pedidosMock = {
-    porAprobar: stats.pedidosPendientes,
-    enTransito: 4,
-    demorados: 1,
-    mesEnCurso: 14,
-  };
+  useEffect(() => {
+    if (!obraId) return;
+    let active = true;
+    getPedidos(obraId)
+      .then((rows) => {
+        if (!active) return;
+        const ahora = new Date();
+        const esDelMes = (iso?: string | null) => {
+          if (!iso) return false;
+          const d = new Date(iso);
+          return d.getFullYear() === ahora.getFullYear() && d.getMonth() === ahora.getMonth();
+        };
+        setPedidosResumen({
+          porAprobar: rows.filter((p) => p.state === "pending").length,
+          enTransito: rows.filter((p) => p.state === "transit").length,
+          demorados: rows.filter((p) => p.state === "late").length,
+          mesEnCurso: rows.filter((p) => esDelMes(p.orderedISO)).length,
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [obraId]);
 
   const mensajesPorConfirmar = stats.operacionesPendientes;
   const alertasCriticas = stats.alertasCriticas;
@@ -438,10 +456,10 @@ export function DashboardContent({ data, onNavigate }: Props) {
       >
         <div className="grid grid-cols-2 gap-3 mb-4">
           {[
-            { l: "Por aprobar", v: `${pedidosMock.porAprobar}`, t: "text-[#A16207]" },
-            { l: "En tránsito", v: `${pedidosMock.enTransito}`, t: "text-[#1D4ED8]" },
-            { l: "Demorados", v: `${pedidosMock.demorados}`, t: "text-[#B91C1C]" },
-            { l: "Mes en curso", v: `${pedidosMock.mesEnCurso}`, t: "text-[#15803D]" },
+            { l: "Por aprobar", v: `${pedidosResumen.porAprobar}`, t: "text-[#A16207]" },
+            { l: "En tránsito", v: `${pedidosResumen.enTransito}`, t: "text-[#1D4ED8]" },
+            { l: "Demorados", v: `${pedidosResumen.demorados}`, t: "text-[#B91C1C]" },
+            { l: "Mes en curso", v: `${pedidosResumen.mesEnCurso}`, t: "text-[#15803D]" },
           ].map((m) => (
             <div key={m.l} className="border border-slate-200 rounded-lg p-3">
               <div className={"text-[22px] font-extrabold tnum " + m.t}>{m.v}</div>
@@ -450,7 +468,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
           ))}
         </div>
         <div className="text-[12px] text-slate-600 leading-snug">
-          Hay <b className="text-slate-950">{pedidosMock.porAprobar} pedidos</b> esperando tu aprobación.
+          Hay <b className="text-slate-950">{pedidosResumen.porAprobar} pedidos</b> esperando tu aprobación.
         </div>
       </SideDrawer>
 

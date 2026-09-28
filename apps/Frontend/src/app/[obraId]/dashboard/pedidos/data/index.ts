@@ -10,6 +10,7 @@ export interface PedidoItem {
   date: string;
   dateISO?: string | null;
   ordered: string;
+  orderedISO?: string | null;
   state: string;
   total: number;
   unit: string;
