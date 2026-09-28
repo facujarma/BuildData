@@ -1,10 +1,12 @@
 FROM oven/bun:1.3.12
 
+ENV TZ=America/Argentina/Buenos_Aires
+
 WORKDIR /app
 
-COPY apps/WhatsApp-Bot/package.json ./
+COPY package.json ./
 RUN bun install
 
-COPY apps/WhatsApp-Bot/ .
+COPY . .
 
 CMD ["bun", "src/index.ts"]

@@ -188,7 +188,7 @@ Idioma bot:      español rioplatense, *negrita* WhatsApp, bloques ```, emojis �
 ## Seguridad y gotchas
 
 - `.env` contiene `GROQ_API_KEY`, `MONGO_URI`, `SUPABASE_SERVICE_ROLE_KEY` — NUNCA comitear
-- Dockerfile: build desde raíz del monorepo, solo copia `apps/WhatsApp-Bot/` al container (sin Chromium/Puppeteer)
+- Dockerfile: contexto = `apps/WhatsApp-Bot` (sin Chromium/Puppeteer); `.dockerignore` excluye `.env`
 - La sesión de WhatsApp vive en Mongo (`baileys_auth`): no necesita disco persistente; sí se pierde si se borra la DB
 - **Una sola instancia por sesión**: dos procesos con el mismo `baileys_auth` se pisan con error 440 (`connectionReplaced`). La reconexión de `client.ts` tiene guard anti-duplicados y backoff 5s→60s
 - `getPhoneFromMessage()` (`baileys/message.adapter.ts`) saca el número del jid y usa `remoteJidAlt` cuando el jid es `@lid` (rollout LID de WhatsApp)

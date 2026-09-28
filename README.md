@@ -215,8 +215,8 @@ La base de datos gestiona obras de construcción con las siguientes tablas:
 El WhatsApp Bot puede ejecutarse en contenedor:
 
 ```bash
-# Build desde la raíz del monorepo
-docker build -t whatsapp-bot -f apps/WhatsApp-Bot/Dockerfile .
+# Build (contexto = carpeta del bot)
+docker build -t whatsapp-bot apps/WhatsApp-Bot
 
 # Run
 docker run --env-file apps/WhatsApp-Bot/.env whatsapp-bot
