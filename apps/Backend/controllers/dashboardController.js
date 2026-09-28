@@ -39,7 +39,11 @@ export async function getDashboard(req, res) {
     const alertasResult = await pool.query(
       `SELECT
         COUNT(*) FILTER (WHERE severity = 'critical' AND resuelta = false) AS criticas,
-        COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE AND resuelta = false) AS hoy
+        COUNT(*) FILTER (
+          WHERE (created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+                = (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+            AND resuelta = false
+        ) AS hoy
        FROM alertas WHERE obra_id = $1`,
       [obraId]
     );
@@ -166,12 +170,13 @@ const pedidosConItems = await Promise.all(
       [obraId]
     );
 
-        // Comparación semana actual vs semana anterior
+        // Comparación semana actual vs semana anterior (semana calendario en TZ Argentina)
+    const inicioSemana = `date_trunc('week', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires'`;
     const semanaActualResult = await pool.query(
       `SELECT COUNT(*) AS total
        FROM tareas
        WHERE obra_id = $1
-       AND fecha_completada >= date_trunc('week', CURRENT_DATE)`,
+       AND fecha_completada >= ${inicioSemana}`,
       [obraId]
     );
 
@@ -179,8 +184,8 @@ const pedidosConItems = await Promise.all(
       `SELECT COUNT(*) AS total
        FROM tareas
        WHERE obra_id = $1
-       AND fecha_completada >= date_trunc('week', CURRENT_DATE) - interval '1 week'
-       AND fecha_completada < date_trunc('week', CURRENT_DATE)`,
+       AND fecha_completada >= ${inicioSemana} - interval '1 week'
+       AND fecha_completada < ${inicioSemana}`,
       [obraId]
     );
 

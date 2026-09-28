@@ -183,6 +183,7 @@ export async function ejecutarSQL(sql, params) {
   try {
     await client.query("BEGIN");
     await client.query("SET LOCAL TRANSACTION READ ONLY");
+    await client.query("SET LOCAL TimeZone = 'America/Argentina/Buenos_Aires'");
     await client.query(`SET LOCAL statement_timeout = '${TIMEOUT_MS}ms'`);
     const resultado = await client.query(sql, params);
     return normalizarFilas(resultado);

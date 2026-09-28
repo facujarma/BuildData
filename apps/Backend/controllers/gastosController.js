@@ -12,7 +12,7 @@ function parseFechaDocumento(raw) {
 }
 
 // El LLM de texto libre emite la fecha en YYYY-MM-DD (ISO). Validamos que sea una fecha
-// real (rechaza 2026-02-30) y devolvemos null si no matchea (la columna usa CURRENT_DATE).
+// real (rechaza 2026-02-30) y devolvemos null si no matchea (default: hoy en TZ Argentina).
 function parseFechaISO(raw) {
   if (typeof raw !== "string") return null;
   const m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -132,7 +132,7 @@ export async function crearGastoDesdeBot(req, res) {
 
     const gasto = await client.query(
       `INSERT INTO gastos (obra_id, usuario_id, rubro_id, descripcion, monto, moneda, origen, revisado, fecha)
-       VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'ARS'), $7, $8, COALESCE($9, CURRENT_DATE))
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'ARS'), $7, $8, COALESCE($9, (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date))
        RETURNING id, obra_id, monto, moneda, rubro_id, descripcion, origen, revisado, fecha, created_at`,
       [obra_id, usuarioId, rubroId, descripcion || null, montoNumerico, monedaFinal, origen || "bot_texto", !esImagen, fechaGasto]
     );

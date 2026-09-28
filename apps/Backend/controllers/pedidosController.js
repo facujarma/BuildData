@@ -296,7 +296,7 @@ export async function entregarPedido(req, res) {
     const actualizado = await client.query(
       `UPDATE pedidos_materiales
        SET estado = 'entregado',
-           fecha_entrega = COALESCE($1::timestamp, CURRENT_TIMESTAMP),
+           fecha_entrega = COALESCE($1::timestamp AT TIME ZONE 'America/Argentina/Buenos_Aires', CURRENT_TIMESTAMP),
            ubicacion_entrega = $2,
            recibido_por = $3,
            documento_receptor = $4

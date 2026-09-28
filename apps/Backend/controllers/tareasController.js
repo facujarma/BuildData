@@ -184,7 +184,7 @@ export async function crearTareaDesdeBot(req, res) {
       `INSERT INTO tareas
          (obra_id, titulo, descripcion, rubro_id, usuario_id, created_by,
           prioridad, fecha_inicio, fecha_limite, asignado_a)
-       VALUES ($1, $2, $3, $4, $5, $5, $6, CURRENT_DATE, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $5, $6, (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date, $7, $8)
        RETURNING *`,
       [
         obra_id,

@@ -130,9 +130,16 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 ## Variables de entorno
 
-- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`, `INVITACION_SECRET` (links de invitación; mismo valor que Backend)
-- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI), `SELF_URL` (opcional; URL del loopback del executor de operaciones, default `http://127.0.0.1:${PORT}`), `INVITACION_SECRET` (links de invitación; mismo valor que Bot)
+- **WhatsApp-Bot**: `GROQ_API_KEY`, `MONGO_URI`, `NODE_ENV`, `SUPABASE_SERVICE_ROLE_KEY`, `API_URL`, `INVITACION_SECRET` (links de invitación; mismo valor que Backend), `TZ` (opcional; fijar `America/Argentina/Buenos_Aires`)
+- **Backend**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY` (embeddings), `OPENAI_EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`), `GROQ_API_KEY` (ChatBot AI), `SELF_URL` (opcional; URL del loopback del executor de operaciones, default `http://127.0.0.1:${PORT}`), `INVITACION_SECRET` (links de invitación; mismo valor que Bot), `TZ` (opcional; fijar `America/Argentina/Buenos_Aires`)
 - NUNCA comitear `.env`
+
+## Convención de fechas (importante)
+
+- **Instantes** (created_at, fecha de pedidos, fecha_completada, etc.): `timestamptz` en la DB, `now()` como default, ISO 8601 UTC (`Z`) en la API. Migración aplicada: `outputs/migracion_fechas_timestamptz.sql`
+- **Fechas de calendario** (fecha_inicio, fecha_limite, fecha_llegada_estimada, gastos.fecha): columnas `date`, viajan como string `YYYY-MM-DD` (el parser global de `db.js` las devuelve string, nunca `Date`)
+- **TZ de negocio**: `America/Argentina/Buenos_Aires` (`services/fecha.service.js`; usarla en SQL con `AT TIME ZONE` cuando se compare "hoy"/semana)
+- **Frontend**: formatear/parsear siempre con `src/lib/format.ts` (`parseLocalDate`, `todayISO`, `formatRelative`, `formatDayLabel`); nunca `new Date().toISOString()` para fechas de calendario
 
 ## Backend — rutas y flujo de tareas
 
