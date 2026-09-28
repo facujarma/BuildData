@@ -58,7 +58,7 @@ export function DashTopBar({
   const { obraName } = useDashboardData();
 
   return (
-    <header className="h-[52px] px-5 border-b border-slate-200 bg-white/85 backdrop-blur flex items-center justify-between gap-3 flex-none">
+    <header className="relative z-[150] h-[52px] px-5 border-b border-slate-200 bg-white/85 backdrop-blur flex items-center justify-between gap-3 flex-none">
       <div className="text-[12px] text-slate-500 min-w-0 truncate">
         {obraName || "Obra"}
         <span className="mx-2 text-slate-300">/</span>

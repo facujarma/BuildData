@@ -127,7 +127,7 @@ export function NuevaTareaModal({ open, obraId, onClose, onCreate }: Props) {
   if (!open) return null;
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
+    <div onClick={onClose} className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
       <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[640px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
         {successName ? (
           <div className="px-8 py-10 text-center">

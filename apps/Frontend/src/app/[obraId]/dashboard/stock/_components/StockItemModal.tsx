@@ -75,7 +75,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
+    <div onClick={onClose} className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
       <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[520px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-none">
           <div className="flex items-center gap-3">

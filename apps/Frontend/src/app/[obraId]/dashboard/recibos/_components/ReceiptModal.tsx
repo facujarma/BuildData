@@ -77,7 +77,7 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
+    <div onClick={onClose} className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-task">
       <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-[480px] max-h-[calc(100vh-48px)] rounded-2xl shadow-big overflow-hidden flex flex-col animate-modal-pop">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-none">
           <div className="text-[15px] font-extrabold display-tight">Cargar recibo</div>

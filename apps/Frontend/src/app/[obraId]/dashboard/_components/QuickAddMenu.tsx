@@ -83,7 +83,7 @@ export function QuickAddMenu({ onPick }: Props) {
         <ChevronDown width={12} height={12} className={"transition-transform " + (open ? "rotate-180" : "")} />
       </button>
       {open && (
-        <div className="absolute right-0 top-[42px] w-[290px] max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-pop z-50 animate-fade-task">
+        <div className="absolute right-0 top-[42px] w-[290px] max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-pop z-[160] animate-fade-task">
           <div className="px-4 py-2 text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 border-b border-slate-100 sticky top-0 bg-white">
             Agregar rápido
           </div>
