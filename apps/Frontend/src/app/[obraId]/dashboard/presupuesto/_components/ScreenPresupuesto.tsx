@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ChartLineArrowUp,
   Check,
@@ -20,13 +20,14 @@ import Button from "@/components/ui/Button";
 import { DashToast, useToast } from "../../_components/useToast";
 import { Donut } from "./Donut";
 import { BudgetEditModal, type BudgetAuditEntry } from "./BudgetEditModal";
-import { getPresupuesto } from "@/services/mock/presupuestoService";
+import { useDashboardData } from "../../_components/DashboardDataContext";
+import { getPresupuesto, ajustarPresupuesto, type PresupuestoData } from "@/services/presupuestoService";
 import {
   CURRENCIES,
-  FORECAST_ITEMS,
   formatMoney,
   type BudgetLine,
   type CurrencyKey,
+  type ForecastItem,
 } from "../data";
 
 const KPI_TONES: Record<string, { tint: string; fg: string }> = {
@@ -79,33 +80,35 @@ const ASSUMPTIONS = [
 ];
 
 export function ScreenPresupuesto() {
+  const { obraId } = useDashboardData();
   const [lines, setLines] = useState<BudgetLine[]>([]);
+  const [forecast, setForecast] = useState<ForecastItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cur, setCur] = useState<CurrencyKey>("ARS");
   const [editOpen, setEditOpen] = useState(false);
   const [showMethod, setShowMethod] = useState(false);
   const [toast, flash] = useToast();
-  const [auditLog, setAuditLog] = useState<BudgetAuditEntry[]>([
-    {
-      at: "12 Ago 14:20",
-      by: "J. Méndez",
-      what: "Ajustó Hormigón armado de 48 M a 52 M",
-      reason: "Aumento de precio del hierro",
-    },
-  ]);
+  const [auditLog, setAuditLog] = useState<BudgetAuditEntry[]>([]);
+
+  const apply = useCallback((d: PresupuestoData) => {
+    setLines(d.lines);
+    setAuditLog(d.auditLog);
+    setForecast(d.forecast);
+  }, []);
+
+  const reload = useCallback(() => getPresupuesto(obraId).then(apply), [obraId, apply]);
 
   useEffect(() => {
+    if (!obraId) return;
     let cancelled = false;
-    getPresupuesto().then((d) => {
-      if (!cancelled) {
-        setLines(d.lines);
-        setLoading(false);
-      }
-    });
+    getPresupuesto(obraId)
+      .then((d) => { if (!cancelled) apply(d); })
+      .catch(() => { if (!cancelled) flash("No se pudo cargar el presupuesto"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [obraId, apply, flash]);
 
   const fmt = (m: number) => formatMoney(m, cur);
 
@@ -286,7 +289,7 @@ export function ScreenPresupuesto() {
             <div className="flex flex-wrap gap-2">
               {riskRubros.slice(0, 3).map((r) => (
                 <span
-                  key={r.name}
+                  key={r.rubroId}
                   className="inline-flex items-center gap-1 bg-white/10 rounded-full px-3 py-[5px] text-[11px] font-semibold"
                 >
                   <span className="w-[6px] h-[6px] rounded-full bg-critical" /> {r.name}{" "}
@@ -344,7 +347,7 @@ export function ScreenPresupuesto() {
               const usedPct = r.cap > 0 ? Math.min(100, Math.round((r.spent / r.cap) * 100)) : 0;
               const compPct = r.cap > 0 ? Math.min(100 - usedPct, Math.round((r.comp / r.cap) * 100)) : 0;
               return (
-                <div key={r.name} className="px-2 py-2 rounded-md hover:bg-slate-50/60">
+                <div key={r.rubroId} className="px-2 py-2 rounded-md hover:bg-slate-50/60">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="text-[12px] font-bold text-slate-800 truncate">{r.name}</div>
                     <div className="flex items-center gap-2 flex-none">
@@ -395,7 +398,7 @@ export function ScreenPresupuesto() {
             </div>
             <div className="p-4">
               <div className="relative pl-5 border-l-2 border-slate-200 space-y-4">
-                {FORECAST_ITEMS.map((f, i) => (
+                {forecast.map((f, i) => (
                   <div key={f.month} className="relative">
                     <span
                       className={`absolute -left-[26px] top-[2px] w-3 h-3 rounded-full border-2 ${
@@ -427,7 +430,7 @@ export function ScreenPresupuesto() {
               {lines.map((l) => {
                 const share = total > 0 ? Math.round((l.cap / total) * 100) : 0;
                 return (
-                  <div key={l.name} className="flex items-center gap-2">
+                  <div key={l.rubroId} className="flex items-center gap-2">
                     <div className="text-[11px] text-slate-700 w-[120px] truncate flex-none">{l.name}</div>
                     <div className="flex-1 bg-slate-100 h-[6px] rounded-full overflow-hidden">
                       <div style={{ width: share + "%" }} className="h-full bg-primary rounded-full" />
@@ -482,11 +485,11 @@ export function ScreenPresupuesto() {
           lines={lines}
           cur={cur}
           onClose={() => setEditOpen(false)}
-          onCommit={(next) => {
-            setLines(next);
+          onCommit={async (cambios, reason) => {
+            await ajustarPresupuesto(obraId, cambios, reason);
+            await reload();
             flash("Presupuesto actualizado");
           }}
-          onLog={(entry) => setAuditLog((p) => [entry, ...p])}
         />
       )}
 

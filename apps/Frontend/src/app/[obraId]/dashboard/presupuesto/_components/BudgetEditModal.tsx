@@ -9,7 +9,6 @@ import {
   Xmark,
 } from "@gravity-ui/icons";
 import { CURRENCIES, formatMoney, rubroColor, type BudgetLine, type CurrencyKey } from "../data";
-import { formatDateTime } from "@/lib/format";
 
 export interface BudgetAuditEntry {
   at: string;
@@ -19,6 +18,7 @@ export interface BudgetAuditEntry {
 }
 
 interface DraftLine {
+  rubroId: string;
   name: string;
   cap: number | "";
   spent: number;
@@ -29,15 +29,17 @@ interface Props {
   lines: BudgetLine[];
   cur: CurrencyKey;
   onClose: () => void;
-  onCommit: (next: BudgetLine[]) => void;
-  onLog: (entry: BudgetAuditEntry) => void;
+  // Persiste los cambios (millones ARS); si lanza, el modal muestra el error y sigue abierto
+  onCommit: (cambios: { rubroId: string; cap: number }[], reason: string) => Promise<void>;
 }
 
-export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props) {
+export function BudgetEditModal({ lines, cur, onClose, onCommit }: Props) {
   const [draft, setDraft] = useState<DraftLine[]>(() => lines.map((l) => ({ ...l })));
   const [reason, setReason] = useState("");
   const [step, setStep] = useState<"edit" | "review">("edit");
   const [ack, setAck] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -62,6 +64,7 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
 
   const changes = draft
     .map((l, i) => ({
+      rubroId: l.rubroId,
       name: l.name,
       from: lines[i].cap,
       to: parseFloat(String(l.cap)) || 0,
@@ -75,21 +78,22 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
   const bigDrops = changes.filter((ch) => ch.from > 0 && ch.to < ch.from * 0.75);
 
   const canReview = changes.length > 0 && errors.length === 0;
-  const canCommit = canReview && reason.trim().length >= 10 && ack;
+  const canCommit = canReview && reason.trim().length >= 10 && ack && !saving;
 
-  const commit = () => {
+  const commit = async () => {
     if (!canCommit) return;
-    onCommit(draft.map((l) => ({ ...l, cap: parseFloat(String(l.cap)) || 0 })));
-    onLog({
-      at: formatDateTime(new Date()),
-      by: "J. Méndez",
-      what:
-        changes.length === 1
-          ? `Ajustó ${changes[0].name} de ${changes[0].from} M a ${changes[0].to} M`
-          : `Ajustó ${changes.length} rubros · total ${delta >= 0 ? "+" : ""}${Math.round(delta)} M`,
-      reason: reason.trim(),
-    });
-    onClose();
+    setSaving(true);
+    setError("");
+    try {
+      await onCommit(
+        changes.map((ch) => ({ rubroId: ch.rubroId, cap: ch.to })),
+        reason.trim(),
+      );
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el presupuesto");
+      setSaving(false);
+    }
   };
 
   return (
@@ -151,7 +155,7 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
                     const belowComp = !belowSpent && to < l.spent + l.comp;
                     const changed = lines[i].cap !== to;
                     return (
-                      <tr key={l.name} className="border-b border-slate-100">
+                      <tr key={l.rubroId} className="border-b border-slate-100">
                         <td className="py-[10px]">
                           <div className="font-semibold text-slate-900 flex items-center gap-2">
                             <span
@@ -242,7 +246,7 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
                   {changes.map((ch, idx) => {
                     const up = ch.to > ch.from;
                     return (
-                      <div key={ch.name} className="flex items-center gap-3 px-3 py-[10px]">
+                      <div key={ch.rubroId} className="flex items-center gap-3 px-3 py-[10px]">
                         <span
                           className="w-2 h-2 rounded-full flex-none"
                           style={{ background: rubroColor(ch.name, idx) }}
@@ -366,6 +370,8 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
           )}
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-none">
           <button
             onClick={step === "review" ? () => setStep("edit") : onClose}
@@ -405,7 +411,7 @@ export function BudgetEditModal({ lines, cur, onClose, onCommit, onLog }: Props)
                     : "bg-slate-200 text-slate-500 cursor-not-allowed")
                 }
               >
-                <Check width={14} height={14} /> Confirmar y guardar
+                <Check width={14} height={14} /> {saving ? "Guardando…" : "Confirmar y guardar"}
               </button>
             )}
           </div>

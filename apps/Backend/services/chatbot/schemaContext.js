@@ -94,10 +94,16 @@ export const TABLAS = {
     clave: ["obra_id", "total", "ejecutado", "comprometido", "updated_at"],
   },
   presupuesto_rubros: {
-    descripcion: "Tope (cap) y gastado (spent) del presupuesto por rubro.",
+    descripcion: "Tope asignado (cap) del presupuesto por rubro. Para lo ejecutado por rubro usar gastos y pedidos entregados (spent puede estar desactualizado).",
     obraId: null,
     columnas: ["id", "rubro_id", "cap", "spent", "updated_at"],
-    clave: ["rubro_id", "cap", "spent", "updated_at"],
+    clave: ["rubro_id", "cap", "updated_at"],
+  },
+  presupuesto_ajustes: {
+    descripcion: "Historial de ajustes del presupuesto: quién lo cambió, cuándo, el motivo y los topes por rubro antes/después (cambios es jsonb).",
+    obraId: "obra_id",
+    columnas: ["id", "obra_id", "usuario_id", "motivo", "cambios", "total_anterior", "total_nuevo", "created_at"],
+    clave: ["obra_id", "usuario_id", "motivo", "total_anterior", "total_nuevo", "created_at"],
   },
   comprobantes_facturas: {
     descripcion: "Comprobantes y facturas cargadas: totales, emisor, receptor, fechas e IVA.",
@@ -151,7 +157,8 @@ export const GLOSARIO = `
 - "stock" / "inventario" → materiales.stock_actual y materiales.stock_minimo (solo materiales con activo = true)
 - "materiales usados" / "consumidos" / "movimientos" → movimientos_stock (consumo = tipo 'salida')
 - "avance" de la obra → obras.progress; avance por tarea → tareas.porcentaje_avance; avance por rubro → rubros.porcentaje_avance
-- "presupuesto" → presupuestos.total / ejecutado / comprometido; por rubro → presupuesto_rubros.cap / spent
+- "presupuesto" → presupuestos.total / ejecutado / comprometido; tope por rubro → presupuesto_rubros.cap
+- "ajustes" / "cambios de presupuesto" → presupuesto_ajustes
 - "rubro" → rubros (categorías de trabajo de la obra)
 - "proveedor" → proveedores (scope='global' = catálogo de la empresa; scope='obra' = solo esa obra; siempre filtrar activo = true); "proveedores favoritos/frecuentes" → proveedores_favoritos
 - "factura" / "comprobante" → comprobantes_facturas (detalle en factura_items)
@@ -159,7 +166,9 @@ export const GLOSARIO = `
 
 Métricas derivadas (no existen como columna; se calculan):
 - "disponible" del presupuesto = presupuestos.total - presupuestos.ejecutado - presupuestos.comprometido
-- saldo de un rubro = presupuesto_rubros.cap - presupuesto_rubros.spent
+- ejecutado de un rubro = SUM(gastos.monto del rubro, moneda ARS) + SUM(pedidos_materiales.total del rubro con estado 'entregado' sin gasto vinculado en gastos.pedido_id)
+- comprometido de un rubro = SUM(pedidos_materiales.total del rubro con estado IN ('aprobado','en_camino','demorado'))
+- saldo de un rubro = presupuesto_rubros.cap - ejecutado - comprometido
 - costo total de un pedido = pedidos_materiales.total (por ítem: pedidos_items.subtotal = cantidad * precio_unitario)
 - "materiales a reponer" / "stock bajo" = materiales activos (activo = true) con stock_actual < stock_minimo
 - cantidad de pedidos = COUNT de pedidos_materiales; monto de factura = comprobantes_facturas.total

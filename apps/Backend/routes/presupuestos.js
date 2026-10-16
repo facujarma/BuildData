@@ -1,8 +1,7 @@
 import { Router } from "express";
-import { getPresupuestos, crearPresupuesto, actualizarPresupuesto } from "../controllers/presupuestosController.js";
+import { getPresupuesto, ajustarRubros } from "../controllers/presupuestosController.js";
 
 const router = Router();
-router.get("/", getPresupuestos);
-router.post("/", crearPresupuesto);
-router.patch("/:id", actualizarPresupuesto);
+router.get("/:obra_id", getPresupuesto);
+router.put("/:obra_id/rubros", ajustarRubros);
 export default router;
