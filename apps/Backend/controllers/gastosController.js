@@ -1,5 +1,12 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
+import { registrarActividad } from "../services/actividad.service.js";
+
+// "AR$ 1.234" / "US$ 50" para el texto de la bitácora
+function montoTexto(monto, moneda) {
+  const sym = moneda === "USD" ? "US$" : "AR$";
+  return `${sym} ${Number(monto).toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
+}
 
 // vision.service.ts entrega fecha en formato DD/MM/YYYY (o "" si no la detectó) — la convertimos
 // a YYYY-MM-DD para las columnas DATE. Devuelve null si no matchea (columna queda sin valor).
@@ -59,7 +66,19 @@ export async function crearGasto(req, res) {
        VALUES ($1, $2, $3, $4, $5, $6, 'manual', true) RETURNING *`,
       [obra_id, req.personaId || null, rubro_id || null, descripcion, monto, pedido_id]
     );
-    res.status(201).json(result.rows[0]);
+    const g = result.rows[0];
+    await registrarActividad(pool, {
+      obraId: obra_id,
+      usuarioId: req.personaId || null,
+      tipo: "pedido",
+      accion: "cargó un gasto",
+      texto: `Cargó un gasto de ${montoTexto(g.monto, g.moneda)}${g.descripcion ? `: ${g.descripcion}` : ""}`,
+      entidadTipo: "gasto",
+      entidadId: g.id,
+      rubroId: g.rubro_id,
+      tags: ["Gasto"],
+    });
+    res.status(201).json(g);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -188,6 +207,18 @@ export async function crearGastoDesdeBot(req, res) {
         }
       }
     }
+
+    await registrarActividad(client, {
+      obraId: obra_id,
+      usuarioId,
+      tipo: "pedido",
+      accion: esImagen ? "cargó un comprobante" : "cargó un gasto",
+      texto: `${esImagen ? "Cargó un comprobante" : "Cargó un gasto"} de ${montoTexto(gastoRow.monto, gastoRow.moneda)}${gastoRow.descripcion ? `: ${gastoRow.descripcion}` : ""} por WhatsApp`,
+      entidadTipo: "gasto",
+      entidadId: gastoRow.id,
+      rubroId: gastoRow.rubro_id,
+      tags: esImagen ? ["Gasto", "Comprobante"] : ["Gasto"],
+    });
 
     await client.query("COMMIT");
     res.status(201).json(gastoRow);

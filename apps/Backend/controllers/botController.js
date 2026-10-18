@@ -2,6 +2,7 @@ import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 import { aplicarMovimientoStock, calcularDeltaAjuste } from "../services/stock.service.js";
 import { proveedorAccesible } from "../services/obraAccess.service.js";
+import { registrarActividad, resumenPedido } from "../services/actividad.service.js";
 
 // ============================================================
 // CONTRATO DE API CON FACU (bot de WhatsApp)
@@ -220,6 +221,19 @@ export async function crearPedidoDeCompra(req, res) {
       [mensaje_id]
     );
 
+    const resumen = await resumenPedido(client, pedido_id);
+    await registrarActividad(client, {
+      obraId: obra_id,
+      usuarioId: usuario_id,
+      tipo: "pedido",
+      accion: "creó un pedido",
+      texto: `Pidió ${resumen.material}${resumen.proveedor ? ` a ${resumen.proveedor}` : ""} por WhatsApp${aprobado ? " (aprobado)" : ""}`,
+      entidadTipo: "pedido",
+      entidadId: pedido_id,
+      rubroId: resumen.rubroId,
+      tags: resumen.tags,
+    });
+
     await client.query("COMMIT");
     res.status(201).json(pedido.rows[0]);
   } catch (error) {
@@ -262,15 +276,23 @@ export async function registrarRetraso(req, res) {
       });
     }
 
+    const mensajeRetraso = `El rubro "${rubro.rows[0].nombre}" se atrasó ${dias_retraso} días`;
     await pool.query(
       `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
        VALUES ($1, 'retraso', $2, 'alta', $3, 'Retraso en tarea', $2, 'attention')`,
-      [
-        obra_id,
-        `El rubro "${rubro.rows[0].nombre}" se atrasó ${dias_retraso} días`,
-        usuario_id,
-      ]
+      [obra_id, mensajeRetraso, usuario_id]
     );
+    await registrarActividad(pool, {
+      obraId: obra_id,
+      usuarioId: usuario_id,
+      tipo: "problema",
+      accion: "reportó un retraso",
+      texto: `Reportó por WhatsApp que ${mensajeRetraso.charAt(0).toLowerCase()}${mensajeRetraso.slice(1)}`,
+      entidadTipo: "rubro",
+      entidadId: rubro.rows[0].id,
+      rubroId: rubro.rows[0].id,
+      tags: ["Retraso"],
+    });
 
     await pool.query(
       `UPDATE mensajes

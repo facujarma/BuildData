@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { registrarActividad } from "../services/actividad.service.js";
 
 const DIAS_INACTIVIDAD = 7;
 
@@ -66,7 +67,20 @@ export async function resolverAlerta(req, res) {
       `UPDATE alertas SET resuelta = true WHERE id = $1 RETURNING *`,
       [id]
     );
-    res.json(result.rows[0]);
+    const alerta = result.rows[0];
+    if (alerta) {
+      await registrarActividad(pool, {
+        obraId: alerta.obra_id,
+        usuarioId: req.personaId || null,
+        tipo: "problema",
+        accion: "resolvió una alerta",
+        texto: `Resolvió la alerta "${alerta.titulo || alerta.mensaje || alerta.tipo}"`,
+        entidadTipo: "alerta",
+        entidadId: alerta.id,
+        tags: alerta.severity === "critical" ? ["Crítico", "Resuelta"] : ["Resuelta"],
+      });
+    }
+    res.json(alerta);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error resolviendo alerta" });
@@ -83,7 +97,18 @@ export async function crearAlerta(req, res) {
        RETURNING *`,
       [obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity || 'attention']
     );
-    res.status(201).json(result.rows[0]);
+    const alerta = result.rows[0];
+    await registrarActividad(pool, {
+      obraId: alerta.obra_id,
+      usuarioId: req.personaId || null,
+      tipo: "problema",
+      accion: "reportó un problema",
+      texto: `Reportó: ${alerta.titulo || alerta.mensaje || alerta.tipo}`,
+      entidadTipo: "alerta",
+      entidadId: alerta.id,
+      tags: alerta.severity === "critical" ? ["Crítico"] : [],
+    });
+    res.status(201).json(alerta);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error creando alerta" });

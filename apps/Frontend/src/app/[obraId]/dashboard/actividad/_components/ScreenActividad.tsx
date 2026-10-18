@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { CircleExclamation, Check, Box, Calendar, Sparkles, ArrowRight, Plus } from "@gravity-ui/icons";
 import { getActividad } from "@/services/actividadService";
+import { consultarChat } from "@/services/chatbotService";
 import type { ActivityGroup } from "@/app/[obraId]/dashboard/actividad/data";
-import { KIND_ICONS, SUGGESTED_QUESTIONS, ANSWERS_DB } from "@/app/[obraId]/dashboard/actividad/data";
+import { KIND_ICONS, SUGGESTED_QUESTIONS } from "@/app/[obraId]/dashboard/actividad/data";
 import { DCard } from "@/components/ui/DCard";
 import { DPill } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
@@ -33,18 +34,29 @@ export function ScreenActividad({ obraId }: { obraId: string }) {
   const [groups, setGroups] = useState<ActivityGroup[]>([]);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
     getActividad(obraId).then((data) => {
       setGroups(data.groups);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [obraId]);
 
-  const handleAsk = (q: string) => {
+  // Responde con el ChatBot AI (pregunta en lenguaje natural → SQL de solo lectura sobre la obra)
+  const handleAsk = async (q: string) => {
+    if (asking) return;
     setQuestion(q);
-    setAnswer(ANSWERS_DB[q] || "No tengo información para responder eso todavía.");
+    setAsking(true);
+    setAnswer("");
+    try {
+      const r = await consultarChat(q, obraId);
+      setAnswer(r.respuesta || "No encontré datos para responder eso.");
+    } catch (e) {
+      setAnswer(e instanceof Error ? `No pude responder: ${e.message}` : "No pude responder la pregunta.");
+    } finally {
+      setAsking(false);
+    }
   };
 
   const handleSend = () => {
@@ -125,6 +137,7 @@ export function ScreenActividad({ obraId }: { obraId: string }) {
                 <button
                   key={q}
                   onClick={() => handleAsk(q)}
+                  disabled={asking}
                   className="w-full text-left text-[12px] text-slate-600 bg-slate-50 hover:bg-primary-50 hover:text-primary rounded-lg px-3 py-2 transition-colors leading-snug"
                 >
                   {q}
@@ -132,8 +145,14 @@ export function ScreenActividad({ obraId }: { obraId: string }) {
               ))}
             </div>
 
-            {answer && (
-              <div className="bg-slate-50 rounded-lg p-3 mb-4 text-[12px] text-slate-700 leading-relaxed">
+            {asking && (
+              <div className="bg-slate-50 rounded-lg p-3 mb-4 text-[12px] text-slate-400 flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Buscando en la actividad de la obra…
+              </div>
+            )}
+            {answer && !asking && (
+              <div className="bg-slate-50 rounded-lg p-3 mb-4 text-[12px] text-slate-700 leading-relaxed whitespace-pre-line">
                 {renderBold(answer)}
               </div>
             )}
@@ -148,7 +167,7 @@ export function ScreenActividad({ obraId }: { obraId: string }) {
               />
               <button
                 onClick={handleSend}
-                disabled={!question.trim()}
+                disabled={!question.trim() || asking}
                 className="w-9 h-9 rounded-md bg-primary hover:bg-primary-700 text-white flex items-center justify-center flex-none transition-colors disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <ArrowRight width={16} height={16} />

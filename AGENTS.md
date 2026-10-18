@@ -122,6 +122,16 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **`presupuesto_rubros.spent` no se mantiene**: el ejecutado se calcula al vuelo. El dashboard (`BudgetCard`) y `/obras/:obraId/rubros` todavía leen `pr.spent`
 - La API trabaja en pesos; la pantalla de Presupuesto, en millones (`services/presupuestoService.ts` convierte)
 
+## Actividad (bitácora de la obra)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_actividad_tags.sql` (`actividad.tags text[]` + índice por obra/fecha)
+- `services/actividad.service.js:registrarActividad(db, { obraId, usuarioId, tipo, accion, texto, entidadTipo, entidadId, tags, rubroId })` es el único lugar que escribe la bitácora desde el sistema. **Best-effort**: con un client en transacción usa SAVEPOINT, así un fallo (ej: falta la migración) nunca aborta la operación registrada; solo loguea `[actividad] no se pudo registrar`. `rubroId` suma el nombre del rubro como tag. `resumenPedido` arma "Material (+N más)" + proveedor
+- `tipo` ∈ `avance | pedido | problema | foto | cierre` (keys de `KIND_ICONS` del frontend). `texto` es la frase completa que muestra el feed
+- Hoy registran: `tareasController` (crear, crearDesdeBot, completar, completarDesdeBot), `pedidosController` (crear, aprobar, rechazar, en camino/demorado, entregar), `botController` (`crearPedidoDeCompra`, `registrarRetraso`), `gastosController` (crear, crearDesdeBot), `alertasController` (crear, resolver), `presupuestosController.ajustarRubros`. Al agregar un write path relevante, sumarlo. **No registran todavía**: `actualizarTarea` (cambios de avance) y movimientos de stock
+- `GET /actividad/:obra_id` valida membresía y devuelve `tags` y `usuario_rol` (de `miembros_obra`), máx 300 filas. `POST /actividad` (carga manual) valida membresía y marca `tags = ['Manual']`
+- Dashboard "Avances de hoy" filtra por hoy en TZ negocio
+- "Preguntale a tu actividad" (`ScreenActividad`) usa el ChatBot AI (`POST /chat/consultar`); el `GLOSARIO` de `schemaContext.js` mapea bitácora/novedades/jornada → `actividad`
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error

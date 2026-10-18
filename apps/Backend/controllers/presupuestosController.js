@@ -1,6 +1,7 @@
 import { pool } from "../db.js";
 import { esMiembroDeObra } from "../services/obraAccess.service.js";
 import { calcularRubros, resumir, proyectarGasto } from "../services/presupuesto.service.js";
+import { registrarActividad } from "../services/actividad.service.js";
 
 const MOTIVO_MIN = 10;
 
@@ -144,11 +145,15 @@ export async function ajustarRubros(req, res) {
       ajustados.length === 1
         ? `${ajustados[0].nombre}: ${ajustados[0].cap_anterior} → ${ajustados[0].cap_nuevo}. Motivo: ${motivo}`
         : `${ajustados.length} rubros, total ${antes.total} → ${resumen.total}. Motivo: ${motivo}`;
-    await client.query(
-      `INSERT INTO actividad (obra_id, usuario_id, accion, tipo, texto)
-       VALUES ($1, $2, 'ajustó el presupuesto', 'Presupuesto', $3)`,
-      [obra_id, req.personaId || null, texto]
-    );
+    await registrarActividad(client, {
+      obraId: obra_id,
+      usuarioId: req.personaId || null,
+      tipo: "pedido",
+      accion: "ajustó el presupuesto",
+      texto: `Ajustó el presupuesto · ${texto}`,
+      entidadTipo: "presupuesto",
+      tags: ["Presupuesto", ...(ajustados.length === 1 ? [ajustados[0].nombre] : [])],
+    });
 
     await client.query("COMMIT");
     res.json({ resumen, rubros: despues });

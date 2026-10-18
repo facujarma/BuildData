@@ -156,6 +156,8 @@ const pedidosConItems = await Promise.all(
        FROM actividad a
        LEFT JOIN personas p ON p.id = a.usuario_id
        WHERE a.obra_id = $1
+         AND (a.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+             = (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
        ORDER BY a.created_at DESC
        LIMIT 5`,
       [obraId]

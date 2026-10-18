@@ -1,6 +1,7 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 import { guardarEmbedding } from "../services/embeddings.service.js";
+import { registrarActividad } from "../services/actividad.service.js";
 
 const ESTADOS_VALIDOS = ["pendiente", "en_progreso", "completada", "cancelada"];
 const PRIORIDADES_VALIDAS = ["baja", "media", "alta", "urgente"];
@@ -122,6 +123,16 @@ export async function crearTarea(req, res) {
       ]
     );
     await guardarEmbedding("tarea", result.rows[0].id, result.rows[0].titulo);
+    await registrarActividad(pool, {
+      obraId: obra_id,
+      usuarioId: personaId,
+      tipo: "avance",
+      accion: "creó una tarea",
+      texto: `Creó la tarea "${result.rows[0].titulo}"`,
+      entidadTipo: "tarea",
+      entidadId: result.rows[0].id,
+      rubroId: result.rows[0].rubro_id,
+    });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -198,6 +209,16 @@ export async function crearTareaDesdeBot(req, res) {
       ]
     );
     await guardarEmbedding("tarea", result.rows[0].id, result.rows[0].titulo);
+    await registrarActividad(pool, {
+      obraId: obra_id,
+      usuarioId,
+      tipo: "avance",
+      accion: "creó una tarea",
+      texto: `Creó la tarea "${result.rows[0].titulo}" por WhatsApp`,
+      entidadTipo: "tarea",
+      entidadId: result.rows[0].id,
+      rubroId: result.rows[0].rubro_id,
+    });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -378,6 +399,16 @@ export async function completarTarea(req, res) {
        RETURNING *`,
       [miembroObraId, id]
     );
+    await registrarActividad(pool, {
+      obraId: result.rows[0].obra_id,
+      usuarioId: personaId,
+      tipo: "avance",
+      accion: "completó una tarea",
+      texto: `Completó la tarea "${result.rows[0].titulo}"`,
+      entidadTipo: "tarea",
+      entidadId: id,
+      rubroId: result.rows[0].rubro_id,
+    });
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -453,7 +484,21 @@ export async function completarTareaDesdeBot(req, res) {
         [mensaje_id]
       );
     }
-    res.json(result.rows[0]);
+    const tareaRow = result.rows[0];
+    const avance = tareaRow.porcentaje_avance;
+    await registrarActividad(pool, {
+      obraId: tareaRow.obra_id,
+      usuarioId: personaId,
+      tipo: "avance",
+      accion: completar ? "completó una tarea" : "reabrió una tarea",
+      texto: completar
+        ? `Completó la tarea "${tareaRow.titulo}"${avance !== null && avance < 100 ? ` (${avance}%)` : ""} por WhatsApp`
+        : `Reabrió la tarea "${tareaRow.titulo}" por WhatsApp`,
+      entidadTipo: "tarea",
+      entidadId: id,
+      rubroId: tareaRow.rubro_id,
+    });
+    res.json(tareaRow);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error completando tarea desde bot" });

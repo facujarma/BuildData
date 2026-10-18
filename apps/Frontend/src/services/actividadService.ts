@@ -11,57 +11,54 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function mapTipoToKind(tipo: string | null): string {
-  const lower = (tipo || "").toLowerCase();
-  if (lower.includes("problema") || lower.includes("crítico") || lower.includes("critico")) return "alerta";
+interface RawActividad {
+  accion: string | null;
+  tipo: string | null;
+  texto: string | null;
+  tags: string[] | null;
+  created_at: string;
+  usuario_nombre: string | null;
+  usuario_rol: string | null;
+}
+
+// Devuelve una key de KIND_ICONS. Cubre los tipos que registra el Backend
+// (avance | pedido | problema | foto | cierre) y los de las cargas manuales viejas
+// ("Avance de tarea", "Cierre de jornada", "Problema", "Foto").
+function mapKind(tipo: string | null, accion: string | null): string {
+  const lower = `${tipo || ""} ${accion || ""}`.toLowerCase();
+  if (lower.includes("problema") || lower.includes("retraso") || lower.includes("alerta")) return "problema";
   if (lower.includes("foto")) return "foto";
-  if (lower.includes("cierre")) return "check";
-  if (lower.includes("pedido")) return "pedido";
+  if (lower.includes("cierre") || lower.includes("cerró")) return "cierre";
+  if (lower.includes("pedido") || lower.includes("gasto") || lower.includes("comprobante")) return "pedido";
   return "avance";
 }
 
-function mapAccionToKind(accion: string): string {
-  const lower = accion.toLowerCase();
-  if (lower.includes("problema")) return "alerta";
-  if (lower.includes("foto")) return "foto";
-  if (lower.includes("cerró")) return "check";
-  if (lower.includes("pedido")) return "pedido";
-  return "avance";
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function transformActividad(items: any[]): { groups: ActivityGroup[] } {
+function transformActividad(items: RawActividad[]): { groups: ActivityGroup[] } {
   const sorted = [...items].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  const groupsMap = new Map<string, { who: string; name: string; time: string; kind: string; text: string }[]>();
+  const groupsMap = new Map<string, ActivityGroup["items"]>();
   for (const item of sorted) {
     const label = formatDayLabel(item.created_at);
     if (!groupsMap.has(label)) groupsMap.set(label, []);
     groupsMap.get(label)!.push({
       who: getInitials(item.usuario_nombre || ""),
       name: item.usuario_nombre || "",
+      role: capitalize(item.usuario_rol || ""),
       time: formatTime(item.created_at),
-      kind: mapTipoToKind(item.tipo) || mapAccionToKind(item.accion),
+      kind: mapKind(item.tipo, item.accion),
       text: item.texto || item.accion || "",
+      tags: item.tags || [],
     });
   }
 
   const groups: ActivityGroup[] = [];
-  groupsMap.forEach((items, d) =>
-    groups.push({
-      d,
-      items: items.map((i) => ({
-        who: i.who,
-        name: i.name,
-        role: "",
-        time: i.time,
-        kind: i.kind,
-        text: i.text,
-        tags: [],
-      })),
-    })
-  );
+  groupsMap.forEach((items, d) => groups.push({ d, items }));
   return { groups };
 }
 
@@ -76,7 +73,7 @@ export async function getActividad(obraId: string): Promise<{ groups: ActivityGr
   });
 
   if (!res.ok) throw new Error(`Actividad fetch failed: ${res.status}`);
-  const data = await res.json();
+  const data: RawActividad[] = await res.json();
   return transformActividad(data);
 }
 

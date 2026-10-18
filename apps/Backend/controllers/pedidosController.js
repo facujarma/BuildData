@@ -1,5 +1,23 @@
 import { pool } from "../db.js";
 import { aplicarMovimientoStock } from "../services/stock.service.js";
+import { registrarActividad, resumenPedido } from "../services/actividad.service.js";
+
+// Registra en la bitácora un cambio de un pedido (db = pool o client en transacción).
+// texto(p) arma la frase a partir de { material, proveedor }.
+async function actividadPedido(db, { obraId, usuarioId, pedidoId, accion, texto, tags = [] }) {
+  const p = await resumenPedido(db, pedidoId);
+  await registrarActividad(db, {
+    obraId,
+    usuarioId,
+    tipo: "pedido",
+    accion,
+    texto: texto(p),
+    entidadTipo: "pedido",
+    entidadId: pedidoId,
+    rubroId: p.rubroId,
+    tags: [...p.tags, ...tags],
+  });
+}
 import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js";
 
 const sinAcceso = (res) =>
@@ -171,6 +189,14 @@ export async function crearPedidoWeb(req, res) {
       [obra_id, solicitadoPor]
     );
 
+    await actividadPedido(client, {
+      obraId: obra_id,
+      usuarioId: req.personaId || null,
+      pedidoId: pedido_id,
+      accion: "creó un pedido",
+      texto: (p) => `Pidió ${p.material}${p.proveedor ? ` a ${p.proveedor}` : ""}`,
+    });
+
     await client.query("COMMIT");
     res.status(201).json(pedido.rows[0]);
   } catch (error) {
@@ -197,6 +223,13 @@ export async function aprobarPedido(req, res) {
       [req.personaId || null, id]
     );
     if (!result.rows[0]) return res.status(404).json({ code: "NOT_FOUND", message: "Pedido no encontrado" });
+    await actividadPedido(pool, {
+      obraId: dueno.obra_id,
+      usuarioId: req.personaId || null,
+      pedidoId: id,
+      accion: "aprobó un pedido",
+      texto: (p) => `Aprobó el pedido de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""}`,
+    });
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -219,6 +252,13 @@ export async function rechazarPedido(req, res) {
       [id]
     );
     if (!result.rows[0]) return res.status(404).json({ code: "NOT_FOUND", message: "Pedido no encontrado" });
+    await actividadPedido(pool, {
+      obraId: dueno.obra_id,
+      usuarioId: req.personaId || null,
+      pedidoId: id,
+      accion: "rechazó un pedido",
+      texto: (p) => `Rechazó el pedido de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""}`,
+    });
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -248,6 +288,15 @@ export async function cambiarEstadoPedido(req, res) {
     if (!result.rows[0]) {
       return res.status(409).json({ code: "INVALID_STATE", message: "El pedido debe estar aprobado o en curso" });
     }
+    await actividadPedido(pool, {
+      obraId: dueno.obra_id,
+      usuarioId: req.personaId || null,
+      pedidoId: id,
+      accion: estado === "en_camino" ? "marcó un pedido en camino" : "marcó un pedido demorado",
+      texto: (p) =>
+        `Marcó ${estado === "en_camino" ? "en camino" : "demorado"} el pedido de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""}`,
+      tags: estado === "demorado" ? ["Demorado"] : [],
+    });
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -320,6 +369,14 @@ export async function entregarPedido(req, res) {
         observacion: `Entrada por pedido ${id.slice(0, 8)}`,
       });
     }
+
+    await actividadPedido(client, {
+      obraId: dueno.obra_id,
+      usuarioId: req.personaId || null,
+      pedidoId: id,
+      accion: "registró una entrega",
+      texto: (p) => `Registró la entrega de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""} · recibió ${recibidoPor}`,
+    });
 
     await client.query("COMMIT");
     res.json(actualizado.rows[0]);

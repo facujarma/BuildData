@@ -33,7 +33,7 @@ export function ActivityFeed({ items, onItemClick, onViewAll }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] leading-snug">
                   <b className="font-bold">{a.name}</b>
-                  {a.tipo && <span className="text-slate-500"> · {a.tipo}</span>}
+                  {(a.action || a.tipo) && <span className="text-slate-500"> · {a.action || a.tipo}</span>}
                 </div>
                 {a.texto && (
                   <div className="text-[11px] text-slate-400 mt-[2px] line-clamp-2">{a.texto}</div>

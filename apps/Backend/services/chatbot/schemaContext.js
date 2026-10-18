@@ -135,10 +135,14 @@ export const TABLAS = {
     clave: ["id", "nombre", "telefono"],
   },
   actividad: {
-    descripcion: "Historial de acciones registradas en la obra.",
+    descripcion: "Bitácora de la obra: lo que pasó y quién lo hizo (tareas creadas/completadas, pedidos creados/aprobados/entregados, gastos, problemas/alertas, retrasos y cargas manuales). texto es la frase legible; tags es un text[] (ej: nombre del rubro, 'Crítico', 'Urgente', 'Gasto', 'Manual').",
     obraId: "obra_id",
-    columnas: ["id", "obra_id", "usuario_id", "accion", "texto", "tipo", "entidad_tipo", "entidad_id", "created_at"],
-    clave: ["obra_id", "usuario_id", "accion", "texto", "tipo", "created_at"],
+    columnas: ["id", "obra_id", "usuario_id", "accion", "texto", "tipo", "tags", "entidad_tipo", "entidad_id", "created_at"],
+    clave: ["obra_id", "usuario_id", "accion", "texto", "tipo", "tags", "entidad_tipo", "created_at"],
+    valores: {
+      tipo: "avance (tareas) | pedido (pedidos y gastos) | problema (alertas y retrasos) | foto | cierre; las cargas manuales viejas usan 'Avance de tarea', 'Foto', 'Cierre de jornada', 'Problema'",
+      entidad_tipo: "tarea | pedido | gasto | alerta | rubro",
+    },
   },
   alertas: {
     descripcion: "Alertas de la obra, con severidad y estado de resolución.",
@@ -163,6 +167,9 @@ export const GLOSARIO = `
 - "proveedor" → proveedores (scope='global' = catálogo de la empresa; scope='obra' = solo esa obra; siempre filtrar activo = true); "proveedores favoritos/frecuentes" → proveedores_favoritos
 - "factura" / "comprobante" → comprobantes_facturas (detalle en factura_items)
 - "obreros" / "equipo" / "gente" → miembros_obra y personas
+- "bitácora" / "actividad" / "qué pasó" / "qué se hizo" / "novedades" / "jornada" / "avances de hoy" → actividad (con personas para el nombre); para el detalle cruzar con tareas, pedidos_materiales y alertas
+- "problemas" / "incidentes" / "críticos" → alertas (severity = 'critical' para críticos) y actividad con tipo = 'problema'
+- "quién hizo" / "quién cargó" / "quién aprobó" → actividad.usuario_id → personas.nombre
 
 Métricas derivadas (no existen como columna; se calculan):
 - "disponible" del presupuesto = presupuestos.total - presupuestos.ejecutado - presupuestos.comprometido
