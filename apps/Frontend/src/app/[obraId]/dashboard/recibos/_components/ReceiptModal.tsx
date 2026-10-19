@@ -2,33 +2,45 @@
 
 import { useState, useRef } from "react";
 import { Xmark, Plus } from "@gravity-ui/icons";
-
-export interface ReceiptModalData {
-  file: string;
-  concept: string;
-  provider: string;
-  category: string;
-  amount: number;
-  date: string;
-  paid: boolean;
-}
+import { todayISO } from "@/lib/format";
+import type { NuevoRecibo } from "@/services/recibosService";
+import { ACCEPTED_FILE_TYPES, MAX_FILE_BYTES } from "../data";
 
 interface Props {
   cats: string[];
+  rubros: { id: string; nombre: string }[];
   onClose: () => void;
-  onSave: (data: ReceiptModalData) => void;
+  // Si lanza, el modal muestra el error y sigue abierto
+  onSave: (data: NuevoRecibo, file: File | null) => Promise<void>;
 }
 
-export function ReceiptModal({ cats, onClose, onSave }: Props) {
+export function ReceiptModal({ cats, rubros, onClose, onSave }: Props) {
   const [dragging, setDragging] = useState(false);
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [concept, setConcept] = useState("");
   const [provider, setProvider] = useState("");
   const [category, setCategory] = useState(cats[0] || "");
+  const [rubroId, setRubroId] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(todayISO());
   const [paid, setPaid] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (f: File | undefined) => {
+    if (!f) return;
+    if (!ACCEPTED_FILE_TYPES.includes(f.type)) {
+      setError("El archivo debe ser PDF, JPG, PNG o WebP");
+      return;
+    }
+    if (f.size > MAX_FILE_BYTES) {
+      setError("El archivo no puede superar 10 MB");
+      return;
+    }
+    setError("");
+    setFile(f);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -40,12 +52,7 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      setFileName(file.name);
-    } else {
-      setFileName("comprobante-" + Date.now().toString(36) + ".pdf");
-    }
+    pickFile(e.dataTransfer.files?.[0]);
   };
 
   const handleClick = () => {
@@ -53,27 +60,33 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-    } else {
-      setFileName("recibo-" + Date.now().toString(36) + ".pdf");
-    }
+    pickFile(e.target.files?.[0]);
   };
 
-  const canSave = fileName && concept.trim() && provider.trim() && category && amount && date;
+  const montoValido = (parseFloat(amount) || 0) > 0;
+  const canSave = concept.trim() && provider.trim() && category && montoValido && date && !saving;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSave) return;
-    onSave({
-      file: fileName,
-      concept: concept.trim(),
-      provider: provider.trim(),
-      category,
-      amount: parseFloat(amount) || 0,
-      date,
-      paid,
-    });
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(
+        {
+          concept: concept.trim(),
+          provider: provider.trim(),
+          category,
+          rubroId: rubroId || null,
+          amount: parseFloat(amount) || 0,
+          date,
+          paid,
+        },
+        file,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el recibo");
+      setSaving(false);
+    }
   };
 
   return (
@@ -96,14 +109,14 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
               dragging ? "border-primary bg-primary-50" : "border-slate-200 hover:border-slate-300 bg-slate-50"
             }`}
           >
-            <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleFileChange} />
+            <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleFileChange} />
             <Plus width={24} height={24} className="mx-auto mb-2 text-slate-400" />
-            {fileName ? (
-              <div className="text-[13px] font-semibold text-slate-800">{fileName}</div>
+            {file ? (
+              <div className="text-[13px] font-semibold text-slate-800">{file.name}</div>
             ) : (
               <>
                 <div className="text-[13px] font-semibold text-slate-600">Arrastrá un archivo o hacé clic</div>
-                <div className="text-[11px] text-slate-400 mt-1">PDF, JPG o PNG</div>
+                <div className="text-[11px] text-slate-400 mt-1">PDF, JPG, PNG o WebP · máx 10 MB · opcional</div>
               </>
             )}
           </div>
@@ -130,10 +143,23 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
             </select>
           </label>
 
+          <label className="flex flex-col gap-[6px]">
+            <span className="text-[11px] font-bold text-slate-700">
+              Rubro <span className="font-normal text-slate-500">(opcional · suma al presupuesto del rubro)</span>
+            </span>
+            <select value={rubroId} onChange={(e) => setRubroId(e.target.value)}
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+              <option value="">Sin rubro</option>
+              {rubros.map((r) => (
+                <option key={r.id} value={r.id}>{r.nombre}</option>
+              ))}
+            </select>
+          </label>
+
           <div className="flex gap-3">
             <label className="flex flex-col gap-[6px] flex-1">
               <span className="text-[11px] font-bold text-slate-700">Monto AR$</span>
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+              <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
                 className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none tnum" />
             </label>
             <label className="flex flex-col gap-[6px] flex-1">
@@ -150,11 +176,13 @@ export function ReceiptModal({ cats, onClose, onSave }: Props) {
           </label>
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
           <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
           <button onClick={submit} disabled={!canSave}
             className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed")}>
-            Guardar recibo
+            {saving ? "Guardando…" : "Guardar recibo"}
           </button>
         </div>
       </div>

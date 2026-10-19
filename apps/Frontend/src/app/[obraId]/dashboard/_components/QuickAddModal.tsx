@@ -8,6 +8,7 @@ import { UploadPhotosModal } from "./UploadPhotosModal";
 import { StockItemModal } from "../stock/_components/StockItemModal";
 import { catColor as stockCatColor } from "../stock/data";
 import { ReceiptModal } from "../recibos/_components/ReceiptModal";
+import { createRecibo } from "@/services/recibosService";
 import { CATEGORIES as RECEIPT_CATEGORIES } from "../recibos/data";
 import { NuevaTareaModal } from "../cronograma/_components/NuevaTareaModal";
 import { NewOrderModal, type MaterialOption } from "../pedidos/_components/NewOrderModal";
@@ -145,12 +146,20 @@ function QuickAddMaterial({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   );
 }
 
-function QuickAddRecibo({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
+function QuickAddRecibo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
+
+  useEffect(() => {
+    getRubrosDeObra(obraId).then(setRubros).catch(() => {});
+  }, [obraId]);
+
   return (
     <ReceiptModal
       cats={RECEIPT_CATEGORIES}
+      rubros={rubros}
       onClose={onClose}
-      onSave={() => {
+      onSave={async (data, file) => {
+        await createRecibo(obraId, data, file);
         onDone("Comprobante cargado");
         onClose();
       }}
@@ -353,7 +362,7 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
     case "material":
       return <QuickAddMaterial obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "recibo":
-      return <QuickAddRecibo onClose={onClose} onDone={onDone} />;
+      return <QuickAddRecibo obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "rubro":
       return <QuickAddRubro onClose={onClose} onDone={onDone} />;
     case "proveedor":

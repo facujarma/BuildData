@@ -30,10 +30,14 @@ export const TABLAS = {
     clave: ["id", "obra_id", "nombre", "porcentaje_avance"],
   },
   gastos: {
-    descripcion: "Gastos de la obra: monto, fecha, descripción, rubro y pedido asociado.",
+    descripcion: "Gastos / recibos de la obra: monto, fecha, descripción, rubro, pedido asociado, proveedor, categoría (Materiales, Mano de obra, Equipos, Logística, Servicios) y estado de pago.",
     obraId: "obra_id",
-    columnas: ["id", "obra_id", "pedido_id", "rubro_id", "descripcion", "monto", "fecha", "moneda", "origen", "revisado", "usuario_id", "created_at"],
-    clave: ["id", "obra_id", "rubro_id", "pedido_id", "descripcion", "monto", "fecha", "moneda", "revisado"],
+    columnas: [
+      "id", "obra_id", "pedido_id", "rubro_id", "descripcion", "monto", "fecha", "moneda", "origen", "revisado",
+      "usuario_id", "categoria", "proveedor", "estado_pago", "archivo_nombre", "created_at",
+    ],
+    clave: ["id", "obra_id", "rubro_id", "pedido_id", "descripcion", "monto", "fecha", "moneda", "revisado", "categoria", "proveedor", "estado_pago"],
+    valores: { estado_pago: "pagado | pendiente (pendiente = falta pagar)" },
   },
   pedidos_materiales: {
     descripcion: "Pedidos de compra de materiales: estado, aprobación, proveedor, urgencia y fecha estimada de llegada. El rubro es una FK a la tabla rubros (nombre del rubro).",
@@ -157,7 +161,8 @@ export const TABLAS_PERMITIDAS = Object.keys(TABLAS);
 // Glosario de lenguaje de obra → tablas. Va en el prompt del planner y del SQL generator.
 export const GLOSARIO = `
 - "pedidos" / "pedidos de compra" → pedidos_materiales (detalle en pedidos_items)
-- "gastos" / "gastamos" / "plata" / "costos" → gastos
+- "gastos" / "gastamos" / "plata" / "costos" / "recibos" → gastos
+- "deudas" / "a pagar" / "pendiente de pago" / "qué falta pagar" → gastos con estado_pago = 'pendiente'
 - "stock" / "inventario" → materiales.stock_actual y materiales.stock_minimo (solo materiales con activo = true)
 - "materiales usados" / "consumidos" / "movimientos" → movimientos_stock (consumo = tipo 'salida')
 - "avance" de la obra → obras.progress; avance por tarea → tareas.porcentaje_avance; avance por rubro → rubros.porcentaje_avance

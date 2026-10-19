@@ -132,6 +132,13 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Dashboard "Avances de hoy" filtra por hoy en TZ negocio
 - "Preguntale a tu actividad" (`ScreenActividad`) usa el ChatBot AI (`POST /chat/consultar`); el `GLOSARIO` de `schemaContext.js` mapea bitácora/novedades/jornada → `actividad`
 
+## Recibos y comprobantes (gastos)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_recibos.sql` (`gastos.categoria/proveedor/estado_pago/archivo_url/archivo_nombre` + bucket público `comprobantes`, PDF/imagen hasta 10 MB). `categoria` va **sin default** a propósito (si no, el backfill pisaría el fallback al rubro); el default `'Materiales'` lo pone `POST /gastos`
+- La pantalla Recibos lee `gastos`: `GET /gastos/:obra_id` (`SELECT_RECIBO` en `gastosController.js`) completa lo que falte con el comprobante del bot (`comprobantes_facturas`: emisor/destino como proveedor, tipo+número como descripción, `imagen_url` como archivo) y el rubro como categoría. `fecha` sale como texto `YYYY-MM-DD`
+- `POST /gastos` (`{ obra_id, descripcion, proveedor, categoria, rubro_id, monto, fecha, pagado }`), `PATCH /gastos/:id` (toggle `estado_pago` + edición; registra actividad si cambia el estado), `POST /gastos/:id/archivo` (archivo crudo, header opcional `X-File-Name` URI-encoded). Todos validan membresía
+- Solo los gastos con `rubro_id` cuentan en el ejecutado del Presupuesto; la categoría de recibo es una taxonomía aparte
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error
