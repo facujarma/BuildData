@@ -119,7 +119,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Migración manual una vez: `apps/Backend/outputs/migracion_presupuesto.sql` (montos de `presupuestos`/`presupuesto_rubros` a `numeric`, tabla `presupuesto_ajustes`)
 - `services/presupuesto.service.js` es la fuente de verdad de los números: `calcularRubros` (por rubro: `cap` de `presupuesto_rubros`; `spent` = gastos ARS del rubro + pedidos `entregado` sin gasto vinculado en `gastos.pedido_id`; `comp` = pedidos `aprobado`/`en_camino`/`demorado`), `resumir` y `proyectarGasto` (3 meses desde el actual en TZ negocio; pedidos por `fecha_llegada_estimada` y tareas no terminadas con `costo_estimado`; lo atrasado cae en el mes actual)
 - `GET /presupuestos/:obra_id` → `{ resumen, rubros, forecast, auditLog }`. `PUT /presupuestos/:obra_id/rubros` (`{ cambios: [{rubro_id, cap}], reason }`, motivo ≥ 10 chars, 409 si un cap queda bajo lo ejecutado): en una transacción actualiza `presupuesto_rubros.cap`, sincroniza `presupuestos.total/ejecutado/comprometido`, inserta en `presupuesto_ajustes` y en `actividad`. Ambos validan membresía
-- **`presupuesto_rubros.spent` no se mantiene**: el ejecutado se calcula al vuelo. El dashboard (`BudgetCard`) y `/obras/:obraId/rubros` todavía leen `pr.spent`
+- **`presupuesto_rubros.spent` no se mantiene**: el ejecutado se calcula al vuelo. El dashboard (`GET /dashboard/:obraId`) usa `calcularRubros` + `resumir` (mismo cálculo que Presupuesto) para `budget` y `budgetBreakdown` (cada ítem trae `name, spent, comp, cap`); `/obras/:obraId/rubros` todavía lee `pr.spent`
 - La API trabaja en pesos; la pantalla de Presupuesto, en millones (`services/presupuestoService.ts` convierte)
 
 ## Actividad (bitácora de la obra)

@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { calcularRubros, resumir } from "../services/presupuesto.service.js";
 
 // GET /obras/:obraId/dashboard
 export async function getDashboard(req, res) {
@@ -100,34 +101,16 @@ const pedidosConItems = await Promise.all(
   })
 );
 
-    // Presupuesto
-    const presupuestoResult = await pool.query(
-      `SELECT
-        p.total,
-        COALESCE((
-          SELECT SUM(pr.spent)
-          FROM presupuesto_rubros pr
-          JOIN rubros r ON r.id = pr.rubro_id
-          WHERE r.obra_id = $1
-        ), 0) AS ejecutado,
-        p.comprometido,
-        p.updated_at
-       FROM presupuestos p
-       WHERE p.obra_id = $1`,
-      [obraId]
-    );
-    const pres = presupuestoResult.rows[0] || { total: 0, ejecutado: 0, comprometido: 0 };
-    const total = pres.total || 1;
-    const disponible = pres.total - pres.ejecutado - pres.comprometido;
-
-    // Budget breakdown por rubro
-    const rubrosResult = await pool.query(
-      `SELECT r.nombre AS name, pr.spent, pr.cap
-       FROM rubros r
-       JOIN presupuesto_rubros pr ON pr.rubro_id = r.id
-       WHERE r.obra_id = $1`,
-      [obraId]
-    );
+    // Presupuesto y desglose por rubro: mismo cálculo que /presupuestos/:obra_id
+    // (services/presupuesto.service.js). Ejecutado y comprometido se calculan al
+    // vuelo desde gastos y pedidos — nunca desde presupuesto_rubros.spent.
+    const [rubrosPresupuesto, presupuestoResult] = await Promise.all([
+      calcularRubros(pool, obraId),
+      pool.query(`SELECT updated_at FROM presupuestos WHERE obra_id = $1`, [obraId]),
+    ]);
+    const presupuesto = resumir(rubrosPresupuesto);
+    const pctPresupuesto = (monto) =>
+      presupuesto.total > 0 ? Math.round((monto / presupuesto.total) * 100) : 0;
 
     // Trade progress — avance calculado desde las tareas del rubro
     // (promedio simple de porcentaje_avance, excluyendo canceladas).
@@ -228,15 +211,20 @@ const pedidosConItems = await Promise.all(
         tareasTotal: parseInt(tareas.total),
       },
       budget: {
-        total: pres.total,
-        ejecutado: pres.ejecutado,
-        disponible,
-        ejecutadoPct: Math.round((pres.ejecutado / total) * 100),
-        comprometidoPct: Math.round((pres.comprometido / total) * 100),
-        librePct: Math.round((disponible / total) * 100),
-        updatedAt: pres.updated_at,
+        total: presupuesto.total,
+        ejecutado: presupuesto.ejecutado,
+        disponible: presupuesto.disponible,
+        ejecutadoPct: pctPresupuesto(presupuesto.ejecutado),
+        comprometidoPct: pctPresupuesto(presupuesto.comprometido),
+        librePct: pctPresupuesto(presupuesto.disponible),
+        updatedAt: presupuestoResult.rows[0]?.updated_at || null,
       },
-      budgetBreakdown: rubrosResult.rows,
+      budgetBreakdown: rubrosPresupuesto.map((r) => ({
+        name: r.nombre,
+        spent: r.spent,
+        comp: r.comp,
+        cap: r.cap,
+      })),
       tradeProgress: tradeResult.rows.map(r => ({ ...r, pct: parseInt(r.pct) })),
       activityFeed: actividadResult.rows,
       alerts: alertasListResult.rows,
