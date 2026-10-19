@@ -28,6 +28,7 @@ import pedidosRoutes from "./routes/pedidos.js";
 import mensajesRoutes from "./routes/mensajes.js";
 import operacionesRoutes from "./routes/operaciones.js";
 import chatbotRoutes from "./routes/chatbot.js";
+import galeriaRoutes from "./routes/galeria.js";
 import { verificarInactividad } from "./controllers/alertasController.js";
 
 dotenv.config();
@@ -102,6 +103,9 @@ app.use("/mensajes", mensajesRoutes);
 
 // Aprobación/rechazo de operaciones del bot
 app.use("/operaciones", operacionesRoutes);
+
+// Galería de obra (fotos en Storage)
+app.use("/galeria", galeriaRoutes);
 
 // ChatBot AI (preguntas en lenguaje natural → SQL)
 app.use("/chat", chatbotRoutes);

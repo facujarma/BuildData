@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   Picture,
@@ -14,17 +15,24 @@ import {
   Xmark,
   ChevronRight,
   Check,
+  TrashBin,
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import DButton from "@/components/ui/Button";
 import { DAvatar } from "@/components/ui/DAvatar";
-import { getGaleria } from "@/services/mock/galeriaService";
-import { RUBRO_COLORS } from "../data";
+import { getGaleria, deleteFoto } from "@/services/galeriaService";
 import type { GalleryPhoto } from "@/types/gallery";
+import { useDashboardData } from "../../_components/DashboardDataContext";
+import { UploadPhotosModal } from "../../_components/UploadPhotosModal";
 
-function PhotoThumb({ p, h = 128 }: { p: GalleryPhoto; h?: number }) {
+function PhotoThumb({ p, h = 128, contain = false }: { p: GalleryPhoto; h?: number; contain?: boolean }) {
   return (
     <div className="relative w-full overflow-hidden rounded-md" style={{ height: h, background: p.tone + "1f" }}>
+      {p.url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- fotos públicas de Storage, sin optimizador de Next configurado
+        <img src={p.url} alt={p.note || p.task} loading="lazy"
+          className={`absolute inset-0 w-full h-full ${contain ? "object-contain" : "object-cover"}`} />
+      ) : (
       <svg viewBox="0 0 200 130" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full">
         <rect width="200" height="130" fill={p.tone} opacity="0.10" />
         {[...Array(7)].map((_, i) => <line key={"h" + i} x1="0" x2="200" y1={i * 20} y2={i * 20} stroke={p.tone} strokeOpacity="0.13" strokeWidth="1" />)}
@@ -34,7 +42,8 @@ function PhotoThumb({ p, h = 128 }: { p: GalleryPhoto; h?: number }) {
         <rect x="114" y="32" width="26" height="80" rx="2" fill={p.tone} />
         <rect x="114" y="32" width="26" height="12" rx="2" fill="#F59E0B" />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-white/70"><Picture width={20} height={20} /></span>
+      )}
+      {!p.url && <span className="absolute inset-0 flex items-center justify-center text-white/70"><Picture width={20} height={20} /></span>}
       {p.flag && (
         <span className="absolute top-2 left-2 text-[8px] font-bold tracking-wider uppercase bg-white/90 text-slate-700 rounded px-[5px] py-[2px]">{p.flag}</span>
       )}
@@ -44,19 +53,40 @@ function PhotoThumb({ p, h = 128 }: { p: GalleryPhoto; h?: number }) {
 }
 
 export function ScreenGaleria() {
+  const { obraId } = useDashboardData();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [showUpload, setShowUpload] = useState(false);
   const [group, setGroup] = useState<"fecha" | "tarea">("fecha");
   const [fRubro, setFRubro] = useState("Todos");
   const [pick, setPick] = useState<GalleryPhoto | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2000); };
 
+  const reload = useCallback(() => getGaleria(obraId).then(setPhotos).catch(() => flash("No se pudo actualizar la galería")), [obraId]);
+
   useEffect(() => {
+    if (!obraId) return;
     let cancelled = false;
-    getGaleria().then((d) => { if (!cancelled) { setPhotos(d.photos); setLoading(false); } });
+    getGaleria(obraId)
+      .then((rows) => { if (!cancelled) setPhotos(rows); })
+      .catch(() => { if (!cancelled) flash("No se pudo cargar la galería"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [obraId]);
+
+  const remove = async (p: GalleryPhoto) => {
+    if (!window.confirm("¿Eliminar esta foto de la galería? No se puede deshacer.")) return;
+    try {
+      await deleteFoto(p.id);
+      setPhotos((prev) => prev.filter((x) => x.id !== p.id));
+      setPick(null);
+      flash("Foto eliminada");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "No se pudo eliminar la foto");
+    }
+  };
 
   const list = photos.filter((p) => fRubro === "Todos" || p.rubro === fRubro);
   const key = (p: GalleryPhoto) => (group === "fecha" ? p.date : p.task);
@@ -65,7 +95,7 @@ export function ScreenGaleria() {
     return acc;
   }, {});
 
-  const rubroOpts = ["Todos", ...Object.keys(RUBRO_COLORS)];
+  const rubroOpts = useMemo(() => ["Todos", ...Array.from(new Set(photos.map((p) => p.rubro)))], [photos]);
   const idx = list.findIndex((p) => pick && p.id === pick.id);
   const go = (d: number) => { const n = idx + d; if (n >= 0 && n < list.length) setPick(list[n]); };
 
@@ -103,7 +133,7 @@ export function ScreenGaleria() {
         right={
           <>
             <DButton variant="secondary" size="sm" icon={<FileArrowDown width={13} height={13} />} onClick={() => flash("Exportando galería…")}>Exportar</DButton>
-            <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => flash("Subiendo fotos…")}>Subir fotos</DButton>
+            <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => setShowUpload(true)}>Subir fotos</DButton>
           </>
         }
       />
@@ -137,7 +167,9 @@ export function ScreenGaleria() {
       </div>
 
       {Object.keys(groups).length === 0 ? (
-        <div className="text-center text-slate-500 py-12 text-[13px] border border-dashed border-slate-200 rounded-lg">No hay fotos con ese filtro.</div>
+        <div className="text-center text-slate-500 py-12 text-[13px] border border-dashed border-slate-200 rounded-lg">
+          {photos.length === 0 ? "Todavía no hay fotos de esta obra. Subí las primeras con “Subir fotos”." : "No hay fotos con ese filtro."}
+        </div>
       ) : (
         <div className="flex flex-col gap-5">
           {Object.entries(groups).map(([g, ps]) => (
@@ -150,7 +182,7 @@ export function ScreenGaleria() {
                 <span className="text-[11px] text-slate-400">· {ps.length} foto{ps.length === 1 ? "" : "s"}</span>
                 {group === "tarea" && (
                   <span className="text-[10px] font-bold px-[6px] py-[2px] rounded flex items-center gap-[5px]"
-                    style={{ background: (RUBRO_COLORS[ps[0].rubro] || "#94A3B8") + "22", color: RUBRO_COLORS[ps[0].rubro] || "#64748B" }}>
+                    style={{ background: ps[0].tone + "22", color: ps[0].tone }}>
                     {ps[0].rubro}
                   </span>
                 )}
@@ -182,7 +214,7 @@ export function ScreenGaleria() {
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2 h-2 rounded-full flex-none" style={{ background: pick.tone }} />
                 <span className="text-[13px] font-bold text-slate-950 truncate">{pick.task}</span>
-                <span className="text-[11px] text-slate-500 flex-none">· {pick.id}</span>
+                {pick.fileName && <span className="text-[11px] text-slate-500 flex-none truncate max-w-[200px]">· {pick.fileName}</span>}
               </div>
               <div className="flex items-center gap-1 flex-none">
                 <button onClick={() => go(-1)} disabled={idx <= 0}
@@ -196,7 +228,7 @@ export function ScreenGaleria() {
 
             <div className="grid grid-cols-[1fr_260px] flex-1 min-h-0">
               <div className="bg-slate-100 p-4 flex items-center justify-center min-h-0">
-                <div className="w-full max-w-[440px]"><PhotoThumb p={pick} h={300} /></div>
+                <div className="w-full"><PhotoThumb p={pick} h={380} contain /></div>
               </div>
               <div className="border-l border-slate-200 p-4 overflow-y-auto">
                 <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-3">Datos de la foto</div>
@@ -206,7 +238,7 @@ export function ScreenGaleria() {
                     ["Rubro", pick.rubro, <Layers key="l" width={12} height={12} />],
                     ["Fecha", pick.date + " · " + pick.time, <Clock key="t" width={12} height={12} />],
                     ["Tomada por", pick.who, <Persons key="u" width={12} height={12} />],
-                    ["Origen", "WhatsApp", <Envelope key="e" width={12} height={12} />],
+                    ["Origen", pick.origen === "whatsapp" ? "WhatsApp" : "Carga web", <Envelope key="e" width={12} height={12} />],
                   ] as [string, string, ReactNode][]).map(([l, v, ic]) => (
                     <div key={l} className="flex items-start gap-2">
                       <span className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center flex-none">{ic}</span>
@@ -224,13 +256,25 @@ export function ScreenGaleria() {
                   </div>
                 )}
                 <div className="mt-4 flex flex-col gap-2">
-                  <DButton variant="secondary" size="sm" icon={<Calendar width={12} height={12} />} onClick={() => flash("Abriendo cronograma…")}>Ver tarea</DButton>
-                  <DButton variant="secondary" size="sm" icon={<FileArrowDown width={12} height={12} />} onClick={() => flash("Descargando…")}>Descargar</DButton>
+                  {pick.taskId && (
+                    <DButton variant="secondary" size="sm" icon={<Calendar width={12} height={12} />} onClick={() => router.push(`/${obraId}/dashboard/cronograma`)}>Ver tarea</DButton>
+                  )}
+                  <DButton variant="secondary" size="sm" icon={<FileArrowDown width={12} height={12} />} onClick={() => window.open(pick.url, "_blank", "noopener")}>Descargar</DButton>
+                  <DButton variant="secondary" size="sm" className="text-[#B91C1C]" icon={<TrashBin width={12} height={12} />} onClick={() => remove(pick)}>Eliminar</DButton>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {showUpload && (
+        <UploadPhotosModal
+          obraId={obraId}
+          onClose={() => setShowUpload(false)}
+          onDone={flash}
+          onUploaded={reload}
+        />
       )}
 
       {toast && (

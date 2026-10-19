@@ -5,18 +5,26 @@ import { Picture, CloudArrowUpIn, Magnifier, ChevronDown, Check, Xmark } from "@
 import { getCronograma } from "@/services/cronogramaService";
 import { RUBRO_COLORS, TASK_STATE_MAP, FALLBACK_RUBRO_COLOR } from "../cronograma/data";
 import type { TaskItem } from "../cronograma/data";
+import { uploadFotos } from "@/services/galeriaService";
+import { ACCEPTED_PHOTO_TYPES, MAX_PHOTO_BYTES, PHOTO_FLAGS } from "../registro/data";
 
 interface Props {
   obraId: string;
   onClose: () => void;
   onDone: (msg: string) => void;
+  // Se llama después de subir (aunque haya fallado alguna) para refrescar la galería
+  onUploaded?: () => void;
 }
 
-export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
+export function UploadPhotosModal({ obraId, onClose, onDone, onUploaded }: Props) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [task, setTask] = useState("");
   const [note, setNote] = useState("");
+  const [flag, setFlag] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
   const [drag, setDrag] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskQ, setTaskQ] = useState("");
@@ -49,16 +57,34 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const addFiles = (names: string[]) => {
-    setFiles((p) => [...p, ...names.filter(Boolean)]);
+  const addFiles = (list: File[]) => {
+    const validas = list.filter((f) => ACCEPTED_PHOTO_TYPES.includes(f.type) && f.size <= MAX_PHOTO_BYTES);
+    setError(validas.length < list.length ? "Algunos archivos se descartaron: solo JPG, PNG o WebP de hasta 10 MB" : "");
+    setFiles((p) => [...p, ...validas]);
   };
 
-  const canSave = files.length > 0;
+  const canSave = files.length > 0 && !uploading;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSave) return;
-    onDone(`${files.length} ${files.length === 1 ? "foto subida" : "fotos subidas"} a la galería`);
-    onClose();
+    setUploading(true);
+    setProgress(0);
+    setError("");
+    const { subidas, fallidas } = await uploadFotos(obraId, files, { tareaId: task || null, nota: note, flag }, setProgress);
+    if (subidas.length > 0) onUploaded?.();
+    if (fallidas.length === 0) {
+      onDone(`${subidas.length} ${subidas.length === 1 ? "foto subida" : "fotos subidas"} a la galería`);
+      onClose();
+      return;
+    }
+    // Quedan en el modal solo las que fallaron, para reintentar
+    setFiles((p) => p.filter((f) => fallidas.includes(f.name)));
+    setError(
+      subidas.length > 0
+        ? `Se subieron ${subidas.length}; fallaron ${fallidas.length}. Podés reintentar.`
+        : "No se pudo subir ninguna foto. Probá de nuevo.",
+    );
+    setUploading(false);
   };
 
   const grouped = useMemo(() => {
@@ -89,11 +115,11 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             multiple
             hidden
             onChange={(e) => {
-              addFiles(Array.from(e.target.files || []).map((f) => f.name));
+              addFiles(Array.from(e.target.files || []));
               e.target.value = "";
             }}
           />
@@ -103,14 +129,14 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
             onDrop={(e) => {
               e.preventDefault();
               setDrag(false);
-              addFiles(Array.from(e.dataTransfer.files).map((f) => f.name));
+              addFiles(Array.from(e.dataTransfer.files));
             }}
             onClick={() => inputRef.current?.click()}
             className={"border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors " + (drag ? "border-primary bg-primary-50/40" : "border-slate-300 hover:border-slate-400")}
           >
             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-2"><CloudArrowUpIn width={18} height={18} /></div>
             <div className="text-[13px] font-bold text-slate-700">Arrastrá las fotos acá</div>
-            <div className="text-[11px] text-slate-500 mt-1">JPG o PNG · o hacé clic para elegir</div>
+            <div className="text-[11px] text-slate-500 mt-1">JPG, PNG o WebP · hasta 10 MB · o hacé clic para elegir</div>
           </div>
 
           {files.length > 0 && (
@@ -118,7 +144,7 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
               {files.map((f, i) => (
                 <span key={i} className="inline-flex items-center gap-[6px] bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-1 py-[5px]">
                   <Picture width={12} height={12} className="text-slate-500" />
-                  <span className="text-[11px] font-semibold text-slate-700 max-w-[140px] truncate">{f}</span>
+                  <span className="text-[11px] font-semibold text-slate-700 max-w-[140px] truncate">{f.name}</span>
                   <button onClick={() => setFiles((p) => p.filter((_, k) => k !== i))} className="text-slate-400 hover:text-[#B91C1C] p-1"><Xmark width={11} height={11} /></button>
                 </span>
               ))}
@@ -203,6 +229,15 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
           </div>
 
           <label className="flex flex-col gap-[6px]">
+            <span className="text-[11px] font-bold text-slate-700">Etiqueta <span className="font-normal text-slate-500">(opcional)</span></span>
+            <select value={flag} onChange={(e) => setFlag(e.target.value)}
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
+              <option value="">Sin etiqueta</option>
+              {PHOTO_FLAGS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-[6px]">
             <span className="text-[11px] font-bold text-slate-700">Nota</span>
             <textarea
               value={note}
@@ -214,6 +249,8 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
           </label>
         </div>
 
+        {error && <div className="px-6 py-2 text-[12px] font-semibold text-critical border-t border-slate-200">{error}</div>}
+
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 flex-none">
           <button onClick={onClose} className="text-[12px] font-bold text-slate-600 hover:text-slate-950 px-3 py-[8px]">Cancelar</button>
           <button
@@ -221,7 +258,8 @@ export function UploadPhotosModal({ obraId, onClose, onDone }: Props) {
             disabled={!canSave}
             className={"inline-flex items-center gap-2 text-[13px] font-bold rounded-md px-4 py-[9px] transition-colors " + (canSave ? "bg-primary hover:bg-primary-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed")}
           >
-            <Check width={14} height={14} /> Subir {files.length > 0 ? files.length : ""}
+            <Check width={14} height={14} />{" "}
+            {uploading ? `Subiendo ${progress}/${files.length}…` : `Subir ${files.length > 0 ? files.length : ""}`}
           </button>
         </div>
       </div>

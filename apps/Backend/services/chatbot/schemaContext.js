@@ -148,6 +148,12 @@ export const TABLAS = {
       entidad_tipo: "tarea | pedido | gasto | alerta | rubro",
     },
   },
+  fotos_obra: {
+    descripcion: "Fotos de la galería de obra: tarea y rubro asociados, quién la subió, nota, etiqueta (flag) y origen (web | whatsapp).",
+    obraId: "obra_id",
+    columnas: ["id", "obra_id", "tarea_id", "rubro_id", "usuario_id", "nota", "flag", "origen", "created_at"],
+    clave: ["obra_id", "tarea_id", "rubro_id", "usuario_id", "flag", "origen", "created_at"],
+  },
   alertas: {
     descripcion: "Alertas de la obra, con severidad y estado de resolución.",
     obraId: "obra_id",
@@ -173,6 +179,7 @@ export const GLOSARIO = `
 - "factura" / "comprobante" → comprobantes_facturas (detalle en factura_items)
 - "obreros" / "equipo" / "gente" → miembros_obra y personas
 - "bitácora" / "actividad" / "qué pasó" / "qué se hizo" / "novedades" / "jornada" / "avances de hoy" → actividad (con personas para el nombre); para el detalle cruzar con tareas, pedidos_materiales y alertas
+- "fotos" / "galería" / "imágenes" / "evidencia" → fotos_obra (con tareas/rubros/personas para el detalle)
 - "problemas" / "incidentes" / "críticos" → alertas (severity = 'critical' para críticos) y actividad con tipo = 'problema'
 - "quién hizo" / "quién cargó" / "quién aprobó" → actividad.usuario_id → personas.nombre
 

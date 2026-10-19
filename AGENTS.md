@@ -139,6 +139,13 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - `POST /gastos` (`{ obra_id, descripcion, proveedor, categoria, rubro_id, monto, fecha, pagado }`), `PATCH /gastos/:id` (toggle `estado_pago` + edición; registra actividad si cambia el estado), `POST /gastos/:id/archivo` (archivo crudo, header opcional `X-File-Name` URI-encoded). Todos validan membresía
 - Solo los gastos con `rubro_id` cuentan en el ejecutado del Presupuesto; la categoría de recibo es una taxonomía aparte
 
+## Galería de obra (fotos)
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_galeria.sql` (tabla `fotos_obra` + bucket público `galeria`, JPG/PNG/WebP hasta 10 MB). La tabla vieja `archivos` no se usa
+- `controllers/galeriaController.js`, montado en `/galeria`: `GET /galeria/:obra_id`, `POST /galeria/:obra_id?tarea_id=&nota=&flag=&lote=` (una imagen cruda por request, header opcional `X-File-Name`; el rubro sale de la tarea), `DELETE /galeria/:id` (borra fila y objeto del bucket). Todos validan membresía
+- **Lote**: las fotos de una misma subida comparten `lote_id` (uuid del cliente); la bitácora tiene una sola entrada por lote (`entidad_tipo = 'foto_lote'`) cuyo texto se actualiza con el contador. El frontend (`services/galeriaService.ts:uploadFotos`) sube de a una y reporta las que fallaron
+- `fotos_obra.origen` admite `'whatsapp'`, pero el bot todavía no guarda fotos acá (las imágenes del bot se procesan como comprobantes)
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error
