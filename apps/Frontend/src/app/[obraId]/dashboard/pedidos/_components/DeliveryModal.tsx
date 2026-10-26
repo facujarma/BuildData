@@ -31,13 +31,18 @@ export function DeliveryModal({ order, onClose, onSave }: Props) {
 
   const canSave = loc.trim() && receiver.trim() && !saving;
 
+  // Botón "Confirmar entrega": arranca el recorrido. onSave es handleDeliverSave de
+  // ScreenPedidos.tsx, que llama al Backend.
   const submit = async () => {
-    if (!canSave) return;
-    setSaving(true);
-    setError("");
+    if (!canSave) return; // faltan campos obligatorios (lugar y quién recibió) o ya se está guardando
+    setSaving(true); // deshabilita el botón y muestra "Registrando…" (evita doble clic)
+    setError(""); // limpia un error anterior
     try {
+      // Sin fecha → hoy. trim() saca espacios de los bordes.
       await onSave({ date: date || today, time, loc: loc.trim(), receiver: receiver.trim(), doc: doc.trim() });
     } catch (e) {
+      // El Backend rechazó (ej. 409 "Solo se pueden entregar pedidos aprobados"): se muestra el
+      // mensaje y el modal queda abierto con lo que el usuario escribió
       setError(e instanceof Error ? e.message : "No se pudo registrar la entrega");
       setSaving(false);
     }

@@ -15,6 +15,8 @@ export interface NewPedidoPayload {
   solicitado_por: string | null;
 }
 
+// Lo que se manda en el body de PATCH /pedidos/:id/entregar. Los nombres en español y
+// snake_case son los que lee entregarPedido() en apps/Backend/controllers/pedidosController.js
 export interface EntregaPayload {
   fecha: string; // YYYY-MM-DD
   hora: string; // HH:MM (puede ir vacío)
@@ -115,20 +117,28 @@ function mapRawToItem(row: RawPedido): PedidoItem {
   };
 }
 
+// Dirección del Backend (apps/Backend/server.js). En producción sale de la variable de
+// entorno NEXT_PUBLIC_API_URL; en local, el backend corre en el puerto 3001.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+// Headers de todas las llamadas: avisa que el body es JSON y manda el token de login.
+// El token es la sesión de Supabase del navegador; en el Backend lo valida
+// middleware/authMiddleware.js (sin token válido responde 401).
 async function authHeaders(): Promise<Record<string, string>> {
   const {
     data: { session },
-  } = await supabase.auth.getSession();
+  } = await supabase.auth.getSession(); // sesión del usuario logueado (lib/supabaseClient)
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${session?.access_token || ""}`,
   };
 }
 
+// Convierte una respuesta de error del Backend (400/403/404/409/500) en un Error de JS con
+// el mensaje que mandó el controller (ej. "Solo se pueden entregar pedidos aprobados o en
+// curso"). Ese mensaje es el que termina mostrando el modal.
 async function parseError(res: Response): Promise<Error> {
-  const err = await res.json().catch(() => ({}));
+  const err = await res.json().catch(() => ({})); // si el body no es JSON, objeto vacío
   return new Error(err.message || err.error || `Request failed: ${res.status}`);
 }
 
@@ -180,14 +190,16 @@ export async function cambiarEstadoPedido(id: string, estado: "en_camino" | "dem
 }
 
 // Marca el pedido como entregado; el Backend suma los ítems al stock
+// La llama handleDeliverSave() en ScreenPedidos.tsx. El pedido HTTP entra por
+// server.js → authMiddleware → routes/pedidos.js → pedidosController.entregarPedido.
 export async function entregarPedido(id: string, payload: EntregaPayload) {
-  const res = await fetch(`${API_URL}/pedidos/${id}/entregar`, {
-    method: "PATCH",
-    headers: await authHeaders(),
-    body: JSON.stringify(payload),
+  const res = await fetch(`${API_URL}/pedidos/${id}/entregar`, { // fetch = hace el pedido HTTP
+    method: "PATCH", // PATCH: modifica un recurso que ya existe
+    headers: await authHeaders(), // token de login + tipo JSON
+    body: JSON.stringify(payload), // el objeto se convierte a texto JSON para viajar
   });
-  if (!res.ok) throw await parseError(res);
-  return res.json();
+  if (!res.ok) throw await parseError(res); // status 4xx/5xx → lanza el error con el mensaje del backend
+  return res.json(); // 200: devuelve el pedido actualizado
 }
 
 export async function getObreros(obraId: string): Promise<ObreroLite[]> {
