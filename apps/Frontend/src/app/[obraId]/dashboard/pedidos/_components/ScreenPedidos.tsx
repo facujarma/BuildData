@@ -103,8 +103,14 @@ export function ScreenPedidos() {
   };
 
   // El modal muestra el error y sigue abierto si esto lanza
+  // Se ejecuta cuando el usuario confirma el DeliveryModal (prop onSave, más abajo).
+  // `deliverFor` es el pedido que se está entregando (se setea al tocar "Registrar entrega"
+  // en el OrderDrawer).
   const handleDeliverSave = async (delivery: { date: string; time: string; loc: string; receiver: string; doc: string }) => {
-    if (!deliverFor) return;
+    if (!deliverFor) return; // por seguridad: si no hay pedido elegido, no hace nada
+    // Llama al service (services/pedidosService.ts), que hace PATCH /pedidos/:id/entregar.
+    // Acá se traducen los nombres de la pantalla (date, loc...) a los del Backend (fecha, ubicacion...).
+    // Si el Backend responde error, esta línea lanza y el modal lo muestra (no sigue abajo).
     await entregarPedido(deliverFor.id, {
       fecha: delivery.date,
       hora: delivery.time,
@@ -112,9 +118,9 @@ export function ScreenPedidos() {
       recibido_por: delivery.receiver,
       documento: delivery.doc,
     });
-    await load();
-    setDeliverFor(null);
-    flash("Entrega registrada y stock actualizado");
+    await load(); // vuelve a pedir la lista de pedidos: ahora este aparece como "Entregado"
+    setDeliverFor(null); // cierra el modal
+    flash("Entrega registrada y stock actualizado"); // mensaje (toast) abajo de la pantalla
   };
 
   const handleNewSave = async (payload: NewPedidoPayload) => {

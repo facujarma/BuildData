@@ -1,31 +1,38 @@
-import { pool } from "../db.js";
-import { aplicarMovimientoStock } from "../services/stock.service.js";
-import { registrarActividad, resumenPedido } from "../services/actividad.service.js";
+// Controller de pedidos de materiales: acá está la lógica de cada endpoint de /pedidos
+// (routes/pedidos.js une cada URL con una de estas funciones). En el recorrido
+// "marcar un pedido como entregado" la función que trabaja es entregarPedido (al final).
+
+import { pool } from "../db.js"; // conexión a la base
+import { aplicarMovimientoStock } from "../services/stock.service.js"; // suma/resta stock + historial + alertas
+import { registrarActividad, resumenPedido } from "../services/actividad.service.js"; // bitácora
 
 // Registra en la bitácora un cambio de un pedido (db = pool o client en transacción).
 // texto(p) arma la frase a partir de { material, proveedor }.
+// La usan crear, aprobar, rechazar, cambiar estado y entregar: cada uno solo pasa su frase.
 async function actividadPedido(db, { obraId, usuarioId, pedidoId, accion, texto, tags = [] }) {
-  const p = await resumenPedido(db, pedidoId);
+  const p = await resumenPedido(db, pedidoId); // { material: "Cemento (+2 más)", proveedor, rubroId, tags }
   await registrarActividad(db, {
     obraId,
-    usuarioId,
-    tipo: "pedido",
+    usuarioId, // quién lo hizo (sale de req.personaId)
+    tipo: "pedido", // el frontend lo muestra con el ícono de paquete
     accion,
-    texto: texto(p),
+    texto: texto(p), // cada caller decide la frase con los datos del pedido
     entidadTipo: "pedido",
     entidadId: pedidoId,
-    rubroId: p.rubroId,
-    tags: [...p.tags, ...tags],
+    rubroId: p.rubroId, // se convierte en tag con el nombre del rubro
+    tags: [...p.tags, ...tags], // "Urgente" (si aplica) + los extra del caller
   });
 }
-import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js";
+import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js"; // permisos
 
+// Respuestas de error reutilizables (403 = sin permiso, 404 = no existe)
 const sinAcceso = (res) =>
   res.status(403).json({ code: "FORBIDDEN", message: "No pertenecés a esta obra" });
 const noEncontrado = (res) =>
   res.status(404).json({ code: "NOT_FOUND", message: "Pedido no encontrado" });
 
 // Estados desde los que un pedido puede avanzar a en_camino / demorado / entregado
+// (un pedido pendiente o rechazado no se puede entregar)
 const ESTADOS_EN_CURSO = ["aprobado", "en_camino", "demorado"];
 
 // GET /pedidos/:obra_id — pedidos de una obra con proveedor, persona y ítems.
@@ -307,16 +314,23 @@ export async function cambiarEstadoPedido(req, res) {
 // PATCH /pedidos/:id/entregar
 // Body: { ubicacion, recibido_por, documento?, fecha? (YYYY-MM-DD), hora? (HH:MM) }
 // Marca el pedido como entregado y suma los ítems al stock (movimiento 'entrada' por cada material).
+// Quién la llama: entregarPedido() de services/pedidosService.ts (frontend), cuando el
+// usuario confirma el DeliveryModal en la pantalla de Pedidos.
+// Antes de llegar acá ya pasó por authMiddleware: req.personaId dice quién es el usuario.
 export async function entregarPedido(req, res) {
-  const { id } = req.params;
+  const { id } = req.params; // el :id de la URL = id del pedido
+  // Datos del formulario de entrega (vienen en el body JSON). trim() saca espacios de los bordes;
+  // si no es texto, queda "" para que la validación de abajo lo rechace.
   const ubicacion = typeof req.body.ubicacion === "string" ? req.body.ubicacion.trim() : "";
   const recibidoPor = typeof req.body.recibido_por === "string" ? req.body.recibido_por.trim() : "";
   const documento = typeof req.body.documento === "string" ? req.body.documento.trim() : "";
   const { fecha, hora } = req.body;
 
+  // ── Validaciones: si algo está mal, 400 y no se toca la base ──
   if (!ubicacion || !recibidoPor) {
     return res.status(400).json({ code: "VALIDATION", message: "ubicacion y recibido_por son requeridos" });
   }
+  // Las expresiones regulares chequean el formato: AAAA-MM-DD y HH:MM (00:00 a 23:59)
   if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({ code: "VALIDATION", message: "fecha debe tener formato YYYY-MM-DD" });
   }
@@ -326,22 +340,28 @@ export async function entregarPedido(req, res) {
   // Sin fecha → ahora (CURRENT_TIMESTAMP); con fecha y sin hora → 00:00
   const fechaEntrega = fecha ? `${fecha} ${hora || "00:00"}` : null;
 
-  let client;
+  let client; // conexión exclusiva para la transacción (se pide más abajo)
   try {
-    const dueno = await obraDePedido(id);
-    if (!dueno) return noEncontrado(res);
-    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res);
+    // ── Permisos (services/obraAccess.service.js) ──
+    const dueno = await obraDePedido(id); // ¿de qué obra es este pedido?
+    if (!dueno) return noEncontrado(res); // no existe → 404
+    if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res); // no es del equipo → 403
 
+    // ── Transacción: todo lo que sigue se guarda junto o no se guarda nada ──
     client = await pool.connect();
     await client.query("BEGIN");
 
     // FOR UPDATE: evita sumar el stock dos veces ante un doble click
+    // (bloquea la fila del pedido: un segundo pedido simultáneo espera a que este termine,
+    // y para entonces el estado ya es 'entregado', así que lo rechaza abajo)
     const pedido = await client.query(`SELECT id, obra_id, estado FROM pedidos_materiales WHERE id = $1 FOR UPDATE`, [id]);
     if (!ESTADOS_EN_CURSO.includes(pedido.rows[0].estado)) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ code: "INVALID_STATE", message: "Solo se pueden entregar pedidos aprobados o en curso" });
+      await client.query("ROLLBACK"); // deshace (y libera el bloqueo)
+      return res.status(409).json({ code: "INVALID_STATE", message: "Solo se pueden entregar pedidos aprobados o en curso" }); // 409 = conflicto de estado
     }
 
+    // 1) Marca el pedido como entregado y guarda los datos de la recepción.
+    //    La fecha se interpreta en hora de Argentina; si no vino, se usa "ahora".
     const actualizado = await client.query(
       `UPDATE pedidos_materiales
        SET estado = 'entregado',
@@ -354,22 +374,26 @@ export async function entregarPedido(req, res) {
       [fechaEntrega, ubicacion, recibidoPor, documento || null, id]
     );
 
+    // 2) Trae los materiales del pedido (solo los que tienen material y cantidad > 0)
     const items = await client.query(
       `SELECT material_id, cantidad FROM pedidos_items
        WHERE pedido_id = $1 AND material_id IS NOT NULL AND cantidad > 0`,
       [id]
     );
+    // 3) Por cada material, suma la cantidad al stock (services/stock.service.js).
+    //    Se pasa `client` para que quede dentro de la MISMA transacción.
     for (const item of items.rows) {
       await aplicarMovimientoStock(client, {
         materialId: item.material_id,
         obraId: dueno.obra_id,
         usuarioId: req.personaId || null,
-        tipo: "entrada",
-        cantidad: Number(item.cantidad),
-        observacion: `Entrada por pedido ${id.slice(0, 8)}`,
+        tipo: "entrada", // entrada = suma
+        cantidad: Number(item.cantidad), // numeric llega como string: lo pasamos a número
+        observacion: `Entrada por pedido ${id.slice(0, 8)}`, // queda en movimientos_stock
       });
     }
 
+    // 4) Deja la entrada en la bitácora (best-effort: si falla, no cancela la entrega)
     await actividadPedido(client, {
       obraId: dueno.obra_id,
       usuarioId: req.personaId || null,
@@ -378,13 +402,15 @@ export async function entregarPedido(req, res) {
       texto: (p) => `Registró la entrega de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""} · recibió ${recibidoPor}`,
     });
 
-    await client.query("COMMIT");
-    res.json(actualizado.rows[0]);
+    await client.query("COMMIT"); // confirma todo: pedido entregado + stock + historial + bitácora
+    res.json(actualizado.rows[0]); // devuelve el pedido actualizado al frontend
   } catch (error) {
+    // Cualquier error inesperado: deshace TODO lo hecho en la transacción (nada queda a medias)
     if (client) await client.query("ROLLBACK");
     console.error(error);
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message }); // 500 = error del servidor
   } finally {
+    // Siempre (haya salido bien o mal) devuelve la conexión al pool para que otros la usen
     if (client) client.release();
   }
 }
