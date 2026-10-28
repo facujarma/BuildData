@@ -18,23 +18,12 @@ export const SECTION_DEFS: SectionDef[] = [
   { id: 'actividad',  label: 'Bitácora de actividad',sub: 'Detalle día a día (extenso)',             icon: 'message' },
 ];
 
-export const SNAPSHOT = {
-  obra: 'Edificio Belgrano',
-  code: 'OBR-2025-014',
-  avance: 68,
-  presupuestoTotal: 124,
-  ejecutado: 81,
-  tareas: { total: 10, done: 4, prog: 1, late: 1 },
-  alertas: 2,
-  pedidos: 7,
-  stockLow: 2,
-  recibosPend: 2,
-  equipo: 6,
-};
+export const RANGES = ['semana', 'mes', 'trimestre', 'total'] as const;
+export type Rango = (typeof RANGES)[number];
 
 export const RANGE_LABELS: Record<string, string> = {
   semana: 'Última semana',
   mes: 'Último mes',
-  trim: 'Último trimestre',
+  trimestre: 'Último trimestre',
   total: 'Toda la obra',
 };

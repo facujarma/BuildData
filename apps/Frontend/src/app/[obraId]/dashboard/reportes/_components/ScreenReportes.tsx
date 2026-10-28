@@ -18,9 +18,11 @@ import {
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
-import { getReportesData, type ReportesData } from "@/services/mock/reportesService";
-import { SECTION_DEFS, RANGE_LABELS } from "../data";
-import { formatDateLong } from "@/lib/format";
+import { getSnapshot, generarReporte, type ReporteSnapshot, type ReporteGenerado } from "@/services/reportesService";
+import { useDashboardData } from "../../_components/DashboardDataContext";
+import { SECTION_DEFS, RANGE_LABELS, RANGES, type Rango } from "../data";
+import { formatARSCompact, formatDateLong } from "@/lib/format";
+import { abrirReporteImprimible } from "./reportePrint";
 
 const SECTION_ICONS: Record<string, typeof ChartBar> = {
   resumen: ChartBar,
@@ -35,27 +37,33 @@ const SECTION_ICONS: Record<string, typeof ChartBar> = {
   actividad: Envelope,
 };
 
-const RANGES = ["semana", "mes", "trimestre", "total"];
+const RANGE_SHORT: Record<Rango, string> = { semana: "Semana", mes: "Mes", trimestre: "Trimestre", total: "Total" };
 
 export function ScreenReportes() {
-  const [data, setData] = useState<ReportesData | null>(null);
+  const { obraId } = useDashboardData();
+  const [snapshot, setSnapshot] = useState<ReporteSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState("mes");
+  const [range, setRange] = useState<Rango>("mes");
   const [selected, setSelected] = useState<Set<string>>(new Set(SECTION_DEFS.map((s) => s.id)));
   const [generation, setGeneration] = useState<null | "loading" | "ready">(null);
+  const [reporte, setReporte] = useState<ReporteGenerado | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  const flash = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2400);
+  };
+
+  // La portada se recalcula en el Backend cada vez que cambia el período
   useEffect(() => {
+    if (!obraId) return;
     let cancelled = false;
-    setLoading(true);
-    getReportesData().then((d) => {
-      if (!cancelled) {
-        setData(d);
-        setLoading(false);
-      }
-    });
+    getSnapshot(obraId, range)
+      .then((d) => { if (!cancelled) setSnapshot(d); })
+      .catch(() => { if (!cancelled) flash("No se pudo cargar el reporte"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [obraId, range]);
 
   if (loading) {
     return (
@@ -68,9 +76,10 @@ export function ScreenReportes() {
     );
   }
 
-  if (!data) return null;
+  if (!snapshot) {
+    return <div className="text-center text-slate-500 py-20 text-[13px]">No se pudo cargar el reporte de la obra.</div>;
+  }
 
-  const snapshot = data.snapshot;
   const allSelected = selected.size === SECTION_DEFS.length;
   const someSelected = selected.size > 0;
 
@@ -91,16 +100,28 @@ export function ScreenReportes() {
     });
   };
 
-  const handleGenerate = () => {
-    if (!someSelected) return;
+  // Genera el reporte en el Backend (queda guardado en el historial y en la bitácora)
+  const handleGenerate = async () => {
+    if (!someSelected || generation === "loading") return;
     setGeneration("loading");
-    setTimeout(() => setGeneration("ready"), 1800);
+    try {
+      const r = await generarReporte(obraId, range, SECTION_DEFS.filter((s) => selected.has(s.id)).map((s) => s.id));
+      setReporte(r);
+      setGeneration("ready");
+    } catch (e) {
+      setGeneration(null);
+      flash(e instanceof Error ? e.message : "No se pudo generar el reporte");
+    }
   };
 
+  // Abre la versión imprimible: desde el diálogo de impresión se guarda como PDF
   const handleDownload = () => {
+    if (!reporte) return;
+    if (!abrirReporteImprimible(reporte)) {
+      flash("Permití las ventanas emergentes para descargar el reporte");
+      return;
+    }
     setGeneration(null);
-    setToast("Reporte descargado");
-    setTimeout(() => setToast(null), 2400);
   };
 
   const genDate = formatDateLong(new Date());
@@ -110,7 +131,8 @@ export function ScreenReportes() {
       <DPageHeader
         title="Reporte de obra"
         right={
-          <Button variant="primary" size="sm" icon={<FileArrowDown width={13} height={13} />}>
+          <Button variant="primary" size="sm" icon={<FileArrowDown width={13} height={13} />}
+            disabled={!someSelected} onClick={handleGenerate}>
             Generar reporte
           </Button>
         }
@@ -149,10 +171,10 @@ export function ScreenReportes() {
                 </div>
                 <div>
                   <div className="text-[22px] font-extrabold display-tight tnum leading-none">
-                    AR$ {snapshot.ejecutado} M
+                    {formatARSCompact(snapshot.ejecutado)}
                   </div>
                   <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-white/50 mt-1">
-                    Ejecutado
+                    {range === "total" ? "Ejecutado" : "Ejecutado en el período"}
                   </div>
                 </div>
                 <div>
@@ -212,7 +234,7 @@ export function ScreenReportes() {
                       : "bg-slate-100 text-slate-600 hover:text-slate-800"
                   }`}
                 >
-                  {r === "semana" ? "Semana" : r === "mes" ? "Mes" : r === "trim" ? "Trimestre" : "Total"}
+                  {RANGE_SHORT[r]}
                 </button>
               ))}
             </div>
@@ -315,13 +337,15 @@ export function ScreenReportes() {
                 </div>
                 <div className="text-[16px] font-extrabold text-slate-950">Reporte listo</div>
                 <div className="text-[12px] text-slate-500 mt-1">
-                  {snapshot.obra} · {RANGE_LABELS[range]}
+                  {snapshot.obra} · {RANGE_LABELS[reporte?.snapshot.rango || range]}
                 </div>
                 <div className="mt-4 bg-slate-50 rounded-lg border border-slate-200 p-3 flex items-center gap-3">
                   <FileArrowDown width={18} height={18} className="text-primary" />
                   <div className="text-left">
-                    <div className="text-[12px] font-bold text-slate-950">reporte-{snapshot.code.toLowerCase()}.pdf</div>
-                    <div className="text-[10px] text-slate-500">1.2 MB</div>
+                    <div className="text-[12px] font-bold text-slate-950">reporte-{(snapshot.code || "obra").toLowerCase()}.pdf</div>
+                    <div className="text-[10px] text-slate-500">
+                      {Object.keys(reporte?.secciones || {}).length} secciones · se guarda como PDF desde la impresión
+                    </div>
                   </div>
                 </div>
               </div>

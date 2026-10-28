@@ -139,6 +139,14 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - `POST /gastos` (`{ obra_id, descripcion, proveedor, categoria, rubro_id, monto, fecha, pagado }`), `PATCH /gastos/:id` (toggle `estado_pago` + edición; registra actividad si cambia el estado), `POST /gastos/:id/archivo` (archivo crudo, header opcional `X-File-Name` URI-encoded). Todos validan membresía
 - Solo los gastos con `rubro_id` cuentan en el ejecutado del Presupuesto; la categoría de recibo es una taxonomía aparte
 
+## Reportes de obra
+
+- Migración manual una vez: `apps/Backend/outputs/migracion_reportes.sql` (`reportes.rango/secciones/snapshot jsonb/generado_por` + CHECK de rango)
+- `services/reportes.service.js`: `calcularSnapshot` (portada) y `armarReporte` (portada + detalle por sección). Rangos `semana | mes | trimestre | total` = últimos 7/30/90 días o todo, desde la fecha de hoy en TZ negocio. Los estados (tareas, alertas activas, stock bajo, recibos pendientes, equipo) son la foto de hoy; ejecutado, pedidos, alertas nuevas y tareas completadas se acotan al período. El ejecutado usa la misma regla que Presupuesto. Recibe el **pool** (consultas en paralelo)
+- `GET /reportes/:obra_id/snapshot?rango=`, `POST /reportes/:obra_id/generar` (`{ rango, secciones }`: guarda el reporte congelado en `reportes.snapshot`, registra actividad `tipo='cierre'`, devuelve el payload), `GET /reportes/:obra_id` (historial). Todos validan membresía
+- La descarga es del lado del navegador: `reportes/_components/reportePrint.ts` arma un HTML imprimible y abre el diálogo de impresión ("Guardar como PDF"); no hay librería de PDF ni archivo en Storage
+- Pendiente: el reporte semanal **automático** (programado) todavía no existe; "Enviar por email" y "Compartir" no hacen nada
+
 ## Fuentes de verdad del schema
 
 - `services/endpointSchema.ts` → define endpoints, parámetros requeridos/opcionales y fuentes (`llm`, `obra_poll`, `user_phone`, `auto`; `entity_resolution` ya sin uso), el `prompt` de repregunta de cada campo requerido `llm` y `elementParams` para validar/repreguntar subcampos de arrays (path `items[0].cantidad`). Guard al importar: todo campo requerido `llm` debe tener `prompt` o tira error
