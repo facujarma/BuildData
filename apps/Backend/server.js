@@ -33,12 +33,8 @@ import pedidosRoutes from "./routes/pedidos.js"; // el del recorrido: /pedidos/:
 import mensajesRoutes from "./routes/mensajes.js";
 import operacionesRoutes from "./routes/operaciones.js";
 import chatbotRoutes from "./routes/chatbot.js";
-<<<<<<< HEAD
-import galeriaRoutes from "./routes/galeria.js";
-import { verificarInactividad } from "./controllers/alertasController.js";
-=======
+import galeriaRoutes from "./routes/galeria.js"; // galería de obra (fotos en Storage)
 import { verificarInactividad } from "./controllers/alertasController.js"; // tarea periódica (abajo)
->>>>>>> c7c9fb25eddea16d1f8d3e988f2eeb4535e4e63a
 
 dotenv.config(); // carga el .env en process.env
 
