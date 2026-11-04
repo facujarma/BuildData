@@ -9,7 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { registerUser, getProfile } from "@/services/authService";
+import {
+  registerUser,
+  getProfile,
+  loginWithGoogle as loginWithGoogleRequest,
+} from "@/services/authService";
 import type { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -19,6 +23,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (
     email: string,
     password: string,
@@ -74,6 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const loginWithGoogle = useCallback(async () => {
+    await loginWithGoogleRequest();
+  }, []);
+
   const register = useCallback(
     async (email: string, password: string, nombre: string, telefono?: string) => {
       return registerUser(email, password, nombre, telefono);
@@ -95,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAuthenticated: !!session,
         login,
+        loginWithGoogle,
         register,
         logout,
       }}

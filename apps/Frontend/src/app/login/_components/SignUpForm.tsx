@@ -18,7 +18,7 @@ export default function SignUpForm({
   onSwitch,
   onSuccess,
 }: SignUpFormProps) {
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [showPw, setShowPw] = useState(false);
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
@@ -27,6 +27,20 @@ export default function SignUpForm({
   const [telefono, setTelefono] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  async function handleGoogle() {
+    setError(null);
+    setIsGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo conectar con Google";
+      setError(message);
+      setIsGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +81,13 @@ export default function SignUpForm({
         {showSocial && (
           <>
             <div className="flex gap-2 mt-7 w-full">
-              <Button variant="outline" className="w-full" type="button">
+              <Button
+                variant="outline"
+                className="w-full"
+                type="button"
+                onClick={handleGoogle}
+                disabled={isGoogleLoading || isLoading}
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24">
                   <path
                     d="M22.5 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.9a5.05 5.05 0 0 1-2.19 3.31v2.75h3.54c2.07-1.91 3.25-4.72 3.25-8.09z"
@@ -86,7 +106,7 @@ export default function SignUpForm({
                     fill="#EA4335"
                   />
                 </svg>
-                Google
+                {isGoogleLoading ? "Conectando..." : "Google"}
               </Button>
               <Button variant="outline" className="w-full" type="button">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366">
