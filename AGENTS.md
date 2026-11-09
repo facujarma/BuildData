@@ -74,7 +74,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Tipos de entidad** (`EntityKind`): `material \| proveedor \| rubro \| tarea`. Slots en `entityResolution.service.ts` (revisa el contenedor raíz y los items de `items`/`movimientos`):
   - `material_nombre`/`nombre` → `material_id` (material)
   - `proveedor_nombre` → `proveedor_id` (proveedor)
-  - `tarea` → `tarea_id` (**rubro**; endpoint `/bot/retraso` actualiza la tabla `rubros`)
+  - `tarea` → `tarea_id` (**tarea real**; `/bot/retraso` desplaza `tareas.fecha_limite` y alerta; `rubros` no tiene fechas)
   - `rubro_id` → `rubro_id` (rubro)
   - `tarea_nombre` → `tarea_id` (**tarea real**; endpoint completar)
 - "Ninguno de estos" en cualquier encuesta **cancela la operación** (no se auto-crean entidades)

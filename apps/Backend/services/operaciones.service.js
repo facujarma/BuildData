@@ -201,15 +201,32 @@ export async function obraDeOperacion(operacionId) {
   return rows[0]?.obra_id ?? null;
 }
 
+const CAMPOS_OPERACION = `id, endpoint, method, tipo, destino, comment, confianza, campos,
+            estado, resultado, error_detalle, aprobada_por, aprobada_at,
+            ejecutada_at, created_at`;
+
 export async function listarOperacionesDeMensaje(mensajeId) {
   const { rows } = await pool.query(
-    `SELECT id, endpoint, method, tipo, destino, comment, confianza, campos,
-            estado, resultado, error_detalle, aprobada_por, aprobada_at,
-            ejecutada_at, created_at
+    `SELECT ${CAMPOS_OPERACION}
      FROM operaciones_bot
      WHERE mensaje_id = $1
      ORDER BY created_at ASC`,
     [mensajeId]
+  );
+  return rows;
+}
+
+// El bot normalmente manda mensaje_id, pero si el registro del mensaje falló
+// igual inserta las operaciones. En ese caso se devuelven por id para no
+// contestar una lista vacía después de haber ejecutado/encolado el lote.
+async function listarOperacionesPorIds(ids) {
+  if (ids.length === 0) return [];
+  const { rows } = await pool.query(
+    `SELECT ${CAMPOS_OPERACION}
+     FROM operaciones_bot
+     WHERE id = ANY($1::uuid[])
+     ORDER BY created_at ASC`,
+    [ids]
   );
   return rows;
 }
@@ -304,8 +321,11 @@ export async function registrarOperaciones({ obra_id, mensaje_id, telefono, oper
     }
   }
 
-  await actualizarEstadoMensaje(mensaje_id);
-  return listarOperacionesDeMensaje(mensaje_id);
+  if (mensaje_id) {
+    await actualizarEstadoMensaje(mensaje_id);
+    return listarOperacionesDeMensaje(mensaje_id);
+  }
+  return listarOperacionesPorIds(insertadas.map((op) => op.id));
 }
 
 export async function aprobarOperacion(id, personaId) {

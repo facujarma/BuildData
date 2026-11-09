@@ -254,29 +254,39 @@ export async function crearPedidoDeCompra(req, res) {
 export async function registrarRetraso(req, res) {
   const { tarea_id, dias_retraso, mensaje_id, obra_id, telefono } = req.body;
   if (!telefono) return res.status(400).json({ error: "telefono es requerido" });
+  if (!tarea_id) return res.status(400).json({ error: "tarea_id es requerido" });
+  const dias = Number(dias_retraso);
+  if (!Number.isFinite(dias)) {
+    return res.status(400).json({ error: "dias_retraso debe ser un número" });
+  }
 
   const usuario_id = await resolvePersonaIdByTelefono(telefono);
   if (!usuario_id) return res.status(404).json({ error: "Persona no encontrada para el teléfono proporcionado" });
 
   try {
 
-    const rubro = await pool.query(
-      `UPDATE rubros
-       SET fecha_limite = fecha_limite + ($1 || ' days')::interval,
-           estado = 'retrasada'
-       WHERE id = $2
-       RETURNING *`,
-      [dias_retraso, tarea_id]
+    // El retraso desplaza la fecha límite de una TAREA real. `rubros` no tiene
+    // fecha_limite/estado: antes este endpoint apuntaba a la tabla equivocada y
+    // devolvía 500 en todos los casos.
+    const tarea = await pool.query(
+      `UPDATE tareas
+       SET fecha_limite = COALESCE(
+             fecha_limite,
+             (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+           ) + ($1::int || ' days')::interval
+       WHERE id = $2 AND obra_id = $3
+       RETURNING id, titulo, rubro_id, fecha_limite`,
+      [dias, tarea_id, obra_id]
     );
 
-    // VALIDACIÓN
-    if (rubro.rows.length === 0) {
+    if (tarea.rows.length === 0) {
       return res.status(404).json({
-        error: "Rubro no encontrado"
+        error: "Tarea no encontrada"
       });
     }
 
-    const mensajeRetraso = `El rubro "${rubro.rows[0].nombre}" se atrasó ${dias_retraso} días`;
+    const tareaAtrasada = tarea.rows[0];
+    const mensajeRetraso = `La tarea "${tareaAtrasada.titulo}" se atrasó ${dias} días`;
     await pool.query(
       `INSERT INTO alertas (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
        VALUES ($1, 'retraso', $2, 'alta', $3, 'Retraso en tarea', $2, 'attention')`,
@@ -288,9 +298,9 @@ export async function registrarRetraso(req, res) {
       tipo: "problema",
       accion: "reportó un retraso",
       texto: `Reportó por WhatsApp que ${mensajeRetraso.charAt(0).toLowerCase()}${mensajeRetraso.slice(1)}`,
-      entidadTipo: "rubro",
-      entidadId: rubro.rows[0].id,
-      rubroId: rubro.rows[0].id,
+      entidadTipo: "tarea",
+      entidadId: tareaAtrasada.id,
+      rubroId: tareaAtrasada.rubro_id,
       tags: ["Retraso"],
     });
 
@@ -302,8 +312,8 @@ export async function registrarRetraso(req, res) {
     );
 
     res.json({
-      rubro: rubro.rows[0],
-      mensaje: `Fecha límite desplazada ${dias_retraso} días`,
+      tarea: tareaAtrasada,
+      mensaje: `Fecha límite desplazada ${dias} días`,
     });
 
   } catch (error) {
