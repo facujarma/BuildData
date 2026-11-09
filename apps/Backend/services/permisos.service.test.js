@@ -4,6 +4,8 @@ import {
   puede,
   puedeOperar,
   puedeAprobar,
+  puedeAdministrarEquipo,
+  puedeAsignarRol,
   permisoDeEndpoint,
 } from "./permisos.service.js";
 
@@ -90,5 +92,31 @@ describe("puedeAprobar", () => {
   test("Capataz y Director aprueban", () => {
     expect(puedeAprobar("Capataz")).toBe(true);
     expect(puedeAprobar("Director de obra")).toBe(true);
+  });
+});
+
+describe("puedeAdministrarEquipo", () => {
+  test("solo Director administra el equipo de una obra", () => {
+    expect(puedeAdministrarEquipo("Director")).toBe(true);
+    expect(puedeAdministrarEquipo("Director de obra")).toBe(true);
+    expect(puedeAdministrarEquipo("Capataz")).toBe(false);
+    expect(puedeAdministrarEquipo("Obrero")).toBe(false);
+    expect(puedeAdministrarEquipo(null)).toBe(false);
+  });
+});
+
+describe("puedeAsignarRol", () => {
+  test("Director puede otorgar cualquier rol, incluido Director", () => {
+    expect(puedeAsignarRol("Director", "Obrero")).toBe(true);
+    expect(puedeAsignarRol("Director", "Capataz")).toBe(true);
+    expect(puedeAsignarRol("Director", "Director")).toBe(true);
+    expect(puedeAsignarRol("Director de obra", "director")).toBe(true);
+  });
+
+  test("quien no administra el equipo no puede asignar ningún rol (fail closed)", () => {
+    expect(puedeAsignarRol("Obrero", "Obrero")).toBe(false);
+    expect(puedeAsignarRol("Capataz", "Obrero")).toBe(false);
+    expect(puedeAsignarRol("Capataz", "Director")).toBe(false);
+    expect(puedeAsignarRol(null, "Obrero")).toBe(false);
   });
 });

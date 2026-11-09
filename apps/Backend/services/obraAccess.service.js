@@ -3,6 +3,7 @@
 // leer o escribir: si no es miembro, el controller responde 403.
 
 import { pool } from "../db.js"; // conexión a la base
+import { normalizarRol } from "./permisos.service.js";
 
 // ¿La persona es miembro de la obra? (mismo criterio que chatbotController)
 // personaId sale de req.personaId (lo deja authMiddleware); obraId, de la URL o del recurso.
@@ -14,6 +15,17 @@ export async function esMiembroDeObra(personaId, obraId) {
     [personaId, obraId]
   );
   return rows.length > 0; // true si encontró la fila → es miembro
+}
+
+// Rol normalizado de la persona en la obra, o null si no es miembro.
+// Lo usan los controllers de equipo para autorizar quién asigna roles.
+export async function rolEnObra(personaId, obraId) {
+  if (!personaId || !obraId) return null;
+  const { rows } = await pool.query(
+    `SELECT rol FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2 LIMIT 1`,
+    [personaId, obraId]
+  );
+  return rows[0] ? normalizarRol(rows[0].rol) : null;
 }
 
 // Devuelve { obra_id } del material/pedido, o null si no existe.

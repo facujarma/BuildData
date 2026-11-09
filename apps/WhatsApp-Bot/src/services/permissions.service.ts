@@ -89,6 +89,24 @@ export function puedeAprobar(rol: string | null | undefined): boolean {
   return ["Capataz", "Director"].includes(normalizarRol(rol));
 }
 
+// Administrar el equipo de una obra es una acción de la web (el bot no tiene
+// comando para asignar roles). Se mantiene acá por paridad con el Backend: si
+// la matriz habilita Capataz, cambiar los dos archivos.
+export function puedeAdministrarEquipo(rol: string | null | undefined): boolean {
+  return normalizarRol(rol) === "Director";
+}
+
+const NIVEL_ROL: Record<RolBot, number> = { Obrero: 1, Capataz: 2, Director: 3 };
+
+// Solo se puede otorgar un rol de nivel igual o menor al propio (fail closed).
+export function puedeAsignarRol(
+  rolLlamante: string | null | undefined,
+  rolObjetivo: string | null | undefined,
+): boolean {
+  if (!puedeAdministrarEquipo(rolLlamante)) return false;
+  return NIVEL_ROL[normalizarRol(rolObjetivo)] <= NIVEL_ROL[normalizarRol(rolLlamante)];
+}
+
 export function permisoDeEndpoint(
   endpoint: string,
 ): { permiso: string; label: string } | null {

@@ -100,6 +100,26 @@ export function puedeAprobar(rol) {
   return ["Capataz", "Director"].includes(normalizarRol(rol));
 }
 
+// Administrar el equipo de una obra (asignar/quitar miembros y emitir
+// invitaciones) cambia permisos, así que es exclusivo de Director. Si la matriz
+// final habilita Capataz, sumarlo acá (y en el espejo del bot): igual
+// puedeAsignarRol impide que otorgue un rol superior al propio.
+export function puedeAdministrarEquipo(rol) {
+  return normalizarRol(rol) === "Director";
+}
+
+// Jerarquía de roles: solo se puede otorgar un rol de nivel igual o menor al
+// propio. Hoy la administración es solo de Director, pero la regla queda
+// explícita por si la matriz habilita a Capataz.
+const NIVEL_ROL = { Obrero: 1, Capataz: 2, Director: 3 };
+
+// ¿El que llama puede otorgar `rolObjetivo`? Fail closed: sin rol administrador
+// no se puede asignar nada.
+export function puedeAsignarRol(rolLlamante, rolObjetivo) {
+  if (!puedeAdministrarEquipo(rolLlamante)) return false;
+  return NIVEL_ROL[normalizarRol(rolObjetivo)] <= NIVEL_ROL[normalizarRol(rolLlamante)];
+}
+
 // Permisos que tiene un rol, para mostrarlos en el bot (!rol) o en la web.
 export function permisosDe(rol) {
   const normalizado = normalizarRol(rol);

@@ -1,15 +1,26 @@
 import { pool } from "../db.js";
-import { esMiembroDeObra } from "../services/obraAccess.service.js";
-import { normalizarRol } from "../services/permisos.service.js";
+import { esMiembroDeObra, rolEnObra } from "../services/obraAccess.service.js";
+import {
+  normalizarRol,
+  puedeAdministrarEquipo,
+  puedeAsignarRol,
+} from "../services/permisos.service.js";
 import {
   crearInvitacion,
   consumirInvitacion,
 } from "../services/invitaciones.service.js";
 
+// Mensaje único para no filtrar si la obra existe o si el que llama es miembro
+// pero tiene un rol insuficiente: en ambos casos la respuesta es 403.
+const SIN_PERMISO_EQUIPO = "No tenés permisos para administrar el equipo de esta obra";
+
 // GET /obreros/:obra_id — obreros de una obra
 export async function getObreros(req, res) {
   const { obra_id } = req.params;
   try {
+    if (!(await esMiembroDeObra(req.personaId, obra_id))) {
+      return res.status(403).json({ error: "No pertenecés a esta obra" });
+    }
     const result = await pool.query(
       `SELECT p.id, p.nombre, p.telefono, p.auth_user_id, mo.rol, mo.joined_at
        FROM personas p
@@ -64,11 +75,22 @@ export async function asignarObraObrero(req, res) {
   const { obrero_id, obra_id, rol } = req.body;
   if (!obrero_id || !obra_id) return res.status(400).json({ error: "obrero_id y obra_id son requeridos" });
   try {
+    // Solo Director de esa obra puede tocar el equipo (y nadie puede otorgar
+    // un rol superior al propio: evita la escalada vía self-asignación).
+    const rolLlamante = await rolEnObra(req.personaId, obra_id);
+    if (!puedeAdministrarEquipo(rolLlamante)) {
+      return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
+    }
+    const rolNormalizado = normalizarRol(rol);
+    if (!puedeAsignarRol(rolLlamante, rolNormalizado)) {
+      return res.status(403).json({ error: "No podés asignar un rol superior al tuyo" });
+    }
+
     const result = await pool.query(
       `INSERT INTO miembros_obra (persona_id, obra_id, rol)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [obrero_id, obra_id, normalizarRol(rol)]
+      [obrero_id, obra_id, rolNormalizado]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -81,6 +103,11 @@ export async function asignarObraObrero(req, res) {
 export async function quitarObreroDeObra(req, res) {
   const { obrero_id, obra_id } = req.params;
   try {
+    const rolLlamante = await rolEnObra(req.personaId, obra_id);
+    if (!puedeAdministrarEquipo(rolLlamante)) {
+      return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
+    }
+
     await pool.query(
       `DELETE FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2`,
       [obrero_id, obra_id]
@@ -98,16 +125,22 @@ export async function crearInvitacionWeb(req, res) {
   if (!obra_id || !nombre) {
     return res.status(400).json({ error: "obra_id y nombre son requeridos" });
   }
-  if (!(await esMiembroDeObra(req.personaId, obra_id))) {
-    return res.status(403).json({ error: "No pertenecés a esta obra" });
-  }
 
   try {
+    const rolLlamante = await rolEnObra(req.personaId, obra_id);
+    if (!puedeAdministrarEquipo(rolLlamante)) {
+      return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
+    }
+    const rolObjetivo = normalizarRol(rol);
+    if (!puedeAsignarRol(rolLlamante, rolObjetivo)) {
+      return res.status(403).json({ error: "No podés invitar con un rol superior al tuyo" });
+    }
+
     const invitacion = await crearInvitacion({
       obraId: obra_id,
       nombre,
       telefono,
-      rol: normalizarRol(rol),
+      rol: rolObjetivo,
       creadaPor: req.personaId || null,
     });
     res.status(201).json(invitacion);
