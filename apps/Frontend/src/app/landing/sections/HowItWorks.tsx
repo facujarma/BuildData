@@ -1,240 +1,303 @@
 "use client";
 
-import { useState, useEffect, useRef, createElement } from "react";
-import { motion as M, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { Check, Microphone, Sparkles, Box, Database, Calendar, CircleCheck } from "@gravity-ui/icons";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useScroll } from "framer-motion";
+import Icon from "../_components/Icon";
 import PhoneMockup from "../_components/PhoneMockup";
-import DashboardMockup from "../_components/DashboardMockup";
 
-const Stage1 = () => (
-  <div className="relative">
-    <PhoneMockup width={300} mode="incoming" headerName="Grupo · Obra Belgrano" />
-  </div>
-);
+// 1 · Audio entrando por WhatsApp
+function HowStage1() {
+  return <PhoneMockup width={290} mode="incoming" headerName="Obra Belgrano · Equipo" />;
+}
 
-const Stage2 = () => (
-  <div className="w-[420px] rounded-2xl blueprint-bg text-white p-6 shadow-pop relative overflow-hidden">
-    <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-accent/15 blur-2xl" />
-    <div className="flex items-center gap-2 mb-4 relative">
-      <div className="relative w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center">
-        <Sparkles width={16} height={16} className="text-accent" />
-        <span className="absolute inset-0 rounded-full border border-accent/40 spin-slow" />
-      </div>
-      <div>
-        <div className="text-[11px] tracking-[0.12em] uppercase font-bold text-accent">Análisis IA</div>
-        <div className="text-[12px] text-white/70">Transcribiendo y clasificando…</div>
-      </div>
-    </div>
-    <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-3 flex items-center gap-2">
-      <Microphone width={14} height={14} className="text-white/70" />
-      <div className="eq flex items-end h-8 flex-1">
-        {Array.from({ length: 14 }).map((_, i) => <i key={i} />)}
-      </div>
-      <span className="text-[10px] text-white/60 tnum">0:14</span>
-    </div>
-    <div className="text-[12px] leading-[18px] text-white/85 mb-3 italic">
-      &ldquo;Llegó la mitad del hierro, falta varilla de 12. También doce bolsas de cemento en Sector A.&rdquo;
-    </div>
-    <div className="flex flex-wrap gap-[6px]">
-      {[
-        { l: "Pedido", t: "accent" },
-        { l: "Cemento Portland", t: "white" },
-        { l: "12 bolsas", t: "white" },
-        { l: "Sector A", t: "white" },
-        { l: "Faltante: hierro 12 mm", t: "critical" },
-      ].map((tag) => (
-        <span key={tag.l}
-          className={`text-[10px] font-bold px-2 py-[3px] rounded-md border ${
-            tag.t === "accent" ? "bg-accent/20 text-accent border-accent/30"
-            : tag.t === "critical" ? "bg-critical/15 text-[#FCA5A5] border-critical/40"
-            : "bg-white/8 text-white/85 border-white/20"
-          }`}>
-          {tag.l}
+// 2 · Transcripción: mensaje original + lo que se detectó
+function HowStage2() {
+  return (
+    <div className="w-[440px] max-w-full bg-white rounded-2xl border border-slate200 shadow-[0_12px_40px_-12px_rgba(15,23,42,.18)] overflow-hidden">
+      <div className="px-5 py-4 flex items-center gap-3 border-b border-slate100">
+        <span className="w-[34px] h-[34px] rounded-full bg-primary-50 text-primary text-[12px] font-bold flex items-center justify-center flex-none">
+          CR
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-bold text-slate950">
+            C. Ríos <span className="font-medium text-slate500">· Capataz</span>
+          </div>
+          <div className="text-[11px] text-slate500">Audio de WhatsApp · 08:42</div>
+        </div>
+        <span className="text-[10px] font-bold text-slate500 bg-slate100 rounded px-2 py-[3px] tnum">
+          0:14
+        </span>
+      </div>
+      <div className="px-5 py-4">
+        <div className="text-[10px] tracking-[0.08em] uppercase font-bold text-slate400 mb-2">
+          Transcripción
+        </div>
+        <p className="text-[14px] leading-relaxed text-slate800">
+          “Llegó la mitad del hierro, falta varilla de 12. También doce bolsas de cemento para la
+          losa.”
+        </p>
+      </div>
+      <div className="px-5 pb-5">
+        <div className="text-[10px] tracking-[0.08em] uppercase font-bold text-slate400 mb-2">
+          Se registra como
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ["Entrega parcial", "Hierro 12 mm · 50%", "truck", "bg-info50 text-[#1D4ED8]"],
+            ["Faltante", "Varilla de 12", "alert", "bg-critical50 text-[#B91C1C]"],
+            ["Pedido", "12 bolsas de cemento", "box", "bg-attention50 text-[#A16207]"],
+            ["Tarea", "Hormigonado losa +3", "calendar", "bg-primary-50 text-primary"],
+          ].map(([title, detail, icon, tone]) => (
+            <div key={title} className="flex items-start gap-2 border border-slate200 rounded-lg p-3">
+              <span className={"w-7 h-7 rounded-md flex items-center justify-center flex-none " + tone}>
+                <Icon name={icon} size={13} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold text-slate950">{title}</div>
+                <div className="text-[11px] text-slate500 truncate">{detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 3 · Bandeja: el director confirma antes de que impacte
+function HowStage3() {
+  return (
+    <div className="w-[440px] max-w-full space-y-3">
+      <div className="bg-white rounded-2xl border border-slate200 shadow-[0_12px_40px_-12px_rgba(15,23,42,.18)] overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate100 flex items-center justify-between">
+          <span className="text-[12px] font-bold text-slate950">Bandeja · por confirmar</span>
+          <span className="text-[10px] font-bold text-white bg-primary rounded-full px-2 py-[2px] tnum">
+            3
+          </span>
+        </div>
+        <div className="px-5 py-4">
+          <div className="text-[13px] font-bold text-slate950 mb-1">Pedido de material</div>
+          <div className="text-[12px] text-slate500 mb-4">
+            12 bolsas de cemento · Cementos del Plata
+          </div>
+          <div className="flex gap-2">
+            <span className="flex-1 text-center text-[12px] font-bold text-white bg-primary rounded-md py-[9px]">
+              Confirmar
+            </span>
+            <span className="text-[12px] font-bold text-slate700 border border-slate300 rounded-md px-4 py-[9px]">
+              Corregir
+            </span>
+          </div>
+        </div>
+      </div>
+      {[
+        ["Entrega parcial registrada", "Hierro 12 mm · 1,25 t de 2,5 t"],
+        ["Faltante reportado", "Varilla de 12 · asignado a Compras"],
+      ].map(([title, detail]) => (
+        <div
+          key={title}
+          className="bg-white rounded-xl border border-slate200 px-4 py-3 flex items-center gap-3"
+        >
+          <span className="w-7 h-7 rounded-full bg-success text-white flex items-center justify-center flex-none">
+            <Icon name="check" size={13} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[12px] font-bold text-slate950">{title}</div>
+            <div className="text-[11px] text-slate500 truncate">{detail}</div>
+          </div>
+        </div>
       ))}
     </div>
-  </div>
-);
-
-const Stage3 = () => (
-  <PhoneMockup width={300} mode="confirm" />
-);
-
-const Stage4 = () => (
-  <div className="w-[460px] bg-white rounded-2xl border border-slate200 shadow-pop overflow-hidden">
-    <div className="flex items-center gap-2 px-4 py-3 border-b border-slate200">
-      <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary flex items-center justify-center">
-        <Database width={15} height={15} />
-      </div>
-      <div>
-        <div className="text-[12px] font-bold">pedidos_obra</div>
-        <div className="text-[10px] text-slate500">Edificio Belgrano · Sector A</div>
-      </div>
-      <span className="ml-auto inline-flex items-center gap-1 bg-success50 text-[#15803D] text-[9px] font-bold tracking-wider uppercase px-2 py-[3px] rounded">
-        <CircleCheck width={11} height={11} /> Guardado
-      </span>
-    </div>
-    <div className="grid grid-cols-[60px_1fr_70px_70px_60px] text-[9px] tracking-[0.06em] uppercase text-slate500 font-bold px-4 py-2 border-b border-slate200 bg-slate50">
-      <div>ID</div><div>Material</div><div>Cantidad</div><div>Sector</div><div>Estado</div>
-    </div>
-    {[
-      { id: "0140", m: "Cemento Portland 50 kg", q: "20 bs", s: "B",  st: "success", stl: "OK" },
-      { id: "0141", m: "Hierro Ø12 mm",          q: "2,5 t", s: "B", st: "success", stl: "OK" },
-      { id: "0142", m: "Cemento Portland 50 kg", q: "12 bs", s: "A", st: "attention", stl: "NEW", highlight: true },
-    ].map((r) => (
-      <div key={r.id}
-        style={r.highlight ? { background: "#FFFBEB" } : {}}
-        className="grid grid-cols-[60px_1fr_70px_70px_60px] text-[11px] px-4 py-[10px] border-b border-slate100 items-center">
-        <div className="font-bold tnum text-slate950">#{r.id}</div>
-        <div className="text-slate800">{r.m}</div>
-        <div className="font-bold tnum">{r.q}</div>
-        <div>{r.s}</div>
-        <div><Pill tone={r.st}>{r.stl}</Pill></div>
-      </div>
-    ))}
-    <div className="px-4 py-3 flex items-center gap-2 text-[10px] text-slate500">
-      <Clock width={12} height={12} />
-      <span>Auto-asignado a pedido <b className="text-slate950">#PED-0142</b> · ingestado de WhatsApp · hace segundos</span>
-    </div>
-  </div>
-);
-
-const Stage5 = () => (
-  <div style={{ transform: "scale(0.62)", transformOrigin: "center center" }}>
-    <DashboardMockup width={980} compact />
-  </div>
-);
-
-function Pill({ tone = "success", children }: { tone?: string; children: React.ReactNode }) {
-  const map: Record<string, { bg: string; fg: string }> = {
-    success:   { bg: "#F0FDF4", fg: "#15803D" },
-    critical:  { bg: "#FEF2F2", fg: "#B91C1C" },
-    attention: { bg: "#FFFBEB", fg: "#A16207" },
-    info:      { bg: "#EFF6FF", fg: "#1D4ED8" },
-    primary:   { bg: "#EFF4FC", fg: "#0B3275" },
-    neutral:   { bg: "#F1F5F9", fg: "#334155" },
-  };
-  const m = map[tone] || map.success;
-  return (
-    <span style={{ background: m.bg, color: m.fg }}
-      className="inline-flex items-center px-2 py-[3px] rounded text-[10px] font-bold tracking-[0.06em] uppercase">
-      {children}
-    </span>
   );
 }
 
-function Clock({ width = 12, height = 12 }: { width?: number; height?: number }) {
+// 4 · Panel actualizado — con la navegación actual
+function HowStage4() {
+  const nav: Array<[string, string, boolean?, number?]> = [
+    ["grid", "Dashboard", true],
+    ["message", "Bandeja"],
+    ["calendar", "Cronograma"],
+    ["alert", "Alertas", false, 2],
+    ["box", "Materiales"],
+    ["dollar", "Costos"],
+    ["users", "Equipo"],
+  ];
   return (
-    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
-    </svg>
+    <div className="w-[600px] max-w-full bg-white rounded-2xl border border-slate200 shadow-[0_16px_48px_-14px_rgba(15,23,42,.22)] overflow-hidden flex">
+      <div className="w-[148px] bg-ink-deep text-white py-4 px-2 flex-none">
+        <div className="flex items-center gap-2 px-2 mb-4">
+          <Icon name="logo-mark" size={20} />
+          <span className="text-[12px] font-extrabold">BuildData</span>
+        </div>
+        {nav.map(([icon, label, active, badge]) => (
+          <div
+            key={label}
+            className={
+              "flex items-center gap-2 px-2 py-[6px] rounded-md text-[11px] font-semibold " +
+              (active ? "bg-white/10 text-white" : "text-white/60")
+            }
+          >
+            <Icon name={icon} size={12} className={active ? "text-accent" : ""} />
+            <span className="flex-1">{label}</span>
+            {badge && (
+              <span className="text-[9px] font-bold bg-critical rounded-full px-[5px]">{badge}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex-1 min-w-0 p-4 bg-paper">
+        <div className="text-[13px] font-bold text-slate950 mb-3">Requiere tu atención</div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {[
+            ["3", "pedidos por aprobar", "bg-accent text-slate950"],
+            ["2", "alertas sin atender", "bg-critical text-white"],
+          ].map(([count, label, tone]) => (
+            <div
+              key={label}
+              className="bg-white border border-slate200 rounded-lg p-3 flex items-center gap-2"
+            >
+              <span
+                className={
+                  "w-7 h-7 rounded-md font-extrabold text-[12px] flex items-center justify-center flex-none tnum " +
+                  tone
+                }
+              >
+                {count}
+              </span>
+              <span className="text-[11px] font-bold text-slate800 leading-tight">{label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white border border-slate200 rounded-lg p-3">
+          <div className="text-[11px] font-bold text-slate950 mb-2">Avance por rubro</div>
+          {[
+            ["Mampostería", 88, "#22C55E"],
+            ["Hormigón armado", 62, "#0F4395"],
+            ["Instalaciones", 46, "#3B82F6"],
+          ].map(([name, pct, color]) => (
+            <div
+              key={name}
+              className="grid grid-cols-[92px_1fr_30px] gap-2 items-center py-[3px]"
+            >
+              <span className="text-[10px] text-slate600 truncate">{name}</span>
+              <span className="h-[5px] bg-slate100 rounded-full overflow-hidden">
+                <span
+                  className="block h-full rounded-full"
+                  style={{ width: pct + "%", background: color }}
+                />
+              </span>
+              <span className="text-[10px] font-bold text-right tnum">{pct}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
-const STAGES = [
+const STEPS = [
   {
-    eyebrow: "01 · WhatsApp",
-    title: "El capataz manda un audio.",
-    body: "En el grupo de obra, el jefe de cuadrilla manda una nota de voz como cualquier otro día. Sin app nueva, sin formularios, sin cambios de hábito.",
-    visual: Stage1,
+    title: "El capataz manda un audio",
+    body: "Desde la obra, por WhatsApp, como lo hace todos los días. No instala nada ni aprende una herramienta nueva.",
+    visual: HowStage1,
   },
   {
-    eyebrow: "02 · IA procesa",
-    title: "La IA escucha, transcribe y clasifica.",
-    body: "Detecta material, cantidad, sector, problemas y urgencia. Convierte un audio desordenado en datos estructurados — al instante.",
-    visual: Stage2,
+    title: "Queda transcripto y ordenado",
+    body: "El audio se pasa a texto y se separa en lo que corresponde: una entrega, un faltante, un pedido.",
+    visual: HowStage2,
   },
   {
-    eyebrow: "03 · El bot confirma",
-    title: "Confirma con el capataz, en castellano.",
-    body: "Antes de guardar nada, el bot devuelve lo que entendió y pide validación con un par de toques. Si hay un error, se corrige ahí mismo.",
-    visual: Stage3,
+    title: "Vos confirmás en la bandeja",
+    body: "Revisás lo que llegó y lo aprobás. Si algo no está bien, lo corregís antes de que se cargue.",
+    visual: HowStage3,
   },
   {
-    eyebrow: "04 · Base de datos",
-    title: "Se guarda como dato real, no como mensaje.",
-    body: "El registro entra a la base como un pedido, una alerta o un avance. Trazabilidad completa — quién lo dijo, cuándo, en qué sector.",
-    visual: Stage4,
-  },
-  {
-    eyebrow: "05 · Dashboard",
-    title: "El director lo ve, listo para decidir.",
-    body: "En segundos aparece en el dashboard del estudio o la contratista. KPIs, alertas, cronograma y reportes — siempre al día sin pedirle nada a nadie.",
-    visual: Stage5,
+    title: "Aparece en tu panel",
+    body: "Stock, pedidos, avance y presupuesto se actualizan solos. Lo que necesita tu decisión queda arriba.",
+    visual: HowStage4,
   },
 ];
 
 export default function HowItWorks() {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   const [stage, setStage] = useState(0);
 
   useEffect(() => {
-    return scrollYProgress.on("change", (v) => {
-      const idx = Math.min(STAGES.length - 1, Math.max(0, Math.floor(v * STAGES.length)));
-      setStage(idx);
+    return scrollYProgress.on("change", (value) => {
+      setStage(Math.min(STEPS.length - 1, Math.max(0, Math.floor(value * STEPS.length))));
     });
   }, [scrollYProgress]);
 
-  const progressX = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+  const Visual = STEPS[stage].visual;
 
   return (
-    <section id="how" ref={ref} style={{ height: `${STAGES.length * 100}vh` }} className="relative bg-paper">
-      <div className="sticky top-0 h-screen flex items-center overflow-hidden">
-        <div className="max-w-[1240px] mx-auto px-6 grid grid-cols-12 gap-8 w-full">
-          <div className="col-span-5 flex flex-col justify-center">
-            <div className="mb-6">
-              <div className="eyebrow text-primary mb-2">Cómo funciona</div>
-              <h2 className="text-[36px] leading-[42px] font-extrabold display-tight text-slate950">
-                De un audio en WhatsApp <br />al dashboard,<span className="text-primary"> automático.</span>
-              </h2>
-            </div>
+    <section id="how" ref={ref} className="relative bg-white py-20 lg:py-0 lg:h-[360vh]">
+      <div className="lg:sticky lg:top-0 lg:h-screen flex items-center">
+        <div className="max-w-[1180px] mx-auto px-6 w-full grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-14 items-center">
+          {/* Texto */}
+          <div>
+            <div className="text-[12px] font-bold text-primary mb-3">Cómo funciona</div>
+            <h2 className="text-[clamp(30px,3.6vw,42px)] leading-[1.1] font-extrabold display-tight text-slate950 mb-10">
+              Del audio al panel,
+              <br />
+              sin cargar nada a mano.
+            </h2>
 
-            <div className="relative pl-6">
-              <div className="absolute left-[7px] top-1 bottom-1 w-[2px] bg-slate200 rounded-full" />
-              <M.div
-                style={{ height: progressX, scaleY: scrollYProgress }}
-                className="absolute left-[7px] top-1 w-[2px] bg-primary rounded-full origin-top"
-              />
-
-              {STAGES.map((s, i) => {
-                const active = i === stage;
-                const done = i < stage;
+            <div className="flex flex-col">
+              {STEPS.map((step, index) => {
+                const active = index === stage;
                 return (
-                  <div key={i} className={`relative pb-6 transition-opacity duration-300 ${active ? "opacity-100" : "opacity-40"}`}>
-                    <div className="absolute -left-[24px] top-[4px] w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ background: active || done ? "#0F4395" : "#FFFFFF", border: active || done ? "2px solid #0F4395" : "2px solid #CBD5E1" }}>
-                      {done && <Check width={9} height={9} className="text-white" />}
+                  <div
+                    key={step.title}
+                    className={
+                      "grid grid-cols-[36px_1fr] gap-4 py-4 border-t border-slate200 transition-opacity duration-300 " +
+                      (active ? "opacity-100" : "opacity-35")
+                    }
+                  >
+                    <span
+                      className={
+                        "text-[15px] font-extrabold tnum pt-[2px] " +
+                        (active ? "text-primary" : "text-slate400")
+                      }
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <h3 className="text-[17px] font-bold text-slate950 leading-snug">
+                        {step.title}
+                      </h3>
+                      <div
+                        className={
+                          "grid transition-all duration-300 " +
+                          (active ? "grid-rows-[1fr] mt-1" : "grid-rows-[0fr]")
+                        }
+                      >
+                        <p className="overflow-hidden text-[14px] leading-relaxed text-slate600 max-w-[420px]">
+                          {step.body}
+                        </p>
+                      </div>
                     </div>
-                    <div className="eyebrow text-slate500 mb-1">{s.eyebrow}</div>
-                    <h3 className="text-[18px] font-bold leading-snug text-slate950 mb-1">{s.title}</h3>
-                    <p className="text-[13px] leading-[20px] text-slate600 max-w-[420px]">{s.body}</p>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="col-span-7 flex items-center justify-center min-h-[600px] relative">
-            <div className="absolute inset-0 hero-mesh opacity-50 pointer-events-none" />
-            <div className="relative w-full flex items-center justify-center">
-              <AnimatePresence mode="wait">
-                <M.div key={stage}
-                  initial={{ opacity: 0, y: 24, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -24, scale: 0.96 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}>
-                  {createElement(STAGES[stage].visual)}
-                </M.div>
-              </AnimatePresence>
-            </div>
-
-            <div className="absolute bottom-4 right-4 bg-white border border-slate200 rounded-full shadow-card px-3 py-[6px] flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate950 tnum">{String(stage + 1).padStart(2, "0")}</span>
-              <span className="w-[1px] h-3 bg-slate300" />
-              <span className="text-[11px] text-slate500 tnum">{String(STAGES.length).padStart(2, "0")}</span>
-            </div>
+          {/* Escena */}
+          <div className="relative h-[560px] rounded-[28px] bg-paper hidden lg:flex items-center justify-center px-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={stage}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="w-full flex justify-center"
+              >
+                <Visual />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>

@@ -4,13 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { motion as m, AnimatePresence } from "framer-motion";
 import {
   Microphone,
-  Check,
-  CircleCheck,
   CircleExclamation,
   CircleInfo,
   Sparkles,
   ChevronRight,
-  Box,
   Paperclip,
 } from "@gravity-ui/icons";
 
@@ -25,6 +22,8 @@ interface Message {
   err?: boolean;
   quick?: QuickReply[];
 }
+
+type ThreadItem = Message | { day: string };
 
 interface QuickReply {
   label: string;
@@ -48,7 +47,7 @@ const SCENARIOS: Record<string, Scenario> = {
       { side: "me", kind: "audio", dur: "0:14", meta: "14:32 ✓✓" },
       {
         side: "bot",
-        html: "Anoté de tu audio:<br/>📦 <b>12 bolsas de cemento Portland</b><br/>📍 Sector A<br/>👤 Reportado por J. Méndez<br/><br/>¿Confirmás?",
+        html: "Anoté de tu audio:<br/>📦 <b>12 bolsas de cemento Portland</b><br/>👤 Reportado por J. Méndez<br/><br/>¿Confirmás?",
         quick: [
           { label: "Sí, confirmar", next: "confirmed" },
           { label: "Corregir cantidad", next: "correct" },
@@ -65,7 +64,7 @@ const SCENARIOS: Record<string, Scenario> = {
       correct: [
         { side: "bot", html: "¿Cuántas bolsas llegaron? Respondeme con un número." },
         { side: "me", text: "8", meta: "14:33 ✓✓" },
-        { side: "bot", html: '<span class="text-success">✅</span> Corregido. <b>8 bolsas de cemento</b> en Sector A.<br/>Cargado al pedido <b>#PED-0142</b>.' },
+        { side: "bot", html: '<span class="text-success">✅</span> Corregido. <b>8 bolsas de cemento</b>.<br/>Cargado al pedido <b>#PED-0142</b>.' },
       ],
       cancel: [
         { side: "bot", html: "🤔 Sin problema, lo descarto. Mandame de nuevo el detalle del material y la cantidad cuando puedas." },
@@ -81,7 +80,7 @@ const SCENARIOS: Record<string, Scenario> = {
       { side: "me", text: "No anda la grúa torre 2. La cuadrilla está parada.", meta: "12:48 ✓✓" },
       {
         side: "bot", warn: true,
-        html: '⚠️ Detecté una <b>alerta crítica</b>:<br/>🏗️ Falla en Grúa Torre 2 (Sector C)<br/>👥 Cuadrilla detenida<br/><br/>¿Disparo aviso al director de obra?',
+        html: '⚠️ Detecté una <b>alerta crítica</b>:<br/>🏗️ Falla en Grúa Torre 2<br/>👥 Cuadrilla detenida<br/><br/>¿Disparo aviso al director de obra?',
         quick: [
           { label: "Sí, avisar", next: "sent" },
           { label: "Anotar sin avisar", next: "silent" },
@@ -108,17 +107,17 @@ const SCENARIOS: Record<string, Scenario> = {
       { side: "me", text: "Llegó el hierro", meta: "09:12 ✓✓" },
       {
         side: "bot", err: true,
-        html: '❌ Faltan datos para guardar el reporte.<br/><br/>Necesito saber:<br/>• Diámetro del hierro<br/>• Cantidad (en toneladas o varillas)<br/>• Sector de descarga',
+        html: '❌ Faltan datos para guardar el reporte.<br/><br/>Necesito saber:<br/>• Diámetro del hierro<br/>• Cantidad (en toneladas o varillas)',
         quick: [
-          { label: "Hierro 12 mm · 2,5 t · Sector B", next: "fixed" },
+          { label: "Hierro 12 mm · 2,5 t", next: "fixed" },
           { label: "Después lo cargo", next: "later" },
         ],
       },
     ],
     branches: {
       fixed: [
-        { side: "me", text: "Hierro 12 mm · 2,5 t · Sector B", meta: "09:14 ✓✓" },
-        { side: "bot", html: '<span class="text-success">✅</span> Perfecto, anoté:<br/>🔩 <b>Hierro 12 mm · 2,5 t</b><br/>📍 Sector B<br/><br/>Lo asocio al pedido <b>#PED-0141</b>.' },
+        { side: "me", text: "Hierro 12 mm · 2,5 t", meta: "09:14 ✓✓" },
+        { side: "bot", html: '<span class="text-success">✅</span> Perfecto, anoté:<br/>🔩 <b>Hierro 12 mm · 2,5 t</b><br/><br/>Lo asocio al pedido <b>#PED-0141</b>.' },
       ],
       later: [
         { side: "bot", html: "👍 Sin drama. Cuando tengas los datos, mandame foto del remito y lo armo solo." },
@@ -165,7 +164,7 @@ function Bubble({ m: msg }: { m: Message }) {
 
 export default function LiveBot() {
   const [scenKey, setScenKey] = useState("pedido");
-  const [thread, setThread] = useState<Message[]>([{ day: "HOY" } as Message, ...SCENARIOS.pedido.initial]);
+  const [thread, setThread] = useState<ThreadItem[]>([{ day: "HOY" }, ...SCENARIOS.pedido.initial]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(SCENARIOS.pedido.initial.slice(-1)[0]?.quick || []);
   const [typing, setTyping] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -176,7 +175,7 @@ export default function LiveBot() {
 
   const loadScenario = (key: string) => {
     setScenKey(key);
-    setThread([{ day: "HOY" } as Message, ...SCENARIOS[key].initial]);
+    setThread([{ day: "HOY" }, ...SCENARIOS[key].initial]);
     setQuickReplies(SCENARIOS[key].initial.slice(-1)[0]?.quick || []);
     setTyping(false);
   };
@@ -219,7 +218,7 @@ export default function LiveBot() {
   return (
     <div className="flex gap-8 items-start justify-center flex-wrap">
       <div className="w-full lg:w-[300px] flex-none">
-        <div className="text-[11px] tracking-[0.06em] uppercase font-bold text-accent mb-3">Escenarios</div>
+        <div className="text-[13px] font-bold text-slate950 mb-3">Elegí una situación</div>
         <div className="flex flex-col gap-2">
           {Object.entries(SCENARIOS).map(([k, s]) => {
             const on = scenKey === k;
@@ -231,29 +230,28 @@ export default function LiveBot() {
             return (
               <button key={k} onClick={() => loadScenario(k)}
                 className={`text-left rounded-xl border p-4 transition-all
-                  ${on ? "bg-white text-slate950 border-white shadow-pop" : "bg-white/5 text-white border-white/10 hover:bg-white/10"}`}>
+                  ${on ? "bg-white border-primary shadow-card2" : "bg-white border-slate200 hover:border-slate300"}`}>
                 <div className="flex items-start gap-3">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-none
-                    ${on ? "bg-accent text-slate950" : "bg-accent/15 text-accent"}`}>
+                    ${on ? "bg-primary text-white" : "bg-slate100 text-slate600"}`}>
                     {iconMap[s.icon]}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className={`text-[13px] font-bold ${on ? "text-slate950" : "text-white"}`}>{s.label}</div>
-                    <div className={`text-[11px] leading-snug mt-[2px] ${on ? "text-slate600" : "text-white/60"}`}>{s.summary}</div>
+                    <div className="text-[13px] font-bold text-slate950">{s.label}</div>
+                    <div className="text-[12px] leading-snug mt-[2px] text-slate500">{s.summary}</div>
                   </div>
                 </div>
               </button>
             );
           })}
         </div>
-        <div className="mt-5 text-[11px] text-white/50 leading-snug">
-          <CircleInfo width={12} height={12} className="inline align-[-2px] mr-1" />
-          Tocá un escenario o respondé con las opciones del bot para ver cómo se ramifica la conversación.
+        <div className="mt-4 text-[12px] text-slate500 leading-snug">
+          Respondé con los botones del chat para ver cómo sigue la conversación.
         </div>
       </div>
 
       <div className="relative">
-        <div className="w-[340px] h-[680px] bg-black rounded-[40px] p-[12px] shadow-big">
+        <div className="w-[340px] h-[680px] bg-slate800 rounded-[40px] p-[10px] shadow-[0_24px_60px_-20px_rgba(15,23,42,.35)]">
           <div className="w-full h-full bg-wabg rounded-[30px] overflow-hidden flex flex-col relative">
             <div className="bg-wa text-white pt-8 pb-[10px] px-3 flex items-center gap-2 flex-none">
               <ChevronRight width={14} height={14} className="rotate-180 opacity-70" />
@@ -280,10 +278,10 @@ export default function LiveBot() {
                 {thread.map((m, i) => {
                   if ("day" in m) return (
                     <div key={`day-${i}`} className="self-center bg-[rgba(225,245,254,.85)] text-[#54656F] text-[10px] font-semibold px-2 py-[3px] rounded">
-                      {(m as any).day}
+                      {m.day}
                     </div>
                   );
-                  return <Bubble key={`${i}-${(m as any).text || ((m as any).html || "").slice(0, 14) || (m as any).kind}`} m={m} />;
+                  return <Bubble key={`${i}-${m.text || (m.html || "").slice(0, 14) || m.kind}`} m={m} />;
                 })}
               </AnimatePresence>
 

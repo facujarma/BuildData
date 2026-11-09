@@ -80,7 +80,6 @@ export default function PhoneMockup({
                     <span className="inline-flex items-center gap-1 mt-[3px]">
                       <Box width={10} height={10} className="text-primary" /> <b>12 bolsas de cemento Portland</b>
                     </span><br />
-                    <span className="inline-flex items-center gap-1"><span className="w-2.5 text-center">📍</span>Sector A</span><br />
                     <span className="inline-flex items-center gap-1"><span className="w-2.5 text-center">👤</span>Reportado por J. Méndez</span>
                   </div>
                   {mode === "confirm" && (

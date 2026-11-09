@@ -1,72 +1,64 @@
 "use client";
 
 import { motion as m } from "framer-motion";
-import { Sparkles, Magnifier } from "@gravity-ui/icons";
-import LiveDashboard from "../_components/LiveDashboard";
-import { DASHBOARD_CALLOUTS } from "../data/landing";
+import Icon from "../_components/Icon";
 
-const iconMap: Record<string, React.ReactNode> = {
-  trending: <ChartTrendSvg />,
-  shield: <ShieldSvg />,
-  users: <UsersSvg />,
-};
-
-function ChartTrendSvg() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M22 6l-6 6-4-4-4 4-4-4" /><path d="M22 10V6h-4" />
-    </svg>
-  );
-}
-
-function ShieldSvg() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
-function UsersSvg() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
+const CALLOUTS = [
+  {
+    icon: "trending",
+    title: "Tendencias automáticas",
+    body: "Detecta atrasos en rubros antes de que se vuelvan críticos.",
+  },
+  {
+    icon: "shield",
+    title: "Trazabilidad completa",
+    body: "Quién reportó qué, cuándo y desde dónde. Auditable.",
+  },
+  {
+    icon: "users",
+    title: "Multi-rol, multi-obra",
+    body: "Director, jefe de obra, contratista, cliente. Cada uno ve lo suyo.",
+  },
+];
 
 export default function DashboardSection() {
   return (
-    <section id="dashboard" className="py-[100px] bg-gradient-to-b from-paper to-primary-50/40 relative overflow-hidden">
+    <section
+      id="dashboard"
+      className="py-[100px] bg-gradient-to-b from-paper to-primary-50/40 relative overflow-hidden"
+    >
       <div className="absolute inset-0 hero-mesh opacity-40 pointer-events-none" />
       <div className="relative max-w-[1320px] mx-auto px-6">
         <div className="max-w-[820px] mb-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="eyebrow">Dashboard</div>
+            <div className="eyebrow text-primary">Dashboard</div>
             <span className="inline-flex items-center gap-1 bg-success50 text-[#15803D] text-[10px] font-bold tracking-wider uppercase px-2 py-[3px] rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-success live-dot" /> Demo en vivo
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span>Vista previa</span>
             </span>
           </div>
           <h2 className="text-[clamp(32px,4vw,48px)] leading-[1.08] font-extrabold display-tight text-slate950 mb-4">
-            Una vista clara de cada obra.<br />
-            <span className="text-primary">Tocá y exploralo.</span>
+            Una vista clara de cada obra.
+            <br />
+            <span className="text-primary">Conocé el panel por dentro.</span>
           </h2>
           <p className="text-[17px] leading-[26px] text-slate600 max-w-[640px]">
-            Esto que ves abajo es el producto, funcionando. Navegá entre Dashboard, Cronograma, Alertas, Pedidos, Reportes y Equipo desde la barra lateral.
+            Un resumen de lo que tu equipo carga por WhatsApp: avance, pedidos, alertas y tareas,
+            todo junto y actualizado.
           </p>
         </div>
 
+        {/* Browser frame */}
         <m.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.7 }}
-          className="relative">
+          className="relative"
+        >
           <div className="absolute inset-x-10 -inset-y-2 bg-primary/20 blur-3xl rounded-full -z-0" />
           <div className="relative bg-slate950 rounded-2xl p-3 shadow-big">
+            {/* Browser chrome */}
             <div className="flex items-center gap-3 px-3 py-2 mb-2">
               <div className="flex gap-[6px]">
                 <span className="w-3 h-3 rounded-full bg-[#FF5F57]" />
@@ -74,35 +66,120 @@ export default function DashboardSection() {
                 <span className="w-3 h-3 rounded-full bg-[#28C840]" />
               </div>
               <div className="flex-1 max-w-[420px] mx-auto bg-slate800 text-slate400 text-[11px] rounded-md px-3 py-[5px] flex items-center gap-2 font-mono">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="#22C55E"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <Icon name="shield" size={11} className="text-success" />
                 <span>app.buildata.com.ar / belgrano</span>
               </div>
               <div className="text-slate500 text-[11px] hidden md:flex items-center gap-3">
-                <Magnifier width={12} height={12} />
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                <Icon name="search" size={12} />
+                <Icon name="more" size={12} />
               </div>
             </div>
-            <LiveDashboard height={720} />
-          </div>
 
-          <div className="absolute -top-3 right-4 md:right-10 bg-white border border-slate200 shadow-pop rounded-full px-3 py-[6px] flex items-center gap-2 z-10">
-            <Sparkles width={12} height={12} className="text-accent" />
-            <span className="text-[11px] font-bold text-slate950">Hacé clic en el menú lateral</span>
+            <div className="hidden lg:block">
+              <img
+                src="/landing/dashboard-preview.webp"
+                alt="Dashboard de BuildData con el avance, las tareas en curso, los pedidos y las alertas de una obra"
+                width={1320}
+                height={720}
+                loading="lazy"
+                className="block w-full h-auto rounded-lg border border-slate200"
+              />
+            </div>
+            <MobileDashboardPreview />
           </div>
         </m.div>
 
+        {/* Three feature callouts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-10">
-          {DASHBOARD_CALLOUTS.map((c) => (
-            <div key={c.t} className="bg-white border border-slate200 rounded-xl p-5 shadow-card">
+          {CALLOUTS.map((callout) => (
+            <div
+              key={callout.title}
+              className="bg-white border border-slate200 rounded-xl p-5 shadow-card"
+            >
               <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary flex items-center justify-center mb-3">
-                {iconMap[c.i]}
+                <Icon name={callout.icon} size={18} />
               </div>
-              <div className="text-[15px] font-bold text-slate950 mb-1">{c.t}</div>
-              <div className="text-[13px] text-slate600 leading-[20px]">{c.s}</div>
+              <div className="text-[15px] font-bold text-slate950 mb-1">{callout.title}</div>
+              <div className="text-[13px] text-slate600 leading-[20px]">{callout.body}</div>
             </div>
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function MobileDashboardPreview() {
+  const stats = [
+    ["68%", "Avance total", "text-primary"],
+    ["7", "Pedidos", "text-accent-700"],
+    ["3", "Alertas críticas", "text-critical"],
+    ["9/12", "Tareas hoy", "text-[#15803D]"],
+  ];
+
+  return (
+    <div className="lg:hidden bg-paper p-4 text-left">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <div className="text-[16px] font-extrabold display-tight text-slate950">Dashboard</div>
+          <div className="text-[11px] text-slate500 truncate">Edificio Belgrano · hace 12 min</div>
+        </div>
+        <span className="text-[11px] font-bold text-white bg-primary rounded-md px-3 py-[6px] flex-none">
+          + Nuevo
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {stats.map(([value, label, tone]) => (
+          <div key={label} className="bg-white border border-slate200 rounded-lg p-3">
+            <div className={`text-[22px] font-extrabold display-tight tnum leading-none ${tone}`}>
+              {value}
+            </div>
+            <div className="text-[10px] font-bold tracking-[0.06em] uppercase text-slate600 mt-1">
+              {label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white border border-slate200 rounded-lg p-4 mb-3">
+        <div className="text-[12px] font-bold text-slate950 mb-3">Avance por rubro</div>
+        {[
+          ["Mampostería", 88, "#22C55E"],
+          ["Hormigón armado", 62, "#0F4395"],
+          ["Instalaciones", 46, "#3B82F6"],
+          ["Terminaciones", 24, "#F59E0B"],
+        ].map(([name, pct, color]) => (
+          <div key={name} className="grid grid-cols-[minmax(0,1fr)_34px] gap-2 items-center py-[5px]">
+            <div className="min-w-0">
+              <div className="text-[11px] text-slate700 truncate mb-1">{name}</div>
+              <span className="block h-[6px] bg-slate100 rounded-full overflow-hidden">
+                <span
+                  className="block h-full rounded-full"
+                  style={{ width: pct + "%", background: color }}
+                />
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-right tnum">{pct}%</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="blueprint-bg rounded-lg p-4 text-white mb-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-flex items-center gap-1 bg-accent/20 text-accent text-[9px] font-bold tracking-wider uppercase px-2 py-[3px] rounded">
+            <Icon name="sparkle" size={10} /> Análisis IA
+          </span>
+          <span className="text-[10px] text-white/60">hace 8 min</span>
+        </div>
+        <div className="text-[13px] font-bold leading-snug">
+          El rubro hormigón armado se está retrasando 3 días.
+        </div>
+      </div>
+
+      <div className="text-[11px] text-slate500 text-center leading-snug">
+        La vista completa se ve mejor en una pantalla grande.
+      </div>
+    </div>
   );
 }
