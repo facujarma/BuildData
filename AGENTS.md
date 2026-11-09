@@ -53,6 +53,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Migración manual una vez**: `apps/Backend/outputs/migracion_roles_bot.sql` (normaliza valores existentes, default `Obrero`, CHECK `Obrero|Capataz|Director`)
 - **Matriz provisional** (`PERMISOS`): Obrero → stock.registrar, gasto.crear, tarea.crear/completar, retraso.registrar, alerta.crear, foto.subir; Capataz → todo lo de Obrero + stock.ajustar, pedido.crear, pedido.entregar; Director → todo. Aprobar una operación de la bandeja es una acción de supervisión (`puedeAprobar`): solo Capataz/Director. El usuario definirá después el detalle final
 - **Doble barrera**: el bot avisa antes de pedir datos/confirmar (`pollConfirmation.prepareAndExecute` con `obra.rol`), y el Backend rechaza con 403 en `operaciones.service.registrarOperaciones` (y al aprobar en la bandeja, `aprobarOperacion`). Un endpoint sin mapear en `ENDPOINT_PERMISOS` falla cerrado
+- **Administración del equipo**: asignar/quitar miembros e invitar solo lo puede hacer un **Director** (`puedeAdministrarEquipo`), y nunca puede otorgar un rol superior al propio (`puedeAsignarRol`, jerarquía Obrero < Capataz < Director). Aplica a `/obreros/asignar-obra`, `/usuarios/asignar-obra`, `/obreros/invitacion` y `DELETE /obreros/:id/obra/:obra_id`; `GET /obreros/:obra_id` y `GET /usuarios/:obra_id` exigen membresía
 - `!rol` muestra el rol y los permisos del teléfono en cada obra
 
 
