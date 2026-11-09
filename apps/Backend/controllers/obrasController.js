@@ -1,5 +1,6 @@
 import { pool } from "../db.js";
 import { guardarEmbeddings } from "../services/embeddings.service.js";
+import { normalizarRol } from "../services/permisos.service.js";
 
 // Helper: armar objeto Obra completo según el contrato
 async function buildObra(obra) {
@@ -108,7 +109,9 @@ export async function crearObra(req, res) {
     });
   }
 
-  const rol = myRole || "director";
+  // El front manda "director": se normaliza a los tres roles del CHECK
+  // (miembros_obra_rol_check: Obrero | Capataz | Director).
+  const rol = normalizarRol(myRole || "Director");
   const client = await pool.connect();
   const rubrosCreados = [];
   try {
@@ -174,7 +177,7 @@ export async function crearObra(req, res) {
         );
         if (!persona.rows[0]) continue;
         await client.query(
-          `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1,$2,'operario')
+          `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1,$2,'Obrero')
            ON CONFLICT (persona_id, obra_id) DO NOTHING`,
           [persona.rows[0].id, obra_id]
         );

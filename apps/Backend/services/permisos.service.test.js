@@ -20,6 +20,13 @@ describe("normalizarRol", () => {
     expect(normalizarRol("Director")).toBe("Director");
   });
 
+  test("el 'director' en minúscula que manda el wizard de obras se mapea", () => {
+    // projectsService.createObra manda myRole: "director"; POST /obras lo normaliza
+    // antes del INSERT (miembros_obra_rol_check solo acepta Obrero|Capataz|Director).
+    expect(normalizarRol("director")).toBe("Director");
+    expect(normalizarRol("operario")).toBe("Obrero");
+  });
+
   test("roles libres viejos de la web se mapean", () => {
     expect(normalizarRol("Director de obra")).toBe("Director");
     expect(normalizarRol("Dueño")).toBe("Director");

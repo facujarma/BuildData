@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import { normalizarRol } from "../services/permisos.service.js";
 
 // GET /usuarios/:obra_id — equipo de una obra con sus tareas asignadas
 export async function getEquipo(req, res) {
@@ -59,7 +60,7 @@ export async function asignarObra(req, res) {
        VALUES ($1, $2, $3)
        ON CONFLICT (persona_id, obra_id) DO NOTHING
        RETURNING *`,
-      [usuario_id, obra_id, cargo]
+      [usuario_id, obra_id, normalizarRol(cargo)]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
