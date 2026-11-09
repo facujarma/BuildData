@@ -15,7 +15,18 @@
   --color-accent-50: #FFFBEB;
   --color-ink: #131B2E;
   --color-ink-deep: #131B2E;
-  --color-paper: #FCF8FA;
+  --color-paper: #F7F8FA;
+  --color-slate950: #0F172A;
+  --color-slate900: #0F172A;
+  --color-slate800: #1E293B;
+  --color-slate700: #334155;
+  --color-slate600: #475569;
+  --color-slate500: #64748B;
+  --color-slate400: #94A3B8;
+  --color-slate300: #CBD5E1;
+  --color-slate200: #E2E8F0;
+  --color-slate100: #F1F5F9;
+  --color-slate50: #F8FAFC;
   --color-critical: #EF4444;
   --color-critical-50: #FEF2F2;
   --color-attention: #FACC15;
@@ -25,9 +36,9 @@
   --color-success: #22C55E;
   --color-success-50: #F0FDF4;
   --color-wa: #075E54;
-  --color-wabg: #E5DDD5;
-  --color-wabubble: #D9FDD3;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --color-wabg: #ECE5DD;
+  --color-wabubble: #DCF8C6;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --shadow-card: 0 1px 2px 0 rgba(0,0,0,0.05);
   --shadow-card2: 0 4px 12px 0 rgba(15,23,42,0.06);
@@ -36,15 +47,25 @@
 }
 
 :root {
-  --background: #FCF8FA;
+  --background: #F7F8FA;
   --foreground: #0F172A;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   margin: 0;
   min-height: 100vh;
+}
+
+::selection {
+  background: #0F4395;
+  color: #fff;
 }
 
 .brand-panel {
@@ -57,13 +78,105 @@ body {
   color: #fff;
 }
 
-@keyframes liveDot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .4; }
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(34,197,94,.6); }
+  70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
 }
 
 .live-dot {
-  animation: liveDot 1.6s infinite;
+  animation: livePulse 1.6s infinite;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.wa-bg {
+  background-color: #ECE5DD;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><g fill='%23d4cdb8' fill-opacity='.45'><circle cx='10' cy='10' r='1'/><circle cx='40' cy='25' r='1'/><circle cx='25' cy='45' r='1'/></g></svg>");
+}
+
+.hero-mesh {
+  background-image:
+    linear-gradient(rgba(15,67,149,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,67,149,.07) 1px, transparent 1px);
+  background-size: 48px 48px, 48px 48px;
+  mask-image: radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 75%);
+}
+
+@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px, -30px); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-30px, 25px); } }
+
+.orb { position: absolute; border-radius: 9999px; filter: blur(60px); opacity: .55; }
+.orb-1 { width: 460px; height: 460px; background: #0F4395; top: -120px; left: -160px; animation: drift1 14s ease-in-out infinite; }
+.orb-2 { width: 420px; height: 420px; background: #F59E0B; top: 20%; right: -180px; animation: drift2 16s ease-in-out infinite; opacity: .35; }
+
+@keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+.typing > span { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: #64748B; margin: 0 1px; animation: blink 1.2s infinite both; }
+.typing > span:nth-child(2) { animation-delay: .2s; }
+.typing > span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes eq { 0%,100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.eq > i { display: inline-block; width: 3px; height: 18px; background: #F59E0B; margin: 0 1px; transform-origin: bottom; animation: eq 1s ease-in-out infinite; }
+.eq > i:nth-child(2) { animation-delay: .12s; height: 24px; }
+.eq > i:nth-child(3) { animation-delay: .24s; height: 30px; }
+.eq > i:nth-child(4) { animation-delay: .36s; height: 22px; }
+.eq > i:nth-child(5) { animation-delay: .48s; height: 14px; }
+
+.dashed-h { background-image: linear-gradient(90deg, #94A3B8 50%, transparent 50%); background-size: 8px 1px; background-repeat: repeat-x; background-position: 0 50%; }
+
+@keyframes fadein-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadein    { opacity: 0; animation: fadein-up .6s ease-out 0s forwards; }
+.animate-fadein-1  { opacity: 0; animation: fadein-up .7s ease-out .05s forwards; }
+.animate-fadein-2  { opacity: 0; animation: fadein-up .7s ease-out .12s forwards; }
+.animate-fadein-3  { opacity: 0; animation: fadein-up .6s ease-out .2s forwards; }
+.animate-fadein-4  { opacity: 0; animation: fadein-up .8s ease-out .3s forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadein, .animate-fadein-1, .animate-fadein-2,
+  .animate-fadein-3, .animate-fadein-4 {
+    opacity: 1;
+    animation: none;
+  }
+  .orb, .live-dot, .typing > span, .eq > i {
+    animation: none;
+  }
+}
+
+/* Puntos sutiles para romper fondos blancos */
+.bd-dots {
+  position: absolute;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(15,67,149,.16) 1.2px, transparent 1.6px);
+  background-size: 22px 22px;
+}
+.bd-dots-hero {
+  inset: 0;
+  mask-image: radial-gradient(60% 55% at 50% 38%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(60% 55% at 50% 38%, #000 0%, transparent 72%);
+}
+.bd-dots-tr {
+  top: 0; right: 0; width: 520px; height: 420px;
+  mask-image: radial-gradient(closest-side at 100% 0%, #000, transparent);
+  -webkit-mask-image: radial-gradient(closest-side at 100% 0%, #000, transparent);
+}
+.bd-dots-chat {
+  left: 0; top: 0; width: 62%; height: 100%;
+  mask-image: radial-gradient(70% 50% at 30% 62%, #000 30%, transparent 100%);
+  -webkit-mask-image: radial-gradient(70% 50% at 30% 62%, #000 30%, transparent 100%);
+}
+.bd-dots-bl {
+  bottom: 0; left: 0; width: 560px; height: 460px;
+  mask-image: radial-gradient(closest-side at 0% 100%, #000, transparent);
+  -webkit-mask-image: radial-gradient(closest-side at 0% 100%, #000, transparent);
 }
 
 .tnum {
