@@ -1,5 +1,6 @@
 import type { User } from "../types/api.types";
 import type { ResultadoBusquedaEntidades } from "./entityMatch.service";
+import type { PedidoPendiente } from "../handlers/pendingQuery.store";
 
 const API_URL = process.env.API_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,6 +36,35 @@ async function apiRequest<T>(
       method,
       headers: AUTH_HEADERS,
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+
+    if (res.status === 401) throw new ApiError(401, "AUTH_FAILED: credenciales inválidas");
+    if (res.status === 403) throw new ApiError(403, "AUTH_FORBIDDEN: sin permisos");
+    if (!res.ok) throw new ApiError(res.status, `API_ERROR: ${res.status}`);
+
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Subida de binario (fotos de la galería): el body va crudo, no JSON.
+async function apiRequestRaw<T>(
+  method: string,
+  path: string,
+  body: Uint8Array,
+  contentType: string,
+  headers: Record<string, string> = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000);
+
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: { ...AUTH_HEADERS, "Content-Type": contentType, ...headers },
+      body,
       signal: controller.signal,
     });
 
@@ -152,5 +182,48 @@ export async function registrarOperaciones(body: {
     "POST",
     "/bot/operaciones",
     body,
+  );
+}
+
+// ──────────────────────────────────────────
+// Galería y pedidos (flujos nuevos del bot)
+// ──────────────────────────────────────────
+
+export async function subirFotoGaleria(params: {
+  obraId: string;
+  telefono: string;
+  dataBase64: string;
+  mimetype: string;
+  nota?: string;
+  nombre?: string;
+}): Promise<{ id: string }> {
+  const query = new URLSearchParams({
+    obra_id: params.obraId,
+    telefono: params.telefono,
+  });
+  if (params.nota) query.set("nota", params.nota.slice(0, 1000));
+
+  const headers: Record<string, string> = {};
+  if (params.nombre) headers["X-File-Name"] = encodeURIComponent(params.nombre);
+
+  return apiRequestRaw<{ id: string }>(
+    "POST",
+    `/bot/galeria?${query.toString()}`,
+    Buffer.from(params.dataBase64, "base64"),
+    params.mimetype,
+    headers,
+  );
+}
+
+export async function getPedidosPendientes(
+  obraId: string,
+  telefono: string,
+  q?: string,
+): Promise<PedidoPendiente[]> {
+  const query = new URLSearchParams({ obra_id: obraId, telefono });
+  if (q) query.set("q", q.slice(0, 120));
+  return apiRequest<PedidoPendiente[]>(
+    "GET",
+    `/bot/pedidos/pendientes?${query.toString()}`,
   );
 }

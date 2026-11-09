@@ -265,6 +265,69 @@ export const ENDPOINTS: EndpointSchema[] = [
     ],
   },
   {
+    path: "/bot/pedidos/entregar",
+    method: "POST",
+    description:
+      "Registrar que llegó un pedido de materiales a la obra y darlo por entregado (suma los materiales al stock). Usar cuando el obrero avisa que llegó un pedido (ej: 'llegó el pedido de cemento', 'ya trajeron los ladrillos de Corralón Sur'). No usar para pedir materiales nuevos (/bot/pedidoDeCompra) ni para movimientos sueltos de stock (/bot/stock).",
+    params: [
+      {
+        name: "obra_id",
+        type: "string",
+        description: "ID o nombre de la obra",
+        required: true,
+        source: "obra_poll",
+      },
+      {
+        name: "telefono",
+        type: "string",
+        description: "Teléfono del obrero",
+        required: true,
+        source: "user_phone",
+      },
+      {
+        name: "pedido_ref",
+        type: "string",
+        description:
+          "Proveedor o material con el que el obrero identifica el pedido que llegó (ej: 'cemento', 'Corralón Sur')",
+        required: true,
+        source: "llm",
+        prompt: "¿Qué pedido llegó? Proveedor o material.",
+      },
+      {
+        name: "ubicacion",
+        type: "string",
+        description:
+          "Dónde se descargó o guardó el material, si el usuario lo menciona (ej: 'depósito', 'planta baja')",
+        required: false,
+        source: "llm",
+      },
+      {
+        name: "fecha",
+        type: "string",
+        description:
+          "Fecha en la que llegó el pedido si el usuario la menciona (ej: 'ayer', 'el lunes'). En formato YYYY-MM-DD (ISO), interpretando fechas relativas usando la fecha de hoy.",
+        required: false,
+        source: "llm",
+      },
+      {
+        name: "documento",
+        type: "string",
+        description:
+          "Número de remito, factura o documento de la entrega, si el usuario lo menciona",
+        required: false,
+        source: "llm",
+      },
+      {
+        name: "pedido_id",
+        type: "string",
+        description:
+          "Se completa automáticamente: el bot lo resuelve a partir de pedido_ref contra los pedidos pendientes de la obra. Nunca pedírselo al usuario.",
+        required: false,
+        source: "auto",
+      },
+    ],
+  },
+  {
     path: "/bot/retraso",
     method: "POST",
     description:
@@ -450,6 +513,70 @@ export const ENDPOINTS: EndpointSchema[] = [
           "'ARS' o 'USD' — 'USD' solo si se menciona explícitamente dólares/USD, si no 'ARS'",
         required: false,
         source: "llm",
+      },
+    ],
+  },
+  {
+    path: "/bot/alertas",
+    method: "POST",
+    description:
+      "Reportar una ALERTA de la obra: algo que ya pasó o un riesgo que hay que mirar (ej: 'se rompió un caño', 'hay cables pelados en el pasillo', 'se rajó la pared del baño'). No usar para tareas o trabajo a hacer (ej: 'hay que pintar la pared' o 'falta terminar el techo' van a /bot/tareas), ni para movimientos de stock, gastos, retrasos o pedidos.",
+    params: [
+      {
+        name: "obra_id",
+        type: "string",
+        description: "ID o nombre de la obra",
+        required: true,
+        source: "obra_poll",
+      },
+      {
+        name: "telefono",
+        type: "string",
+        description: "Teléfono del obrero",
+        required: true,
+        source: "user_phone",
+      },
+      {
+        name: "mensaje",
+        type: "string",
+        description:
+          "Qué pasó o qué riesgo hay, contado como lo dijo el obrero (ej: 'se rompió un caño en la cocina')",
+        required: true,
+        source: "llm",
+        prompt: "¿Qué querés reportar? Contame qué pasó o qué riesgo viste.",
+      },
+      {
+        name: "titulo",
+        type: "string",
+        description:
+          "Título breve de la alerta (máx 200 caracteres). Si el usuario no lo menciona, no incluir el campo.",
+        required: false,
+        source: "llm",
+      },
+      {
+        name: "tipo",
+        type: "string",
+        description:
+          "Categoría de la alerta: 'problema' (falla o rotura), 'seguridad' (riesgo para las personas), 'material' (falta o problema con material), 'clima' (lluvia, viento), 'calidad' (trabajo mal hecho) u 'otro'. Si no está claro, no incluir el campo.",
+        required: false,
+        source: "llm",
+        allowedValues: [
+          "problema",
+          "seguridad",
+          "material",
+          "clima",
+          "calidad",
+          "otro",
+        ],
+      },
+      {
+        name: "prioridad",
+        type: "string",
+        description:
+          "Urgencia de la alerta: 'baja', 'media', 'alta' o 'urgente'. Solo si el usuario la expresa; si no, no incluir el campo.",
+        required: false,
+        source: "llm",
+        allowedValues: ["baja", "media", "alta", "urgente"],
       },
     ],
   },

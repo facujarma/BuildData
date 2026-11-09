@@ -14,4 +14,4 @@ export interface Obrero {
   sent: boolean;
 }
 
-export const ROLES = ['Sin asignar', 'Director de obra', 'Capataz', 'Compras', 'Arquitecto/a', 'Ingeniero/a', 'Seguridad e higiene', 'Cliente / propietario'];
+export const ROLES = ['Obrero', 'Capataz', 'Director'];

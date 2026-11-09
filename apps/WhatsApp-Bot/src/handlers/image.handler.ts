@@ -12,6 +12,8 @@ import {
   hasEntityPending,
   clearClarification,
   hasClarification,
+  clearPedidoPending,
+  hasPedidoPending,
 } from "./pendingQuery.store";
 import { sendObraConfirmationText } from "../services/pollConfirmation.service";
 import { MSG } from "../shared/responses";
@@ -20,10 +22,11 @@ export async function handleImage(
   phone: string,
   message: Message,
 ): Promise<void> {
-  if (hasPending(phone) || hasEntityPending(phone) || hasClarification(phone)) {
+  if (hasPending(phone) || hasEntityPending(phone) || hasClarification(phone) || hasPedidoPending(phone)) {
     clearPending(phone);
     clearEntityPending(phone);
     clearClarification(phone);
+    clearPedidoPending(phone);
     await message.reply(MSG.ERROR_PENDING_CANCELLED);
   }
 
@@ -37,6 +40,13 @@ export async function handleImage(
 
   if (!media) {
     await message.reply(MSG.ERROR_IMAGE_DOWNLOAD);
+    return;
+  }
+
+  // Mismo límite que el bucket de la galería y el express.raw del Backend.
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+  if (media.filesize && media.filesize > MAX_IMAGE_BYTES) {
+    await message.reply("❌ La imagen supera los 10 MB. Mandala más liviana.");
     return;
   }
 
@@ -64,7 +74,20 @@ export async function handleImage(
       break;
 
     case "desconocido":
-      await message.reply(MSG.ERROR_UNKNOWN_DOCUMENT);
+      // No es un comprobante ni una factura: se asume foto de obra y se guarda
+      // en la galería. La encuesta de obra confirma el destino.
+      await message.reply("📷 No es un comprobante. La voy a guardar en la galería de la obra.");
+      await sendObraConfirmationText(phone, message.from, {
+        type: "foto",
+        media: {
+          data: media.data,
+          mimetype: media.mimetype,
+          filename: media.filename,
+        },
+        nota: message.body.trim() || undefined,
+        contenido: message.body.trim() || "Foto de obra",
+        tipo_mensaje: "imagen",
+      });
       break;
   }
 }

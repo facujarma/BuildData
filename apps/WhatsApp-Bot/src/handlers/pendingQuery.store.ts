@@ -15,6 +15,12 @@ export interface ApiCall {
   display?: Record<string, string>;
 }
 
+export interface FotoPendiente {
+  data: string; // base64
+  mimetype: string;
+  filename?: string;
+}
+
 export type PendingQuery =
   | {
       type: "operation";
@@ -25,7 +31,27 @@ export type PendingQuery =
       mensaje_id?: string;
     }
   | { type: "comprobante"; data: ComprobanteData; obra_id?: string; contenido?: string; tipo_mensaje?: string; mensaje_id?: string }
-  | { type: "factura"; data: FacturaData; obra_id?: string; contenido?: string; tipo_mensaje?: string; mensaje_id?: string };
+  | { type: "factura"; data: FacturaData; obra_id?: string; contenido?: string; tipo_mensaje?: string; mensaje_id?: string }
+  | {
+      type: "foto";
+      media: FotoPendiente;
+      nota?: string;
+      obra_id?: string;
+      contenido?: string;
+      tipo_mensaje?: string;
+      mensaje_id?: string;
+    };
+
+// Pedido de compra que el bot puede ofrecer para marcar como entregado.
+export interface PedidoPendiente {
+  id: string;
+  estado: string;
+  proveedor: string | null;
+  materiales: string;
+  total?: number | string | null;
+  fecha_llegada_estimada?: string | null;
+  urgente?: boolean;
+}
 
 const pendingQueries = new Map<string, PendingQuery>();
 
@@ -106,4 +132,34 @@ export function clearClarification(phone: string): void {
 
 export function hasClarification(phone: string): boolean {
   return clarifications.has(phone);
+}
+
+// ──────────────────────────────────────────
+// Estado de encuesta de pedido a entregar
+// ──────────────────────────────────────────
+
+export interface PedidoEntregaPending {
+  pending: PendingQuery;
+  obra: Obra;
+  chatId: string;
+  opIndex: number;
+  pedidos: PedidoPendiente[];
+}
+
+const pedidoPending = new Map<string, PedidoEntregaPending>();
+
+export function setPedidoPending(phone: string, state: PedidoEntregaPending): void {
+  pedidoPending.set(phone, state);
+}
+
+export function getPedidoPending(phone: string): PedidoEntregaPending | undefined {
+  return pedidoPending.get(phone);
+}
+
+export function clearPedidoPending(phone: string): void {
+  pedidoPending.delete(phone);
+}
+
+export function hasPedidoPending(phone: string): boolean {
+  return pedidoPending.has(phone);
 }

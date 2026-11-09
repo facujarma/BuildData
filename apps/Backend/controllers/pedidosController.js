@@ -24,6 +24,7 @@ async function actividadPedido(db, { obraId, usuarioId, pedidoId, accion, texto,
   });
 }
 import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js"; // permisos
+import { resolvePersonaIdByTelefono } from "../services/personaService.js"; // teléfono del bot → personas.id
 
 // Respuestas de error reutilizables (403 = sin permiso, 404 = no existe)
 const sinAcceso = (res) =>
@@ -330,38 +331,77 @@ export async function entregarPedido(req, res) {
   if (!ubicacion || !recibidoPor) {
     return res.status(400).json({ code: "VALIDATION", message: "ubicacion y recibido_por son requeridos" });
   }
-  // Las expresiones regulares chequean el formato: AAAA-MM-DD y HH:MM (00:00 a 23:59)
   if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({ code: "VALIDATION", message: "fecha debe tener formato YYYY-MM-DD" });
   }
   if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
     return res.status(400).json({ code: "VALIDATION", message: "hora debe tener formato HH:MM" });
   }
-  // Sin fecha → ahora (CURRENT_TIMESTAMP); con fecha y sin hora → 00:00
-  const fechaEntrega = fecha ? `${fecha} ${hora || "00:00"}` : null;
 
-  let client; // conexión exclusiva para la transacción (se pide más abajo)
   try {
     // ── Permisos (services/obraAccess.service.js) ──
     const dueno = await obraDePedido(id); // ¿de qué obra es este pedido?
     if (!dueno) return noEncontrado(res); // no existe → 404
     if (!(await esMiembroDeObra(req.personaId, dueno.obra_id))) return sinAcceso(res); // no es del equipo → 403
 
-    // ── Transacción: todo lo que sigue se guarda junto o no se guarda nada ──
+    const resultado = await entregarPedidoCore({
+      pedidoId: id,
+      obraId: dueno.obra_id,
+      personaId: req.personaId || null,
+      ubicacion,
+      recibidoPor,
+      documento,
+      fecha,
+      hora,
+    });
+    res.status(resultado.status).json(resultado.body);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+}
+
+// Transacción compartida por la web y el bot: marca el pedido entregado, suma el
+// stock de cada ítem y registra la entrega en la bitácora. El caller ya validó
+// membresía; acá se verifica que el pedido sea de la obra y que el estado permita
+// entregarlo (409 si no). Devuelve { status, body } para responder igual en ambos.
+async function entregarPedidoCore({
+  pedidoId,
+  obraId,
+  personaId,
+  ubicacion,
+  recibidoPor,
+  documento,
+  fecha,
+  hora,
+}) {
+  // Sin fecha → ahora (CURRENT_TIMESTAMP); con fecha y sin hora → 00:00
+  const fechaEntrega = fecha ? `${fecha} ${hora || "00:00"}` : null;
+  let client; // conexión exclusiva para la transacción
+  try {
     client = await pool.connect();
     await client.query("BEGIN");
 
-    // FOR UPDATE: evita sumar el stock dos veces ante un doble click
-    // (bloquea la fila del pedido: un segundo pedido simultáneo espera a que este termine,
-    // y para entonces el estado ya es 'entregado', así que lo rechaza abajo)
-    const pedido = await client.query(`SELECT id, obra_id, estado FROM pedidos_materiales WHERE id = $1 FOR UPDATE`, [id]);
-    if (!ESTADOS_EN_CURSO.includes(pedido.rows[0].estado)) {
-      await client.query("ROLLBACK"); // deshace (y libera el bloqueo)
-      return res.status(409).json({ code: "INVALID_STATE", message: "Solo se pueden entregar pedidos aprobados o en curso" }); // 409 = conflicto de estado
+    // FOR UPDATE: evita sumar el stock dos veces ante un doble click.
+    // El filtro por obra va en SQL (compara uuid, no strings) y, si no coincide, 404.
+    const pedido = await client.query(
+      `SELECT id, obra_id, estado FROM pedidos_materiales WHERE id = $1 AND obra_id = $2 FOR UPDATE`,
+      [pedidoId, obraId]
+    );
+    const actual = pedido.rows[0];
+    if (!actual) {
+      await client.query("ROLLBACK");
+      return { status: 404, body: { code: "NOT_FOUND", message: "Pedido no encontrado" } };
+    }
+    if (!ESTADOS_EN_CURSO.includes(actual.estado)) {
+      await client.query("ROLLBACK");
+      return {
+        status: 409,
+        body: { code: "INVALID_STATE", message: "Solo se pueden entregar pedidos aprobados o en curso" },
+      };
     }
 
     // 1) Marca el pedido como entregado y guarda los datos de la recepción.
-    //    La fecha se interpreta en hora de Argentina; si no vino, se usa "ahora".
     const actualizado = await client.query(
       `UPDATE pedidos_materiales
        SET estado = 'entregado',
@@ -371,46 +411,165 @@ export async function entregarPedido(req, res) {
            documento_receptor = $4
        WHERE id = $5
        RETURNING *`,
-      [fechaEntrega, ubicacion, recibidoPor, documento || null, id]
+      [fechaEntrega, ubicacion, recibidoPor, documento || null, pedidoId]
     );
 
     // 2) Trae los materiales del pedido (solo los que tienen material y cantidad > 0)
     const items = await client.query(
       `SELECT material_id, cantidad FROM pedidos_items
        WHERE pedido_id = $1 AND material_id IS NOT NULL AND cantidad > 0`,
-      [id]
+      [pedidoId]
     );
     // 3) Por cada material, suma la cantidad al stock (services/stock.service.js).
-    //    Se pasa `client` para que quede dentro de la MISMA transacción.
     for (const item of items.rows) {
       await aplicarMovimientoStock(client, {
         materialId: item.material_id,
-        obraId: dueno.obra_id,
-        usuarioId: req.personaId || null,
-        tipo: "entrada", // entrada = suma
-        cantidad: Number(item.cantidad), // numeric llega como string: lo pasamos a número
-        observacion: `Entrada por pedido ${id.slice(0, 8)}`, // queda en movimientos_stock
+        obraId,
+        usuarioId: personaId || null,
+        tipo: "entrada",
+        cantidad: Number(item.cantidad),
+        observacion: `Entrada por pedido ${pedidoId.slice(0, 8)}`,
       });
     }
 
-    // 4) Deja la entrada en la bitácora (best-effort: si falla, no cancela la entrega)
+    // 4) Deja la entrada en la bitácora (best-effort)
     await actividadPedido(client, {
-      obraId: dueno.obra_id,
-      usuarioId: req.personaId || null,
-      pedidoId: id,
+      obraId,
+      usuarioId: personaId || null,
+      pedidoId,
       accion: "registró una entrega",
       texto: (p) => `Registró la entrega de ${p.material}${p.proveedor ? ` (${p.proveedor})` : ""} · recibió ${recibidoPor}`,
     });
 
-    await client.query("COMMIT"); // confirma todo: pedido entregado + stock + historial + bitácora
-    res.json(actualizado.rows[0]); // devuelve el pedido actualizado al frontend
+    await client.query("COMMIT");
+    return { status: 200, body: actualizado.rows[0] };
   } catch (error) {
-    // Cualquier error inesperado: deshace TODO lo hecho en la transacción (nada queda a medias)
     if (client) await client.query("ROLLBACK");
     console.error(error);
-    res.status(500).json({ code: "SERVER_ERROR", message: error.message }); // 500 = error del servidor
+    return { status: 500, body: { code: "SERVER_ERROR", message: error.message } };
   } finally {
-    // Siempre (haya salido bien o mal) devuelve la conexión al pool para que otros la usen
     if (client) client.release();
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function texto(valor, max) {
+  return typeof valor === "string" && valor.trim() ? valor.trim().slice(0, max) : null;
+}
+
+// GET /bot/pedidos/pendientes?obra_id=&telefono=&q=
+// Lista los pedidos que se pueden entregar (aprobado / en camino / demorado).
+// El bot la usa para preguntar cuál llegó cuando el mensaje no alcanza.
+export async function getPedidosPendientesBot(req, res) {
+  const { obra_id, telefono } = req.query;
+  if (!obra_id || !telefono) {
+    return res.status(400).json({ error: "obra_id y telefono son requeridos" });
+  }
+  if (!UUID_RE.test(String(obra_id))) {
+    return res.status(400).json({ error: "obra_id debe ser UUID" });
+  }
+
+  try {
+    const personaId = await resolvePersonaIdByTelefono(telefono);
+    if (!personaId) {
+      return res.status(404).json({ error: "telefono no resuelve a ningún obrero" });
+    }
+    // Obra inexistente → 404 (sin esto esMiembroDeObra la rechazaría como 403)
+    const obra = await pool.query(`SELECT 1 FROM obras WHERE id = $1`, [obra_id]);
+    if (obra.rows.length === 0) {
+      return res.status(404).json({ error: "obra no encontrada" });
+    }
+    if (!(await esMiembroDeObra(personaId, obra_id))) {
+      return res.status(403).json({ error: "No pertenecés a esta obra" });
+    }
+
+    const q = texto(req.query.q, 120);
+    const { rows } = await pool.query(
+      `SELECT pm.id, pm.estado, pm.urgente, pm.fecha_llegada_estimada, pm.total,
+              pr.nombre AS proveedor,
+              COALESCE((
+                SELECT string_agg(
+                  COALESCE(m.nombre, 'Material') || ' x' ||
+                  COALESCE((i.cantidad::float8)::text, '0'),
+                  ', ' ORDER BY m.nombre
+                )
+                FROM pedidos_items i
+                LEFT JOIN materiales m ON m.id = i.material_id
+                WHERE i.pedido_id = pm.id
+              ), '') AS materiales
+       FROM pedidos_materiales pm
+       LEFT JOIN proveedores pr ON pr.id = pm.proveedor_id
+       WHERE pm.obra_id = $1
+         AND pm.estado IN ('aprobado', 'en_camino', 'demorado')
+         AND (
+           $2::text IS NULL
+           OR pr.nombre ILIKE '%' || $2 || '%'
+           OR EXISTS (
+             SELECT 1
+             FROM pedidos_items i
+             JOIN materiales m ON m.id = i.material_id
+             WHERE i.pedido_id = pm.id AND m.nombre ILIKE '%' || $2 || '%'
+           )
+         )
+       ORDER BY pm.fecha ASC`,
+      [obra_id, q]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// POST /bot/pedidos/entregar
+// Body: { obra_id, telefono, pedido_id, ubicacion?, recibido_por?, documento?, fecha?, hora? }
+// El bot resuelve pedido_id con una encuesta; los datos de recepción pueden faltar:
+// ubicacion default "Obra" y recibido_por default el nombre del obrero.
+export async function entregarPedidoDesdeBot(req, res) {
+  const { obra_id, telefono, pedido_id } = req.body;
+  if (!obra_id || !telefono || !pedido_id) {
+    return res.status(400).json({ error: "obra_id, telefono y pedido_id son requeridos" });
+  }
+  if (!UUID_RE.test(String(obra_id)) || !UUID_RE.test(String(pedido_id))) {
+    return res.status(400).json({ error: "obra_id y pedido_id deben ser UUID" });
+  }
+  const { fecha, hora } = req.body;
+  if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return res.status(400).json({ error: "fecha debe tener formato YYYY-MM-DD" });
+  }
+  if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
+    return res.status(400).json({ error: "hora debe tener formato HH:MM" });
+  }
+
+  try {
+    const personaId = await resolvePersonaIdByTelefono(telefono);
+    if (!personaId) {
+      return res.status(404).json({ error: "telefono no resuelve a ningún obrero" });
+    }
+    // Obra inexistente → 404 (sin esto esMiembroDeObra la rechazaría como 403)
+    const obra = await pool.query(`SELECT 1 FROM obras WHERE id = $1`, [obra_id]);
+    if (obra.rows.length === 0) {
+      return res.status(404).json({ error: "obra no encontrada" });
+    }
+    if (!(await esMiembroDeObra(personaId, obra_id))) {
+      return res.status(403).json({ error: "No pertenecés a esta obra" });
+    }
+    const persona = await pool.query(`SELECT nombre FROM personas WHERE id = $1`, [personaId]);
+
+    const resultado = await entregarPedidoCore({
+      pedidoId: pedido_id,
+      obraId: obra_id,
+      personaId,
+      ubicacion: texto(req.body.ubicacion, 200) || "Obra",
+      recibidoPor: texto(req.body.recibido_por, 200) || persona.rows[0].nombre,
+      documento: texto(req.body.documento, 120),
+      fecha,
+      hora,
+    });
+    res.status(resultado.status).json(resultado.body);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
   }
 }

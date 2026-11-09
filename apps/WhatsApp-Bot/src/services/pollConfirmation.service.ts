@@ -19,12 +19,18 @@ import {
   setEntityPending,
   clearEntityPending,
   getEntityPending,
+  setPedidoPending,
+  getPedidoPending,
+  clearPedidoPending,
   PendingQuery,
   ApiCall,
+  PedidoPendiente,
 } from "../handlers/pendingQuery.store";
 import {
   registrarMensaje,
   registrarOperaciones,
+  subirFotoGaleria,
+  getPedidosPendientes,
   OperacionParaRegistrar,
   OperacionRegistrada,
 } from "./api.service";
@@ -43,6 +49,14 @@ import {
   EntityKind,
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
+import {
+  normalizarRol,
+  puede,
+  puedeOperar,
+  permisoDeEndpoint,
+  PERMISO_LABELS,
+  type RolBot,
+} from "./permissions.service";
 
 // Los montos de vision.service.ts llegan en formato argentino ("$1.234,56") — hay que
 // convertirlos a number antes de mandarlos a /bot/gastos, que espera monto: number.
@@ -61,6 +75,9 @@ async function registrarOperacionesDelMensaje(
   obra: Obra,
   phone: string,
 ): Promise<OperacionRegistrada[]> {
+  // Las fotos se suben a la galería, no pasan por la cola de aprobación.
+  if (pending.type === "foto") return [];
+
   const operaciones: OperacionParaRegistrar[] = [];
   const base = { obra_id: pending.obra_id, telefono: phone };
 
@@ -199,6 +216,181 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
   );
 }
 
+// ──────────────────────────────────────────
+// Permisos por rol
+// ──────────────────────────────────────────
+
+// Devuelve la etiqueta de la acción bloqueada, o null si el rol puede hacer todo
+// lo que pide el pending. Un lote con una sola operación prohibida se rechaza
+// entero (no se ejecuta la mitad).
+function permisoBloqueado(pending: PendingQuery, rol: RolBot): string | null {
+  if (pending.type === "foto") {
+    return puede(rol, "foto.subir") ? null : PERMISO_LABELS["foto.subir"];
+  }
+  if (pending.type === "comprobante" || pending.type === "factura") {
+    return puede(rol, "gasto.crear") ? null : PERMISO_LABELS["gasto.crear"];
+  }
+  for (const op of pending.operation) {
+    if (!puedeOperar(rol, op.endpoint)) {
+      return permisoDeEndpoint(op.endpoint)?.label ?? "hacer esa operación";
+    }
+  }
+  return null;
+}
+
+// ──────────────────────────────────────────
+// Entrega de pedidos: búsqueda y encuesta
+// ──────────────────────────────────────────
+
+const PEDIDO_STOPWORDS = new Set([
+  "pedido",
+  "pedidos",
+  "de",
+  "del",
+  "la",
+  "el",
+  "los",
+  "las",
+  "un",
+  "una",
+  "que",
+  "llego",
+  "llegaron",
+  "trajeron",
+  "recibi",
+  "recibimos",
+  "recibio",
+  "material",
+  "materiales",
+  "bolsa",
+  "bolsas",
+  "unidad",
+  "unidades",
+  "caja",
+  "cajas",
+  "kilos",
+  "litros",
+  "hoy",
+  "ayer",
+  "para",
+  "en",
+  "con",
+  "y",
+]);
+
+function normalizarTexto(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+// Filtra los pedidos pendientes por las palabras útiles de la referencia.
+// Si nada coincide, devuelve todos para que el usuario elija.
+function filtrarPedidos(pedidos: PedidoPendiente[], ref: string): PedidoPendiente[] {
+  const tokens = normalizarTexto(ref)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !PEDIDO_STOPWORDS.has(token));
+  if (tokens.length === 0) return pedidos;
+
+  const coinciden = pedidos.filter((pedido) => {
+    const texto = normalizarTexto(
+      `${pedido.proveedor ?? ""} ${pedido.materiales ?? ""}`,
+    );
+    return tokens.every((token) => texto.includes(token));
+  });
+  return coinciden.length > 0 ? coinciden : pedidos;
+}
+
+function pedidoLabel(pedido: PedidoPendiente): string {
+  const base = `${pedido.proveedor || "Sin proveedor"}${
+    pedido.materiales ? ` — ${pedido.materiales}` : ""
+  }`;
+  return base.length > 90 ? `${base.slice(0, 87)}…` : base;
+}
+
+// Guarda el pedido elegido en el payload y saca la referencia que emitió el LLM.
+function aplicarPedido(op: ApiCall, pedido: PedidoPendiente): void {
+  delete op.data.pedido_ref;
+  op.data.pedido_id = pedido.id;
+  if (!op.display) op.display = {};
+  op.display.pedido_id = pedidoLabel(pedido);
+}
+
+async function sendPedidoQuestion(
+  chatId: string,
+  pedidos: PedidoPendiente[],
+): Promise<void> {
+  const client = getClient();
+  const lista = listaNumerada(pedidos.map(pedidoLabel));
+  const fallback = () =>
+    client.sendMessage(
+      chatId,
+      [
+        "📦 *¿Qué pedido llegó?*",
+        "",
+        lista,
+        "",
+        `${emojiNumero(0)} ❌ Cancelar`,
+        "",
+        "Respondé con el número.",
+      ].join("\n"),
+    );
+
+  const values = [
+    ...pedidos.map((pedido, i) => `${i + 1}. ${pedidoLabel(pedido)}`),
+    "0. ❌ Cancelar",
+  ];
+
+  await sendPollOrText(chatId, "📦 ¿Qué pedido llegó?", values, fallback);
+}
+
+export async function handlePedidoTextReply(
+  phone: string,
+  raw: string,
+  chatId: string,
+): Promise<boolean> {
+  const state = getPedidoPending(phone);
+  if (!state) return false;
+
+  const selectedIndex = parseInt(raw.trim(), 10);
+  if (isNaN(selectedIndex)) return false;
+
+  const client = getClient();
+
+  if (selectedIndex === 0) {
+    clearPedidoPending(phone);
+    clearPending(phone);
+    await client.sendMessage(chatId, MSG.SUCCESS_DATA_CANCELLED);
+    return true;
+  }
+
+  if (selectedIndex < 1 || selectedIndex > state.pedidos.length) {
+    await client.sendMessage(
+      chatId,
+      `❌ Esa opción no existe. Respondé con un número de la lista o ${emojiNumero(0)} para cancelar.`,
+    );
+    return true;
+  }
+
+  const pedido = state.pedidos[selectedIndex - 1];
+  const op =
+    state.pending.type === "operation"
+      ? state.pending.operation[state.opIndex]
+      : undefined;
+  clearPedidoPending(phone);
+
+  if (!op) {
+    clearPending(phone);
+    await client.sendMessage(chatId, "❌ No pude resolver el pedido. Probá de nuevo.");
+    return true;
+  }
+
+  aplicarPedido(op, pedido);
+  await prepareAndExecute(state.pending, state.obra, phone, chatId);
+  return true;
+}
+
 /**
  * Flujo completo tras elegir la obra:
  * 1) registra el mensaje crudo (POST /bot/mensaje) → mensaje_id
@@ -210,6 +402,21 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
 async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: string, chatId: string): Promise<void> {
   pending.obra_id = obra.obra_id;
   const client = getClient();
+  const rol = normalizarRol(obra.rol);
+
+  // Gate de permisos del bot. El Backend repite el chequeo al registrar las
+  // operaciones (barrera dura); acá se avisa antes de pedir datos o confirmar.
+  const bloqueo = permisoBloqueado(pending, rol);
+  if (bloqueo) {
+    clearPending(phone);
+    clearEntityPending(phone);
+    clearPedidoPending(phone);
+    await client.sendMessage(
+      chatId,
+      `🔒 Tu rol *${rol}* no puede ${bloqueo}.`,
+    );
+    return;
+  }
 
   if (!pending.mensaje_id && pending.contenido) {
     try {
@@ -225,7 +432,78 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
     }
   }
 
+  // Foto de obra: se sube a la galería y termina el flujo (no hay operación).
+  if (pending.type === "foto") {
+    try {
+      await subirFotoGaleria({
+        obraId: obra.obra_id,
+        telefono: phone,
+        dataBase64: pending.media.data,
+        mimetype: pending.media.mimetype,
+        nota: pending.nota,
+        nombre: pending.media.filename,
+      });
+      await client.sendMessage(chatId, "✅ Foto guardada en la galería de la obra.");
+    } catch (error) {
+      console.error("[prepareAndExecute] no se pudo guardar la foto:", error);
+      await client.sendMessage(
+        chatId,
+        "❌ No pude guardar la foto en la galería. Probá de nuevo.",
+      );
+    }
+    clearPending(phone);
+    return;
+  }
+
   if (pending.type === "operation") {
+    // Entrega de pedidos: se resuelve antes que las entidades porque no usa el
+    // buscador de materiales/proveedores, sino los pedidos pendientes de la obra.
+    for (let i = 0; i < pending.operation.length; i++) {
+      const op = pending.operation[i];
+      if (op.endpoint !== "/bot/pedidos/entregar" || op.data.pedido_id) continue;
+
+      const ref = String(op.data.pedido_ref ?? "").trim();
+      try {
+        const todos = await getPedidosPendientes(obra.obra_id, phone);
+        const candidatos = filtrarPedidos(todos, ref);
+
+        if (candidatos.length === 0) {
+          clearPending(phone);
+          await client.sendMessage(
+            chatId,
+            `📦 No encontré pedidos pendientes de entrega${
+              ref ? ` para "*${ref}*"` : ""
+            }.`,
+          );
+          return;
+        }
+
+        if (candidatos.length === 1) {
+          aplicarPedido(op, candidatos[0]);
+          continue;
+        }
+
+        const opciones = candidatos.slice(0, 10);
+        setPedidoPending(phone, {
+          pending,
+          obra,
+          chatId,
+          opIndex: i,
+          pedidos: opciones,
+        });
+        await sendPedidoQuestion(chatId, opciones);
+        return;
+      } catch (error) {
+        console.error("[prepareAndExecute] no se pudieron buscar los pedidos:", error);
+        clearPending(phone);
+        await client.sendMessage(
+          chatId,
+          "❌ No pude consultar los pedidos pendientes. Intentá de nuevo.",
+        );
+        return;
+      }
+    }
+
     try {
       for (let i = 0; i < pending.operation.length; i++) {
         const question = await resolveOperationEntities(pending.operation[i], obra.obra_id, i);
@@ -242,6 +520,7 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
 
   clearEntityPending(phone);
   clearPending(phone);
+  clearPedidoPending(phone);
   try {
     const registradas = await registrarOperacionesDelMensaje(pending, obra, phone);
     const pendientes = registradas.filter((o) => o.estado === "pendiente").length;
@@ -420,6 +699,7 @@ export async function handlePollVoteMessage(sock: WASocket, voteMessage: WAMessa
   console.log(`[poll] voto de ${phone}: "${optionName}"`);
   await deletePollMessage(sock, chatId, creation);
   if (await handleEntityTextReply(phone, String(index), chatId)) return;
+  if (await handlePedidoTextReply(phone, String(index), chatId)) return;
   await handleObraTextReply(phone, String(index), chatId);
 }
 

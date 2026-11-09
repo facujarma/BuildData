@@ -1,7 +1,33 @@
 import { pool } from "../db.js";
 import { registrarActividad } from "../services/actividad.service.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 
 const DIAS_INACTIVIDAD = 7;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const TIPOS_ALERTA = new Set([
+  "problema",
+  "seguridad",
+  "material",
+  "calidad",
+  "clima",
+  "otro",
+  "reporte",
+]);
+const PRIORIDADES = new Set(["baja", "media", "alta", "urgente"]);
+const SEVERITY_POR_PRIORIDAD = {
+  baja: "attention",
+  media: "attention",
+  alta: "attention",
+  urgente: "critical",
+};
+
+function texto(valor, max) {
+  if (typeof valor !== "string") return null;
+  const limpio = valor.trim();
+  return limpio ? limpio.slice(0, max) : null;
+}
 
 // Chequeo periódico (ver setInterval en server.js). Una obra 'activa' sin mensajes del bot
 // en los últimos DIAS_INACTIVIDAD días genera una alerta 'inactividad' — no duplica si ya
@@ -87,7 +113,7 @@ export async function resolverAlerta(req, res) {
   }
 }
 
-// POST /alertas — crear alerta
+// POST /alertas — crear alerta (web)
 export async function crearAlerta(req, res) {
   const { obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity } = req.body;
   try {
@@ -112,5 +138,82 @@ export async function crearAlerta(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error creando alerta" });
+  }
+}
+
+// POST /bot/alertas — el bot WhatsApp reporta un problema/alerta de la obra.
+// Body: { obra_id, telefono, mensaje, titulo?, tipo?, prioridad? }
+export async function crearAlertaDesdeBot(req, res) {
+  const { obra_id, telefono } = req.body;
+  const mensaje = texto(req.body.mensaje, 2000);
+  if (!obra_id || !telefono || !mensaje) {
+    return res
+      .status(400)
+      .json({ error: "obra_id, telefono y mensaje son requeridos" });
+  }
+  // Un id mal formado haría explotar el cast a uuid de Postgres (500): se corta antes.
+  if (!UUID_RE.test(String(obra_id))) {
+    return res.status(400).json({ error: "obra_id debe ser UUID" });
+  }
+
+  try {
+    const personaId = await resolvePersonaIdByTelefono(telefono);
+    if (!personaId) {
+      return res
+        .status(404)
+        .json({ error: "telefono no resuelve a ningún obrero" });
+    }
+    // Obra inexistente → 404 (sin esto esMiembroDeObra la rechazaría como 403)
+    const obra = await pool.query(`SELECT 1 FROM obras WHERE id = $1`, [obra_id]);
+    if (obra.rows.length === 0) {
+      return res.status(404).json({ error: "obra no encontrada" });
+    }
+    if (!(await esMiembroDeObra(personaId, obra_id))) {
+      return res.status(403).json({ error: "No pertenecés a esta obra" });
+    }
+
+    const tipoCrudo = texto(req.body.tipo, 40)?.toLowerCase() ?? "reporte";
+    const tipo = TIPOS_ALERTA.has(tipoCrudo) ? tipoCrudo : "reporte";
+    const prioridadCruda =
+      texto(req.body.prioridad, 20)?.toLowerCase() ?? "media";
+    const prioridad = PRIORIDADES.has(prioridadCruda)
+      ? prioridadCruda
+      : "media";
+    const severity = SEVERITY_POR_PRIORIDAD[prioridad];
+    const titulo = texto(req.body.titulo, 200) ?? mensaje.slice(0, 120);
+
+    const { rows } = await pool.query(
+      `INSERT INTO alertas
+         (obra_id, tipo, mensaje, prioridad, usuario_id, titulo, subtitulo, severity)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        obra_id,
+        tipo,
+        mensaje,
+        prioridad,
+        personaId,
+        titulo,
+        "Reportado por WhatsApp",
+        severity,
+      ]
+    );
+    const alerta = rows[0];
+
+    await registrarActividad(pool, {
+      obraId: obra_id,
+      usuarioId: personaId,
+      tipo: "problema",
+      accion: "reportó una alerta",
+      texto: `Reportó: ${titulo}`,
+      entidadTipo: "alerta",
+      entidadId: alerta.id,
+      tags: severity === "critical" ? ["Crítico", "Alerta"] : ["Alerta"],
+    });
+
+    res.status(201).json(alerta);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
   }
 }

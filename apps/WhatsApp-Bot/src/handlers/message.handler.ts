@@ -4,6 +4,7 @@ import { ayudaCommand } from "../commands/ayuda.command";
 import { loginCommand } from "../commands/login.command";
 import { invitacionCommand } from "../commands/invitacion.command";
 import { cancelCommand } from "../commands/confirmAndCancel.command";
+import { rolCommand } from "../commands/rol.command";
 import { handleFreeText } from "./freetext.handler";
 import { handleAudio } from "./voice.handler";
 import {
@@ -11,6 +12,8 @@ import {
   hasPending,
   clearClarification,
   hasClarification,
+  clearPedidoPending,
+  hasPedidoPending,
 } from "../handlers/pendingQuery.store";
 import { handleImage } from "./image.handler";
 import { MSG } from "../shared/responses";
@@ -19,6 +22,7 @@ import { buildingsCommand } from "../commands/buildings.command";
 import {
   handleObraTextReply,
   handleEntityTextReply,
+  handlePedidoTextReply,
 } from "../services/pollConfirmation.service";
 
 registerCommand(ayudaCommand);
@@ -26,11 +30,12 @@ registerCommand(cancelCommand);
 registerCommand(loginCommand);
 registerCommand(invitacionCommand);
 registerCommand(buildingsCommand);
+registerCommand(rolCommand);
 
 
 const PREFIX = "!";
 
-const WHITELISTED_COMMANDS = ["!iniciar", "!ayuda", "!invitacion"];
+const WHITELISTED_COMMANDS = ["!iniciar", "!ayuda", "!invitacion", "!rol"];
 
 function isWhitelisted(text: string): boolean {
   return WHITELISTED_COMMANDS.some((cmd) => text.startsWith(cmd));
@@ -71,6 +76,7 @@ async function handleTextMessage(
 
   if (/^\d+$/.test(message.body.trim())) {
     if (await handleEntityTextReply(phone, message.body, message.from)) return;
+    if (await handlePedidoTextReply(phone, message.body, message.from)) return;
     if (hasPending(phone)) {
       const handled = await handleObraTextReply(phone, message.body, message.from);
       if (handled) return;
@@ -82,9 +88,10 @@ async function handleTextMessage(
     const command = getCommand(commandName);
 
     if (!command) {
-      if (hasPending(phone) || hasClarification(phone)) {
+      if (hasPending(phone) || hasClarification(phone) || hasPedidoPending(phone)) {
         clearPending(phone);
         clearClarification(phone);
+        clearPedidoPending(phone);
         await message.reply(MSG.ERROR_CANCELLED_BAD_CMD);
         return;
       }

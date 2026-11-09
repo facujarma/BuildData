@@ -7,6 +7,8 @@ import {
   hasEntityPending,
   hasClarification,
   setClarification,
+  clearPedidoPending,
+  hasPedidoPending,
   ApiCall,
   Clarification,
 } from "./pendingQuery.store";
@@ -31,9 +33,10 @@ export async function handleFreeText(
       return;
     }
 
-    if (hasPending(phone) || hasEntityPending(phone)) {
+    if (hasPending(phone) || hasEntityPending(phone) || hasPedidoPending(phone)) {
       clearPending(phone);
       clearEntityPending(phone);
+      clearPedidoPending(phone);
       await message.reply(MSG.ERROR_PENDING_CANCELLED);
     }
 

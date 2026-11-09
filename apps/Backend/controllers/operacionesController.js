@@ -82,6 +82,13 @@ export async function aprobarOperacionWeb(req, res) {
         .status(409)
         .json({ error: `la operación ya está ${resultado.estado}` });
     }
+    if (resultado.forbidden) {
+      return res.status(403).json({
+        error: resultado.rol
+          ? `tu rol ${resultado.rol} no puede aprobar esta operación`
+          : "no tenés permiso para aprobar esta operación",
+      });
+    }
     res.json(resultado.operacion);
   } catch (error) {
     console.error(error);

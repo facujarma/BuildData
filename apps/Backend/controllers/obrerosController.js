@@ -1,5 +1,6 @@
 import { pool } from "../db.js";
 import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import { normalizarRol } from "../services/permisos.service.js";
 import {
   crearInvitacion,
   consumirInvitacion,
@@ -43,7 +44,7 @@ export async function registrarObrero(req, res) {
     if (obra_id) {
       await client.query(
         `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1, $2, $3)`,
-        [obrero.rows[0].id, obra_id, rol || null]
+        [obrero.rows[0].id, obra_id, normalizarRol(rol)]
       );
     }
 
@@ -67,7 +68,7 @@ export async function asignarObraObrero(req, res) {
       `INSERT INTO miembros_obra (persona_id, obra_id, rol)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [obrero_id, obra_id, rol]
+      [obrero_id, obra_id, normalizarRol(rol)]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -106,7 +107,7 @@ export async function crearInvitacionWeb(req, res) {
       obraId: obra_id,
       nombre,
       telefono,
-      rol,
+      rol: normalizarRol(rol),
       creadaPor: req.personaId || null,
     });
     res.status(201).json(invitacion);
