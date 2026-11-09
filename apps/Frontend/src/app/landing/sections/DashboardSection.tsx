@@ -2,7 +2,6 @@
 
 import { motion as m } from "framer-motion";
 import Icon from "../_components/Icon";
-import LiveDashboard from "../_components/LiveDashboardApp";
 
 const CALLOUTS = [
   {
@@ -34,26 +33,18 @@ export default function DashboardSection() {
           <div className="flex items-center gap-3 mb-3">
             <div className="eyebrow text-primary">Dashboard</div>
             <span className="inline-flex items-center gap-1 bg-success50 text-[#15803D] text-[10px] font-bold tracking-wider uppercase px-2 py-[3px] rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-success live-dot" />
-              <span className="hidden lg:inline">Demo en vivo</span>
-              <span className="lg:hidden">Vista previa</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span>Vista previa</span>
             </span>
           </div>
           <h2 className="text-[clamp(32px,4vw,48px)] leading-[1.08] font-extrabold display-tight text-slate950 mb-4">
             Una vista clara de cada obra.
             <br />
-            <span className="text-primary hidden lg:inline">Tocá y exploralo.</span>
-            <span className="text-primary lg:hidden">Conocé el panel por dentro.</span>
+            <span className="text-primary">Conocé el panel por dentro.</span>
           </h2>
           <p className="text-[17px] leading-[26px] text-slate600 max-w-[640px]">
-            <span className="hidden lg:inline">
-              Esto que ves abajo es el producto, funcionando. Navegá entre Dashboard, Bandeja,
-              Cronograma, Materiales, Costos, Alertas, Registro y Equipo desde la barra lateral.
-            </span>
-            <span className="lg:hidden">
-              Un resumen de lo que tu equipo carga por WhatsApp: avance, pedidos, alertas y tareas,
-              todo junto y actualizado.
-            </span>
+            Un resumen de lo que tu equipo carga por WhatsApp: avance, pedidos, alertas y tareas,
+            todo junto y actualizado.
           </p>
         </div>
 
@@ -85,15 +76,16 @@ export default function DashboardSection() {
             </div>
 
             <div className="hidden lg:block">
-              <LiveDashboard height={720} />
+              <img
+                src="/landing/dashboard-preview.webp"
+                alt="Dashboard de BuildData con el avance, las tareas en curso, los pedidos y las alertas de una obra"
+                width={1320}
+                height={720}
+                loading="lazy"
+                className="block w-full h-auto rounded-lg border border-slate200"
+              />
             </div>
             <MobileDashboardPreview />
-          </div>
-
-          {/* Floating hint */}
-          <div className="absolute -top-3 right-4 md:right-10 bg-white border border-slate200 shadow-pop rounded-full px-3 py-[6px] hidden lg:flex items-center gap-2 z-10">
-            <Icon name="sparkle" size={12} className="text-accent" />
-            <span className="text-[11px] font-bold text-slate950">Hacé clic en el menú lateral</span>
           </div>
         </m.div>
 
@@ -186,7 +178,7 @@ function MobileDashboardPreview() {
       </div>
 
       <div className="text-[11px] text-slate500 text-center leading-snug">
-        La demo interactiva completa se ve mejor en una pantalla grande.
+        La vista completa se ve mejor en una pantalla grande.
       </div>
     </div>
   );
