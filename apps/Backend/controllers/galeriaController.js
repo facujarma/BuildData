@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { esMiembroDeObra } from "../services/obraAccess.service.js";
@@ -109,6 +110,11 @@ export async function guardarFoto({
   if (subida.error) throw new Error(subida.error.message);
   const { publicUrl } = supabaseAdmin.storage.from(BUCKET_GALERIA).getPublicUrl(path).data;
 
+  // El lote tiene que existir antes del INSERT: si el cliente no lo manda (bot),
+  // se genera acá y se usa el mismo valor en la fila y en la actividad. Si no,
+  // la fila queda con lote_id NULL y registrarLote cuenta 0 fotos.
+  const lote = loteId || randomUUID();
+
   let insertado;
   try {
     insertado = await pool.query(
@@ -126,7 +132,7 @@ export async function guardarFoto({
         nota,
         flag,
         origen,
-        loteId,
+        lote,
       ]
     );
   } catch (error) {
@@ -139,7 +145,7 @@ export async function guardarFoto({
   await registrarLote({
     obraId,
     usuarioId: personaId || null,
-    loteId: loteId || foto.id,
+    loteId: lote,
     tareaTitulo: tarea?.titulo || null,
     rubroId: foto.rubro_id,
   });

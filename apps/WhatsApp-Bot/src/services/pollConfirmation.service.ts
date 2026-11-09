@@ -57,6 +57,7 @@ import {
   PERMISO_LABELS,
   type RolBot,
 } from "./permissions.service";
+import { filtrarPedidos, pedidoLabel } from "./pedidoMatch.service";
 
 // Los montos de vision.service.ts llegan en formato argentino ("$1.234,56") — hay que
 // convertirlos a number antes de mandarlos a /bot/gastos, que espera monto: number.
@@ -242,73 +243,6 @@ function permisoBloqueado(pending: PendingQuery, rol: RolBot): string | null {
 // Entrega de pedidos: búsqueda y encuesta
 // ──────────────────────────────────────────
 
-const PEDIDO_STOPWORDS = new Set([
-  "pedido",
-  "pedidos",
-  "de",
-  "del",
-  "la",
-  "el",
-  "los",
-  "las",
-  "un",
-  "una",
-  "que",
-  "llego",
-  "llegaron",
-  "trajeron",
-  "recibi",
-  "recibimos",
-  "recibio",
-  "material",
-  "materiales",
-  "bolsa",
-  "bolsas",
-  "unidad",
-  "unidades",
-  "caja",
-  "cajas",
-  "kilos",
-  "litros",
-  "hoy",
-  "ayer",
-  "para",
-  "en",
-  "con",
-  "y",
-]);
-
-function normalizarTexto(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-// Filtra los pedidos pendientes por las palabras útiles de la referencia.
-// Si nada coincide, devuelve todos para que el usuario elija.
-function filtrarPedidos(pedidos: PedidoPendiente[], ref: string): PedidoPendiente[] {
-  const tokens = normalizarTexto(ref)
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 3 && !PEDIDO_STOPWORDS.has(token));
-  if (tokens.length === 0) return pedidos;
-
-  const coinciden = pedidos.filter((pedido) => {
-    const texto = normalizarTexto(
-      `${pedido.proveedor ?? ""} ${pedido.materiales ?? ""}`,
-    );
-    return tokens.every((token) => texto.includes(token));
-  });
-  return coinciden.length > 0 ? coinciden : pedidos;
-}
-
-function pedidoLabel(pedido: PedidoPendiente): string {
-  const base = `${pedido.proveedor || "Sin proveedor"}${
-    pedido.materiales ? ` — ${pedido.materiales}` : ""
-  }`;
-  return base.length > 90 ? `${base.slice(0, 87)}…` : base;
-}
-
 // Guarda el pedido elegido en el payload y saca la referencia que emitió el LLM.
 function aplicarPedido(op: ApiCall, pedido: PedidoPendiente): void {
   delete op.data.pedido_ref;
@@ -460,7 +394,7 @@ async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: strin
     // buscador de materiales/proveedores, sino los pedidos pendientes de la obra.
     for (let i = 0; i < pending.operation.length; i++) {
       const op = pending.operation[i];
-      if (op.endpoint !== "/bot/pedidos/entregar" || op.data.pedido_id) continue;
+      if (op.endpoint !== "/bot/pedidos/entregar" || !op.data.pedido_ref) continue;
 
       const ref = String(op.data.pedido_ref ?? "").trim();
       try {
