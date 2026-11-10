@@ -10,6 +10,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 | `npx turbo run dev --filter=whatsapp-bot` | Solo bot (Express keep-alive en puerto 3000) |
 | `npx turbo run dev --filter=frontend` | Solo frontend (Next.js) |
 | `bun --watch src/index.ts` | Modo dev directo del bot (hot reload) |
+| `bun run test` | Suite completa: bot + backend (`--isolate`) + frontend |
 | `bun test` | Tests con Bun (apps/WhatsApp-Bot) |
 | `bun test apps/Backend/services/chatbot/sqlGuard.service.test.js` | Tests del guard SQL del ChatBot AI (sin LLM) |
 | `bun run lint` | ESLint del Frontend (WhatsApp-Bot no tiene lint). Es gate del CI: `TMP/**` queda excluido por ser mockups estáticos que Next no compila |
@@ -18,7 +19,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`
 - Express: bot en puerto 3000, Backend API en puerto 3001
 - Existe `bun.lock` y `package-lock.json` — usar `bun install`
-- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`, `message.adapter.test.ts` — teléfono/jid y votos de poll —, `pollMessage.store.test.ts` — store de polls —). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun run test:backend` (`bun test --isolate apps/Backend`: embeddings, entitySearch, stock, permisos, guard SQL y controller de galería)
+- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`, `message.adapter.test.ts` — teléfono/jid y votos de poll —, `pollMessage.store.test.ts` — store de polls —). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun run test:backend` (`bun test --isolate apps/Backend`: embeddings, entitySearch, stock, permisos, guard SQL, controller de galería y de obreros). Del Frontend: `bun run test:frontend` (`cd apps/Frontend && bun test`; el CI lo corre en el job del frontend)
 
 ## Arquitectura (lo que los nombres no dicen)
 
@@ -58,14 +59,18 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Endpoints directos `/bot/*`**: el gate de `/bot/operaciones` no cubre los endpoints que el bot llama directo. Regla: **todo endpoint directo valida rol o es exclusivamente interno (service key)**. Hoy `POST /bot/galeria` valida `foto.subir` con `puedeOperar(rol, "/bot/galeria")` (mapa `ENDPOINT_PERMISOS` + `rolEnObra`) y `POST /bot/pedidos/entregar` valida `pedido.entregar`; el resto son internos del executor. Inventario completo en “Backend — rutas y flujo de tareas”
 
 
-## Invitaciones de obreros (link cifrado de uso único)
+## Invitaciones de obreros (link cifrado de uso único, con rol)
 
 - Migración manual una vez: `apps/Backend/outputs/migracion_invitaciones.sql` (tabla `invitaciones`: obra, nombre, teléfono, rol, `expira_at`, `usada_at`/`usada_por`)
-- El frontend (`InviteTeamModal`) pide `POST /obreros/invitacion` (JWT + membresía) y arma el link `https://wa.me/<NEXT_PUBLIC_BOT_PHONE>?text=!invitacion <token>`
-- **Token**: AES-256-GCM (`INVITACION_SECRET`, 64 hex, mismo valor en Backend y Bot), formato `v1.<base64url(iv|tag|ciphertext)>`, cifra `{v, id, obra, nom, tel, exp}`. No se puede leer ni alterar: cualquier cambio invalida el tag GCM. TTL 7 días
-- El bot descifra (`invitaciones.service.ts`), valida vencimiento y teléfono (normalizado; el 9 de AR no cuenta) y llama `POST /bot/invitaciones/consumir` con `{token, telefono}`. El Backend descifra de nuevo y reclama la invitación con UPDATE condicional `usada_at IS NULL` (anti doble uso), crea/actualiza la persona por teléfono y la asocia a `miembros_obra`
+- **UI**: `InviteTeamModal` pide nombre, teléfono y **rol en la obra** (`ROLES` de `equipo/data/index.ts`: `Obrero | Capataz | Director`, default `Obrero`), llama `crearInvitacionObrero()` (`services/equipoService.ts` → `POST /obreros/invitacion` con `{ obra_id, nombre, telefono, rol }`, JWT + membresía) y arma el link `https://wa.me/<NEXT_PUBLIC_BOT_PHONE>?text=!invitacion <token>`. El resumen del link muestra el rol elegido
+- **Solo Director invita** (`crearInvitacionWeb` en `obrerosController.js`: `puedeAdministrarEquipo` + `puedeAsignarRol`): nadie puede otorgar un rol superior al propio (jerarquía `Obrero < Capataz < Director`, fail closed) y el 403 del backend se muestra textual en el modal. `normalizarRol` mapea `undefined`/desconocido → `Obrero`
+- **Token**: AES-256-GCM (`INVITACION_SECRET`, 64 hex, mismo valor en Backend y Bot), formato `v1.<base64url(iv|tag|ciphertext)>`, cifra `{v, id, obra, nom, tel, exp}`. **No lleva el rol**: el rol vive en `invitaciones.rol` y se lee al consumir, así que editar el link no puede escalar permisos. No se puede leer ni alterar: cualquier cambio invalida el tag GCM. TTL 7 días
+- El bot descifra (`invitaciones.service.ts`), valida vencimiento y teléfono (normalizado; el 9 de AR no cuenta) y llama `POST /bot/invitaciones/consumir` con `{token, telefono}`. El Backend descifra de nuevo y reclama la invitación con UPDATE condicional `usada_at IS NULL` (anti doble uso), crea/actualiza la persona por teléfono y la asocia a `miembros_obra` con `normalizarRol(invitacion.rol)`
 - El teléfono que vale es el del que manda el mensaje, no el del link: el link solo sirve desde el número invitado
 - `!invitacion` está en la whitelist (no exige obra previa); token vencido/usado/alterado responde error y no registra nada
+- **Lista de equipo** (`ScreenEquipo.tsx`): muestra el rol de cada obrero (`DPill`) y, tras invitar, refresca `GET /obreros/:obra_id` y suma la invitación como fila "Pendiente" de la sesión (el backend no tiene GET de pendientes; desaparece cuando el refetch ya trae a la persona vinculada, comparando teléfono con `sinNueveAR` de `equipo/data/telefono.ts`, espejo de `normalizarTelefono` del Backend)
+- **No hay invitación por email**: el repo no tiene Resend/SMTP/nodemailer ni infraestructura de cuentas, así que el modo "Miembro de BuildData" se eliminó de la UI en vez de simular un envío. Para sumarlo hace falta proveedor + plantilla + endpoint que realmente envíe
+- **Tests**: `apps/Backend/controllers/obrerosController.test.js` y `obrerosController.escaladaRol.test.js` (rol normalizado, 403 no-Director, jerarquía con matriz futura; requieren `--isolate`), `apps/Backend/services/invitaciones.service.test.js`, `apps/Frontend/src/services/equipoService.test.ts` (payload con/sin `rol`, mapeo en `getEquipo`). Correr con `bun run test` (incluye `test:frontend`) o `bun run test:backend` / `test:bot`
 
 ## Resolución de entidades (nombres → IDs, sin LLM)
 

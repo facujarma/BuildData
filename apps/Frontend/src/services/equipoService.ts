@@ -88,6 +88,7 @@ export async function getEquipo(obraId: string): Promise<EquipoData> {
         phone: r.telefono || "",
         link: "",
         sent: true,
+        rol: r.rol || "Obrero",
       });
     }
   }
