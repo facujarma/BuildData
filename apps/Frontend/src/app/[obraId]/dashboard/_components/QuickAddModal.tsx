@@ -210,11 +210,8 @@ function QuickAddEquipo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
       open
       obraId={obraId}
       onClose={onClose}
-      onSave={(raw) => {
-        const d = raw as { mode?: string; name?: string; email?: string };
-        onDone(d.mode === "obrero"
-          ? `Obrero ${d.name} invitado por WhatsApp`
-          : `Invitación enviada a ${d.name || d.email}`);
+      onSave={(creada) => {
+        onDone(`Obrero ${creada.nombre} invitado por WhatsApp`);
       }}
     />
   );

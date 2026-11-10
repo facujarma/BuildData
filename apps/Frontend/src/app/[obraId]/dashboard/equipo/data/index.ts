@@ -12,6 +12,16 @@ export interface Obrero {
   phone: string;
   link: string;
   sent: boolean;
+  rol: string;
+}
+
+// Payload de `onSave` del InviteTeamModal: solo existe cuando
+// POST /obreros/invitacion devolvió 201 y se generó el link.
+export interface InvitacionObreroCreada {
+  nombre: string;
+  telefono: string;
+  rol: string;
+  link: string;
 }
 
 export const ROLES = ['Obrero', 'Capataz', 'Director'];
