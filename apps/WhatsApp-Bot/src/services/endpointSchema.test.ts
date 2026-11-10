@@ -157,4 +157,24 @@ describe("schema", () => {
       }
     }
   });
+
+  test("alertas pide el mensaje y la entrega de pedido pide la referencia", () => {
+    expect(
+      collectMissingFields("/bot/alertas", {}).map((m) => m.path),
+    ).toEqual(["mensaje"]);
+    expect(
+      collectMissingFields("/bot/pedidos/entregar", {}).map((m) => m.path),
+    ).toEqual(["pedido_ref"]);
+    expect(
+      collectMissingFields("/bot/pedidos/entregar", {
+        pedido_ref: "cemento de Sodimac",
+      }),
+    ).toEqual([]);
+  });
+
+  test("los endpoints nuevos están una sola vez en el schema", () => {
+    for (const path of ["/bot/alertas", "/bot/pedidos/entregar"]) {
+      expect(ENDPOINTS.filter((e) => e.path === path)).toHaveLength(1);
+    }
+  });
 });

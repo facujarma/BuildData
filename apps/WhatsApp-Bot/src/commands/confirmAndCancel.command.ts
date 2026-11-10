@@ -6,6 +6,8 @@ import {
   hasEntityPending,
   clearClarification,
   hasClarification,
+  clearPedidoPending,
+  hasPedidoPending,
 } from "../handlers/pendingQuery.store";
 import { MSG } from "../shared/responses";
 
@@ -16,7 +18,10 @@ export const cancelCommand: Command = {
     const phone = (await message.getContact()).number;
 
     const hasAnything =
-      hasPending(phone) || hasEntityPending(phone) || hasClarification(phone);
+      hasPending(phone) ||
+      hasEntityPending(phone) ||
+      hasClarification(phone) ||
+      hasPedidoPending(phone);
 
     if (!hasAnything) {
       await message.reply(MSG.ERROR_NO_PENDING);
@@ -26,6 +31,7 @@ export const cancelCommand: Command = {
     clearPending(phone);
     clearEntityPending(phone);
     clearClarification(phone);
+    clearPedidoPending(phone);
     await message.reply(MSG.SUCCESS_DATA_CANCELLED);
   },
 };

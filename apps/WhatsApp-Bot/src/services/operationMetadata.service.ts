@@ -213,8 +213,35 @@ function mensajeFields(data: Record<string, unknown>): [string, string][] {
   return campos;
 }
 
+function alertaFields(data: Record<string, unknown>): [string, string][] {
+  const campos: [string, string][] = [];
+  add(campos, "Título", data.titulo);
+  add(campos, "Mensaje", data.mensaje);
+  add(campos, "Prioridad", data.prioridad);
+  add(campos, "Tipo", data.tipo);
+  return campos;
+}
+
+function entregaPedidoFields(
+  data: Record<string, unknown>,
+  display?: Record<string, string>,
+): [string, string][] {
+  const campos: [string, string][] = [];
+  const pedido = named(display, "pedido_id", data.pedido_ref ?? data.pedido_id);
+  if (pedido !== "—") campos.push(["Pedido", pedido]);
+  add(campos, "Ubicación", data.ubicacion);
+  add(campos, "Fecha", data.fecha);
+  add(campos, "Documento", data.documento);
+  return campos;
+}
+
 const ACTION_META: Record<string, ActionMeta> = {
   "/bot/pedidoDeCompra": { tipo: "Pedido de material", destino: "Pedidos", fields: pedidoFields },
+  "/bot/pedidos/entregar": {
+    tipo: "Entrega de pedido",
+    destino: "Pedidos",
+    fields: entregaPedidoFields,
+  },
   "/bot/stock": {
     tipo: (data) => {
       const sentido = String(data.tipo ?? "").trim().toLowerCase();
@@ -234,6 +261,7 @@ const ACTION_META: Record<string, ActionMeta> = {
     fields: completarFields,
   },
   "/bot/gastos": { tipo: "Gasto", destino: "Gastos", fields: gastoFields },
+  "/bot/alertas": { tipo: "Alerta", destino: "Alertas", fields: alertaFields },
   "/bot/mensaje": { tipo: "Nota", destino: "Actividad", fields: mensajeFields },
 };
 

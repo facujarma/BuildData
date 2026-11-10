@@ -11,7 +11,14 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "test": "bun run test:bot && bun run test:backend",
+    "test:bot": "cd apps/WhatsApp-Bot && bun test",
+    "test:backend": "bun test apps/Backend/services",
+    "typecheck": "bun run typecheck:bot && bun run typecheck:frontend",
+    "typecheck:bot": "cd apps/WhatsApp-Bot && bunx tsc --noEmit",
+    "typecheck:frontend": "cd apps/Frontend && bunx tsc --noEmit",
+    "check:backend": "find apps/Backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.2",

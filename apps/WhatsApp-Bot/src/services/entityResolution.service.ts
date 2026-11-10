@@ -60,7 +60,7 @@ const SLOTS: SlotDef[] = [
   { key: "nombre", targetKey: "material_id", kind: "material" }, // movimientos del stock
   { key: "proveedor_nombre", targetKey: "proveedor_id", kind: "proveedor" },
   { key: "rubro_nombre", targetKey: "rubro_id", kind: "rubro" }, // pedidos → rubro de la obra
-  { key: "tarea", targetKey: "tarea_id", kind: "rubro" }, // /bot/retraso → identifica rubros
+  { key: "tarea", targetKey: "tarea_id", kind: "tarea" }, // /bot/retraso → identifica tareas reales
   { key: "rubro_id", targetKey: "rubro_id", kind: "rubro" },
   { key: "tarea_nombre", targetKey: "tarea_id", kind: "tarea" }, // /bot/tareas/:id/completar → identifica tareas reales
 ];

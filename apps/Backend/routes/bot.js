@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { botAuthMiddleware } from "../middleware/botAuthMiddleware.js";
 import {
   recibirMensaje,
@@ -12,10 +12,22 @@ import { registrarObrero, getUserByPhone, consumirInvitacionBot } from "../contr
 import { crearTareaDesdeBot } from "../controllers/tareasController.js";
 import { completarTareaDesdeBot } from "../controllers/tareasController.js";
 import { crearGastoDesdeBot } from "../controllers/gastosController.js";
+import { crearAlertaDesdeBot } from "../controllers/alertasController.js";
+import { subirFotoDesdeBot } from "../controllers/galeriaController.js";
+import {
+  getPedidosPendientesBot,
+  entregarPedidoDesdeBot,
+} from "../controllers/pedidosController.js";
 import { buscarEntidad } from "../controllers/entidadesController.js";
 import { registrarOperacionesBot } from "../controllers/operacionesController.js";
 
 const router = Router();
+
+// Imagen cruda para la galería del bot (mismo límite que la web: 10 MB).
+const imagenCruda = express.raw({
+  type: ["image/jpeg", "image/png", "image/webp"],
+  limit: "10mb",
+});
 
 // Todas las rutas /bot/* requieren la service_role key, no un JWT de usuario
 router.use(botAuthMiddleware);
@@ -44,6 +56,16 @@ router.patch("/tareas/:id/completar", completarTareaDesdeBot);
 
 // Gastos
 router.post("/gastos", crearGastoDesdeBot);
+
+// Alertas reportadas por WhatsApp
+router.post("/alertas", crearAlertaDesdeBot);
+
+// Galería: fotos de obra que no son comprobantes/facturas
+router.post("/galeria", imagenCruda, subirFotoDesdeBot);
+
+// Pedidos: cuáles se pueden entregar y la entrega desde el bot
+router.get("/pedidos/pendientes", getPedidosPendientesBot);
+router.post("/pedidos/entregar", entregarPedidoDesdeBot);
 
 // Obreros
 router.post("/obreros/registrar", registrarObrero);

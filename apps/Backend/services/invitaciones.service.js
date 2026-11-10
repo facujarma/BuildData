@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { pool } from "../db.js";
+import { normalizarRol } from "./permisos.service.js";
 
 const TTL_DIAS = 7;
 const PREFIJO_TOKEN = "v1.";
@@ -61,7 +62,7 @@ export async function crearInvitacion({ obraId, nombre, telefono, rol, creadaPor
     `INSERT INTO invitaciones (obra_id, nombre, telefono, rol, creada_por, expira_at)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id, expira_at`,
-    [obraId, nombre, telefono || null, rol || null, creadaPor || null, expira]
+    [obraId, nombre, telefono || null, normalizarRol(rol), creadaPor || null, expira]
   );
 
   const invitacion = rows[0];
@@ -129,7 +130,7 @@ export async function consumirInvitacion({ token, telefono }) {
        WHERE NOT EXISTS (
          SELECT 1 FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2
        )`,
-      [persona.rows[0].id, invitacion.obra_id, invitacion.rol]
+      [persona.rows[0].id, invitacion.obra_id, normalizarRol(invitacion.rol)]
     );
 
     await client.query(`UPDATE invitaciones SET usada_por = $1 WHERE id = $2`, [

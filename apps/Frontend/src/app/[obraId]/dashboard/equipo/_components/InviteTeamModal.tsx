@@ -26,7 +26,7 @@ function telefonoWhatsapp(telefono: string): string {
 
 export function InviteTeamModal({ open, obraId, onClose, onSave }: InviteTeamModalProps) {
   const [mode, setMode] = useState<"miembro" | "obrero" | null>(null);
-  const [m, setM] = useState({ email: "", nombre: "", rol: "Sin asignar" });
+  const [m, setM] = useState({ email: "", nombre: "", rol: "Obrero" });
   const [o, setO] = useState({ nombre: "", tel: "" });
   const [link, setLink] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -34,7 +34,7 @@ export function InviteTeamModal({ open, obraId, onClose, onSave }: InviteTeamMod
 
   const reset = useCallback(() => {
     setMode(null);
-    setM({ email: "", nombre: "", rol: "Sin asignar" });
+    setM({ email: "", nombre: "", rol: "Obrero" });
     setO({ nombre: "", tel: "" });
     setLink(null);
     setGenerating(false);

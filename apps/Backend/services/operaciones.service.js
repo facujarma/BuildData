@@ -1,5 +1,11 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "./personaService.js";
+import {
+  normalizarRol,
+  puedeOperar,
+  puedeAprobar,
+  permisoDeEndpoint,
+} from "./permisos.service.js";
 
 // Allowlist de operaciones que el executor puede disparar por loopback.
 // `auto: true` = no requiere aprobación (se ejecuta al registrarse).
@@ -11,6 +17,8 @@ export const ENDPOINTS_OPERACION = {
   "/bot/gastos": { method: "POST", auto: false },
   "/bot/tareas": { method: "POST", auto: true },
   "/bot/tareas/:id/completar": { method: "PATCH", auto: true },
+  "/bot/alertas": { method: "POST", auto: true },
+  "/bot/pedidos/entregar": { method: "POST", auto: false },
 };
 
 const TIMEOUT_MS = 15000;
@@ -193,15 +201,32 @@ export async function obraDeOperacion(operacionId) {
   return rows[0]?.obra_id ?? null;
 }
 
+const CAMPOS_OPERACION = `id, endpoint, method, tipo, destino, comment, confianza, campos,
+            estado, resultado, error_detalle, aprobada_por, aprobada_at,
+            ejecutada_at, created_at`;
+
 export async function listarOperacionesDeMensaje(mensajeId) {
   const { rows } = await pool.query(
-    `SELECT id, endpoint, method, tipo, destino, comment, confianza, campos,
-            estado, resultado, error_detalle, aprobada_por, aprobada_at,
-            ejecutada_at, created_at
+    `SELECT ${CAMPOS_OPERACION}
      FROM operaciones_bot
      WHERE mensaje_id = $1
      ORDER BY created_at ASC`,
     [mensajeId]
+  );
+  return rows;
+}
+
+// El bot normalmente manda mensaje_id, pero si el registro del mensaje falló
+// igual inserta las operaciones. En ese caso se devuelven por id para no
+// contestar una lista vacía después de haber ejecutado/encolado el lote.
+async function listarOperacionesPorIds(ids) {
+  if (ids.length === 0) return [];
+  const { rows } = await pool.query(
+    `SELECT ${CAMPOS_OPERACION}
+     FROM operaciones_bot
+     WHERE id = ANY($1::uuid[])
+     ORDER BY created_at ASC`,
+    [ids]
   );
   return rows;
 }
@@ -227,6 +252,28 @@ export async function registrarOperaciones({ obra_id, mensaje_id, telefono, oper
     throw error;
   }
   const autoObra = obra.rows[0].aprobacion_automatica === true;
+
+  // Autorización por rol: el rol vale por obra (miembros_obra.rol). El bot hace
+  // el mismo chequeo para dar un mensaje claro, pero esta es la barrera dura.
+  const miembro = await pool.query(
+    `SELECT rol FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2`,
+    [usuario_id, obra_id]
+  );
+  if (miembro.rows.length === 0) {
+    const error = new Error("el teléfono no es miembro de esta obra");
+    error.status = 403;
+    throw error;
+  }
+  const rol = normalizarRol(miembro.rows[0].rol);
+  const rechazadas = operaciones.filter((op) => !puedeOperar(rol, op.endpoint));
+  if (rechazadas.length > 0) {
+    const detalle = rechazadas
+      .map((op) => permisoDeEndpoint(op.endpoint)?.label ?? op.endpoint)
+      .join(", ");
+    const error = new Error(`tu rol ${rol} no puede: ${detalle}`);
+    error.status = 403;
+    throw error;
+  }
 
   const client = await pool.connect();
   const insertadas = [];
@@ -274,8 +321,11 @@ export async function registrarOperaciones({ obra_id, mensaje_id, telefono, oper
     }
   }
 
-  await actualizarEstadoMensaje(mensaje_id);
-  return listarOperacionesDeMensaje(mensaje_id);
+  if (mensaje_id) {
+    await actualizarEstadoMensaje(mensaje_id);
+    return listarOperacionesDeMensaje(mensaje_id);
+  }
+  return listarOperacionesPorIds(insertadas.map((op) => op.id));
 }
 
 export async function aprobarOperacion(id, personaId) {
@@ -287,6 +337,22 @@ export async function aprobarOperacion(id, personaId) {
   if (!op) return { notFound: true };
   if (op.estado !== "pendiente" && op.estado !== "error") {
     return { conflict: true, estado: op.estado };
+  }
+
+  // Quien aprueba desde la web también necesita el permiso de la operación.
+  // (La membresía a la obra ya la validó el controller.)
+  const miembro = personaId
+    ? await pool.query(
+        `SELECT rol FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2`,
+        [personaId, op.obra_id]
+      )
+    : { rows: [] };
+  if (!miembro.rows[0]) {
+    return { forbidden: true, rol: null };
+  }
+  const rol = normalizarRol(miembro.rows[0].rol);
+  if (!puedeAprobar(rol) || !puedeOperar(rol, op.endpoint)) {
+    return { forbidden: true, rol };
   }
 
   await resolverAlertaOperacion(id);
