@@ -35,11 +35,14 @@ export default function DashboardPage({
   }, [obraId, setObraInfo, setOperacionesPendientes]);
 
   useEffect(() => {
+    // "Subscribirse" al refresh del dashboard: el contexto guarda la función
+    // para que otros componentes (p. ej. la bandeja) puedan pedir una recarga.
     setRefreshDashboardRef(refresh);
     return () => setRefreshDashboardRef(async () => {});
   }, [refresh, setRefreshDashboardRef]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial del dashboard (refresh hace setLoading/setData)
     refresh();
   }, [refresh]);
 

@@ -28,7 +28,7 @@ export function ObraCard({ obra, cover = "blueprint" }: { obra: Obra; cover?: st
         <div className="text-[11px] text-slate-500 leading-snug truncate">{obra.address}</div>
 
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <DPill tone={s.tone as any}>{s.label}</DPill>
+          <DPill tone={s.tone}>{s.label}</DPill>
           {obra.alerts > 0 && <DPill tone="criticalSolid">{obra.alerts} alerta{obra.alerts > 1 ? "s" : ""}</DPill>}
         </div>
 

@@ -45,7 +45,7 @@ export function ObraRow({ obra }: { obra: Obra }) {
         <div className="text-[11px] text-slate-500 truncate">{obra.address} · {obra.type}</div>
       </div>
       <div>
-        <DPill tone={s.tone as any}>{s.label}</DPill>
+        <DPill tone={s.tone}>{s.label}</DPill>
       </div>
       <div className="flex items-center gap-2">
         <div className="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden max-w-[80px]">

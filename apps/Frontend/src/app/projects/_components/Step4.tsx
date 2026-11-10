@@ -2,8 +2,9 @@
 
 import { WField } from "./WField";
 import { WDateInput } from "./WDateInput";
+import type { WizardData } from "@/types/projects";
 
-export function Step4({ data, setData, errors = {} }: { data: any; setData: (d: any) => void; errors?: Record<string, string> }) {
+export function Step4({ data, setData, errors = {} }: { data: WizardData; setData: (d: WizardData) => void; errors?: Record<string, string> }) {
   return (
     <div className="space-y-5">
 

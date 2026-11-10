@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 function LogoIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 56 56" fill="none">
@@ -21,8 +23,8 @@ export default function Footer() {
           © 2026 BuildData · La información de tu obra, ordenada en un solo lugar.
         </div>
         <div className="flex gap-6 text-[12px] font-semibold text-white/70">
-          <a href="/" className="hover:text-accent">Producto</a>
-          <a href="/payments" className="hover:text-accent">Planes</a>
+          <Link href="/" className="hover:text-accent">Producto</Link>
+          <Link href="/payments" className="hover:text-accent">Planes</Link>
           <a href="mailto:hola@buildata.app" className="hover:text-accent">Contacto</a>
         </div>
       </div>

@@ -38,12 +38,14 @@ export function CategoryModal({ open, initial, availableTasks, onClose, onSave, 
   const [taskIds, setTaskIds] = useState<string[]>([]);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- precarga del formulario cada vez que se abre el modal (nuevo rubro o edición) */
     if (open) {
       setName(initial ? initial.name : "");
       setColor(initial ? initial.color : CAT_COLORS[0]);
       setDesc(initial ? (initial.desc || "") : "");
       setTaskIds(initial ? [...initial.taskIds] : []);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, initial]);
 
   useEffect(() => {

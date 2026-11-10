@@ -10,7 +10,7 @@ import CTA from "./sections/CTA";
 export default function PaymentsPage() {
   return (
     <div>
-      <Navbar type="no-session" />
+      <Navbar />
       <Hero />
       <Pricing />
       <Stats />

@@ -11,13 +11,14 @@ import { Step6 } from "./Step6";
 import { SuccessState } from "./SuccessState";
 import { DEFAULT_RUBROS, STEPS } from "@/app/projects/data/wizard";
 import { createObra } from "@/services/projectsService";
+import type { WizardData } from "@/types/projects";
 
 const totalSteps = STEPS.length;
 
 const makeRubros = () =>
   DEFAULT_RUBROS.map((name, i) => ({ id: "r" + i + "-" + Date.now(), name, amount: "" }));
 
-const validateStep = (step: number, data: any): Record<string, string> => {
+const validateStep = (step: number, data: WizardData): Record<string, string> => {
   const e: Record<string, string> = {};
   if (step === 1) {
     if (!data.name.trim()) e.name = "El nombre de la obra es obligatorio";
@@ -47,15 +48,15 @@ const validateStep = (step: number, data: any): Record<string, string> => {
   if (step === 6) {
     const total = Number(data.budgetTotal) || 0;
     if (total <= 0) e.budgetTotal = "El presupuesto total debe ser mayor a cero";
-    const hasNamedRubro = (data.rubros || []).some((r: any) => r.name.trim());
+    const hasNamedRubro = (data.rubros || []).some((r) => r.name.trim());
     if (!hasNamedRubro) e.rubros = "Agregá al menos un rubro con nombre";
-    const sum = (data.rubros || []).reduce((a: number, r: any) => a + (Number(r.amount) || 0), 0);
+    const sum = (data.rubros || []).reduce((a, r) => a + (Number(r.amount) || 0), 0);
     if (sum > total) e.budgetOver = "La suma de rubros supera el presupuesto total";
   }
   return e;
 };
 
-const INITIAL_DATA = {
+const INITIAL_DATA: WizardData = {
   name: "",
   code: "",
   status: "planificacion",
@@ -82,11 +83,14 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [createdId, setCreatedId] = useState<string | null>(null);
 
+  // Al reabrir el modal el alta arranca de cero (paso 1, formulario limpio).
+  // Es un reset explícito disparado por `open`, no un estado derivable.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) { setStep(1); setData(INITIAL_DATA); setError(""); setErrors({}); setCreatedId(null); }
   }, [open]);
 
-  const setDataAndClear = (d: any) => { setData(d); setErrors({}); };
+  const setDataAndClear = (d: WizardData) => { setData(d); setErrors({}); };
 
   const handleNext = () => {
     const v = validateStep(step, data);
@@ -129,8 +133,8 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
       const created = await createObra(mapped);
       setCreatedId(created?.id ? String(created.id) : null);
       setStep(step + 1);
-    } catch (e: any) {
-      setError(e.message || "Error al crear obra");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al crear obra");
     } finally {
       setLoading(false);
     }
@@ -154,7 +158,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
   if (!open) return null;
 
   const budgetTotal = Number(data.budgetTotal) || 0;
-  const budgetSum = (data.rubros || []).reduce((a: number, r: any) => a + (Number(r.amount) || 0), 0);
+  const budgetSum = (data.rubros || []).reduce((a, r) => a + (Number(r.amount) || 0), 0);
 
   const canNext = (() => {
     if (step === 1) return !!(data.name.trim() && data.type);

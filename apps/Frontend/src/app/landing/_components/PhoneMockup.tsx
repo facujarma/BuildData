@@ -6,7 +6,6 @@ import {
   Box,
   Sparkles,
   Check,
-  Paperclip,
 } from "@gravity-ui/icons";
 
 interface PhoneMockupProps {

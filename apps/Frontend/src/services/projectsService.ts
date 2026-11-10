@@ -52,7 +52,24 @@ interface CreateObraPayload {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-function mapObra(o: any): Obra {
+/** Obra tal como la devuelve el Backend (buildObra en obrasController). */
+interface ObraApiRow {
+  id: string | number;
+  name: string;
+  code: string;
+  address: string;
+  type: string;
+  status: Obra["status"];
+  progress?: number;
+  alerts?: number;
+  pedidos?: number;
+  team?: { id: string; initials: string }[];
+  lastActivity?: string;
+  lastActivityWho?: string;
+  starred?: boolean;
+}
+
+function mapObra(o: ObraApiRow): Obra {
   return {
     id: String(o.id),
     name: o.name,
@@ -63,7 +80,7 @@ function mapObra(o: any): Obra {
     progress: o.progress ?? 0,
     alerts: o.alerts ?? 0,
     pedidos: o.pedidos ?? 0,
-    team: (o.team || []).map((t: any) => t.initials),
+    team: (o.team || []).map((t) => t.initials),
     lastActivity: o.lastActivity || "",
     lastActivityWho: o.lastActivityWho || "",
     starred: o.starred || false,
@@ -103,7 +120,7 @@ export async function getObra(obraId: string): Promise<Obra> {
   return mapObra(await res.json());
 }
 
-export async function createObra(input: CreateObraInput): Promise<any> {
+export async function createObra(input: CreateObraInput): Promise<Obra> {
   const { data: { session } } = await supabase.auth.getSession();
 
   const payload: CreateObraPayload = {
@@ -144,5 +161,5 @@ export async function createObra(input: CreateObraInput): Promise<any> {
     throw new Error(err.message || "Error al crear obra");
   }
 
-  return res.json();
+  return mapObra(await res.json());
 }

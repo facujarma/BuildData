@@ -1,6 +1,6 @@
 "use client";
 
-import { ChartBar, FileArrowDown } from "@gravity-ui/icons";
+import { ChartBar } from "@gravity-ui/icons";
 import Button from "@/components/ui/Button";
 import type { BudgetOverview, BudgetItem } from "@/types/dashboard";
 import { formatARSCompact } from "@/lib/format";
