@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BrandLogo from "./BrandLogo";
 import ConstructionIllustration from "./ConstructionIllustration";
@@ -64,12 +65,12 @@ export default function UnderConstructionPage({ section, desc }: UnderConstructi
             >
               Volver al dashboard <span className="text-[13px]">&#8594;</span>
             </a>
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-[6px] bg-white text-slate-600 font-bold text-[13px] px-[18px] py-[11px] rounded-lg border border-slate-200 hover:border-slate-300 hover:text-slate-950 transition-colors"
             >
               Ir al sitio
-            </a>
+            </Link>
           </div>
 
           <NotifyForm />

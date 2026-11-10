@@ -4,21 +4,22 @@ import { Plus, Xmark } from "@gravity-ui/icons";
 import { WField } from "./WField";
 import { WInput } from "./WInput";
 import { formatNumber } from "@/lib/format";
+import type { WizardData, WizardRubro } from "@/types/projects";
 
-export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: any) => void; errors?: Record<string, string> }) {
+export function Step6({ data, setData, errors = {} }: { data: WizardData; setData: (d: WizardData) => void; errors?: Record<string, string> }) {
   const total = Number(data.budgetTotal) || 0;
-  const subtotal = (data.rubros || []).reduce((a: number, r: any) => a + (Number(r.amount) || 0), 0);
+  const subtotal = (data.rubros || []).reduce((a, r) => a + (Number(r.amount) || 0), 0);
   const over = total > 0 && subtotal > total;
   const remaining = total - subtotal;
 
-  const setRubro = (id: string, patch: any) =>
-    setData({ ...data, rubros: data.rubros.map((r: any) => r.id === id ? { ...r, ...patch } : r) });
+  const setRubro = (id: string, patch: Partial<Omit<WizardRubro, "id">>) =>
+    setData({ ...data, rubros: data.rubros.map((r) => r.id === id ? { ...r, ...patch } : r) });
 
   const addRubro = () =>
     setData({ ...data, rubros: [...data.rubros, { id: "r-" + Date.now(), name: "", amount: "" }] });
 
   const delRubro = (id: string) =>
-    setData({ ...data, rubros: data.rubros.filter((r: any) => r.id !== id) });
+    setData({ ...data, rubros: data.rubros.filter((r) => r.id !== id) });
 
   return (
     <div className="space-y-5">
@@ -28,7 +29,7 @@ export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: 
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-500">AR$</span>
             <WInput type="number" min="0" value={data.budgetTotal}
-              onChange={(e: any) => setData({ ...data, budgetTotal: e.target.value })}
+              onChange={(e) => setData({ ...data, budgetTotal: e.target.value })}
               placeholder="0" className="pl-12 tnum" />
           </div>
         </WField>
@@ -47,12 +48,12 @@ export function Step6({ data, setData, errors = {} }: { data: any; setData: (d: 
         </div>
 
         <div className="space-y-2">
-          {(data.rubros || []).map((r: any) => (
+          {(data.rubros || []).map((r) => (
             <div key={r.id} className="grid grid-cols-[1fr_180px_32px] gap-2 items-center">
-              <WInput value={r.name} onChange={(e: any) => setRubro(r.id, { name: e.target.value })} placeholder="Nombre del rubro" />
+              <WInput value={r.name} onChange={(e) => setRubro(r.id, { name: e.target.value })} placeholder="Nombre del rubro" />
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-slate-500">AR$</span>
-                <WInput type="number" min="0" value={r.amount} onChange={(e: any) => setRubro(r.id, { amount: e.target.value })} placeholder="0" className="pl-11 tnum" />
+                <WInput type="number" min="0" value={r.amount} onChange={(e) => setRubro(r.id, { amount: e.target.value })} placeholder="0" className="pl-11 tnum" />
               </div>
               <button type="button" onClick={() => delRubro(r.id)}
                 className="w-8 h-8 rounded-md hover:bg-critical-50 text-slate-400 hover:text-[#B91C1C] flex items-center justify-center">

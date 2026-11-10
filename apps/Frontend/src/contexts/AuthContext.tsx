@@ -55,6 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session?.access_token) {
+      // Sin sesión no hay perfil que pedir: se limpia el que hubiera.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProfile(null);
       return;
     }

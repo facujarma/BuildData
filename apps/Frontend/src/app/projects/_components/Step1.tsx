@@ -2,6 +2,7 @@
 
 import { ChartBar, LayoutHeaderCellsLarge, Box } from "@gravity-ui/icons";
 import { TYPES } from "@/app/projects/data/wizard";
+import type { WizardData } from "@/types/projects";
 import { WField } from "./WField";
 import { WInput } from "./WInput";
 import { WSelect } from "./WSelect";
@@ -22,20 +23,20 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   truck: <TruckIcon />,
 };
 
-export function Step1({ data, setData, errors = {} }: { data: any; setData: (d: any) => void; errors?: Record<string, string> }) {
+export function Step1({ data, setData, errors = {} }: { data: WizardData; setData: (d: WizardData) => void; errors?: Record<string, string> }) {
   return (
     <div className="space-y-5">
       <div>
         <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-3">Información básica</div>
         <div className="grid grid-cols-2 gap-4">
           <WField label="Nombre de la obra*" hint="Ej: Edificio Belgrano, Casa Villa Urquiza…" span={2} error={errors.name}>
-            <WInput value={data.name} onChange={(e: any) => setData({ ...data, name: e.target.value })} placeholder="Nombre que ve todo el equipo" />
+            <WInput value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} placeholder="Nombre que ve todo el equipo" />
           </WField>
           <WField label="Código interno" hint="Opcional · para referencias con proveedores.">
-            <WInput value={data.code} onChange={(e: any) => setData({ ...data, code: e.target.value })} placeholder="OBR-2026-001" />
+            <WInput value={data.code} onChange={(e) => setData({ ...data, code: e.target.value })} placeholder="OBR-2026-001" />
           </WField>
           <WField label="Estado inicial">
-            <WSelect value={data.status} onChange={(e: any) => setData({ ...data, status: e.target.value })}>
+            <WSelect value={data.status} onChange={(e) => setData({ ...data, status: e.target.value })}>
               <option value="planificacion">En planificación</option>
               <option value="en-curso">En curso</option>
             </WSelect>

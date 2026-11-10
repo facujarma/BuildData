@@ -1,12 +1,6 @@
 import FakeMessageCard from "./FakeMessageCard";
 
 export default function BrandPanel() {
-  const metrics = [
-    { value: "120+", label: "obras gestionadas" },
-    { value: "14 K", label: "reportes por mes" },
-    { value: "4 h", label: "ahorradas por día" },
-  ];
-
   return (
     <div className="brand-panel relative flex flex-col p-10 lg:p-12 overflow-hidden">
       <div className="flex items-center gap-3 relative z-10">

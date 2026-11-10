@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutHeaderCellsLarge, FileArrowDown, Plus } from "@gravity-ui/icons";
+import { LayoutHeaderCellsLarge } from "@gravity-ui/icons";
 import type { Obra } from "@/types/projects";
 import { STATUS } from "@/types/projects";
 import { getObras } from "@/services/projectsService";
 import { formatWeekdayDate } from "@/lib/format";
 import { DCard } from "@/components/ui/DCard";
-import Button from "@/components/ui/Button";
 import { WelcomeHero } from "./ObraWelcome";
 import { WorkspaceSidebar } from "./WorkspaceSidebar";
 import { WorkspaceTopbar } from "./WorkspaceTopbar";
@@ -16,27 +15,33 @@ import { ObraRow } from "./ObraRow";
 import { NuevaObraModal } from "./NuevaObraModal";
 import { ProjectsSkeleton } from "./ProjectsSkeleton";
 
-const FILTERS = [
+interface ObraFilter {
+  id: string;
+  label: string;
+  match: (o: Obra) => boolean;
+}
+
+const FILTERS: ObraFilter[] = [
   { id: "todas", label: "Todas", match: () => true },
   {
     id: "en-curso",
     label: "En curso",
-    match: (o: any) => o.status === "en-curso",
+    match: (o: Obra) => o.status === "en-curso",
   },
   {
     id: "planificacion",
     label: "Planificación",
-    match: (o: any) => o.status === "planificacion",
+    match: (o: Obra) => o.status === "planificacion",
   },
   {
     id: "pausada",
     label: "Pausadas",
-    match: (o: any) => o.status === "pausada",
+    match: (o: Obra) => o.status === "pausada",
   },
   {
     id: "finalizada",
     label: "Finalizadas",
-    match: (o: any) => o.status === "finalizada",
+    match: (o: Obra) => o.status === "finalizada",
   },
 ];
 

@@ -1,30 +1,31 @@
 "use client";
 
-import { CircleExclamation, CircleInfo } from "@gravity-ui/icons";
+import { CircleExclamation } from "@gravity-ui/icons";
+import type { WizardData } from "@/types/projects";
 import { WField } from "./WField";
 import { WInput } from "./WInput";
 import { WSelect } from "./WSelect";
 
-export function Step2({ data, setData, errors = {} }: { data: any; setData: (d: any) => void; errors?: Record<string, string> }) {
+export function Step2({ data, setData, errors = {} }: { data: WizardData; setData: (d: WizardData) => void; errors?: Record<string, string> }) {
   return (
     <div className="space-y-5">
       <div>
         <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-3">Dirección de obra</div>
         <div className="grid grid-cols-3 gap-4">
           <WField label="Dirección*" span={2} error={errors.address}>
-            <WInput value={data.address} onChange={(e: any) => setData({ ...data, address: e.target.value })} placeholder="Av. Belgrano 1842" />
+            <WInput value={data.address} onChange={(e) => setData({ ...data, address: e.target.value })} placeholder="Av. Belgrano 1842" />
           </WField>
           <WField label="Localidad">
-            <WInput value={data.city} onChange={(e: any) => setData({ ...data, city: e.target.value })} placeholder="CABA" />
+            <WInput value={data.city} onChange={(e) => setData({ ...data, city: e.target.value })} placeholder="CABA" />
           </WField>
           <WField label="Provincia">
-            <WInput value={data.province} onChange={(e: any) => setData({ ...data, province: e.target.value })} placeholder="Buenos Aires" />
+            <WInput value={data.province} onChange={(e) => setData({ ...data, province: e.target.value })} placeholder="Buenos Aires" />
           </WField>
           <WField label="Código postal">
-            <WInput value={data.zip} onChange={(e: any) => setData({ ...data, zip: e.target.value })} placeholder="C1093" />
+            <WInput value={data.zip} onChange={(e) => setData({ ...data, zip: e.target.value })} placeholder="C1093" />
           </WField>
           <WField label="País">
-            <WSelect value={data.country} onChange={(e: any) => setData({ ...data, country: e.target.value })}>
+            <WSelect value={data.country} onChange={(e) => setData({ ...data, country: e.target.value })}>
               <option value="ar">Argentina</option>
             </WSelect>
           </WField>

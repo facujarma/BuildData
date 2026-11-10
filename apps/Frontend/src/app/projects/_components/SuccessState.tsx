@@ -3,8 +3,9 @@
 import { ArrowRight } from "@gravity-ui/icons";
 import { TYPES } from "@/app/projects/data/wizard";
 import { formatNumber } from "@/lib/format";
+import type { WizardData } from "@/types/projects";
 
-export function SuccessState({ data, obraId, onClose }: { data: any; obraId?: string | null; onClose: () => void }) {
+export function SuccessState({ data, obraId, onClose }: { data: WizardData; obraId?: string | null; onClose: () => void }) {
   return (
     <div className="flex flex-col">
       <div className="blueprint-bg px-8 py-10 text-center text-white relative overflow-hidden">
@@ -23,7 +24,7 @@ export function SuccessState({ data, obraId, onClose }: { data: any; obraId?: st
         <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-slate-500 mb-3">Resumen</div>
         <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-[13px]">
           <div className="text-slate-500">Nombre</div><div className="font-bold text-slate-950 text-right truncate">{data.name || "—"}</div>
-          <div className="text-slate-500">Tipo</div><div className="font-bold text-slate-950 text-right">{TYPES.find((t: any) => t.id === data.type)?.name || "—"}</div>
+          <div className="text-slate-500">Tipo</div><div className="font-bold text-slate-950 text-right">{TYPES.find((t) => t.id === data.type)?.name || "—"}</div>
           <div className="text-slate-500">Ubicación</div><div className="font-bold text-slate-950 text-right truncate">{data.address ? `${data.address}${data.city ? ", " + data.city : ""}` : "—"}</div>
           <div className="text-slate-500">Equipo</div><div className="font-bold text-slate-950 text-right">{data.team.length > 0 ? `${data.team.length} persona${data.team.length === 1 ? "" : "s"}` : "Vos (Director de obra)"}</div>
           <div className="text-slate-500">Cliente</div><div className="font-bold text-slate-950 text-right truncate">{data.client?.name || "—"}</div>

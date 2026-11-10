@@ -1,6 +1,7 @@
 "use client";
 
 import { motion as m } from "framer-motion";
+import Image from "next/image";
 import Icon from "../_components/Icon";
 
 const CALLOUTS = [
@@ -76,12 +77,11 @@ export default function DashboardSection() {
             </div>
 
             <div className="hidden lg:block">
-              <img
+              <Image
                 src="/landing/dashboard-preview.webp"
                 alt="Dashboard de BuildData con el avance, las tareas en curso, los pedidos y las alertas de una obra"
                 width={1320}
                 height={720}
-                loading="lazy"
                 className="block w-full h-auto rounded-lg border border-slate200"
               />
             </div>

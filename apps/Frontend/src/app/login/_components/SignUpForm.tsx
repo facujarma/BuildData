@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ArrowRight, CircleCheck, Envelope, Smartphone } from "@gravity-ui/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import FormInput from "@/components/ui/FormInput";
@@ -47,9 +48,9 @@ export default function SignUpForm({
   return (
     <div className="flex flex-col p-8 lg:p-12 overflow-y-auto">
       <div className="flex justify-end gap-4 text-[12px] text-slate-500">
-        <a href="/" className="hover:text-primary font-semibold">
+        <Link href="/" className="hover:text-primary font-semibold">
           ← Volver al sitio
-        </a>
+        </Link>
       </div>
 
       <div className="m-auto w-full max-w-[400px] py-10">

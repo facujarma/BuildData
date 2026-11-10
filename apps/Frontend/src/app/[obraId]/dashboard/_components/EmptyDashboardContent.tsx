@@ -13,7 +13,6 @@ import {
 import { DPageHeader } from "./DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
-import { DAvatar } from "@/components/ui/DAvatar";
 
 function BlueprintIllo() {
   return (

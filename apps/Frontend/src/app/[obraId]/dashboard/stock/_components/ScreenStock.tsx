@@ -33,6 +33,9 @@ export function ScreenStock() {
   }, [obraId]);
 
   useEffect(() => {
+    // Carga inicial del stock (fetch + setLoading). Es la suscripción al
+    // Backend, no estado derivable de props.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
       .then(() => setLoading(false))
       .catch(() => { setLoading(false); flash("No se pudo cargar el stock"); });
@@ -147,6 +150,7 @@ export function ScreenStock() {
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden flex-none">
                     {item.photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- foto de usuario en Supabase Storage: next/image exigiría un remotePattern con el host del proyecto
                       <img src={item.photo} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <Camera width={18} height={18} className="text-slate-400" />
@@ -160,7 +164,7 @@ export function ScreenStock() {
                     <h4 className="text-[13px] font-bold text-slate-950 leading-tight truncate">{item.name}</h4>
                     <div className="text-[11px] text-slate-500">{item.loc || "Sin ubicación"}</div>
                   </div>
-                  <DPill tone={sl.tone as any}>{sl.label}</DPill>
+                  <DPill tone={sl.tone}>{sl.label}</DPill>
                 </div>
                 <div className="flex items-baseline gap-1 mb-3">
                   <span className="text-[22px] font-extrabold display-tight tnum text-slate-950">{item.qty}</span>
@@ -213,6 +217,7 @@ export function ScreenStock() {
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden flex-none">
                           {item.photo ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- foto de usuario en Supabase Storage: next/image exigiría un remotePattern con el host del proyecto
                             <img src={item.photo} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <Camera width={14} height={14} className="text-slate-400" />
@@ -229,7 +234,7 @@ export function ScreenStock() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{item.loc || "—"}</td>
                     <td className="px-4 py-3 text-center font-bold tnum">{item.qty} <span className="font-normal text-slate-500">{item.unit}</span></td>
-                    <td className="px-4 py-3 text-center"><DPill tone={sl.tone as any}>{sl.label}</DPill></td>
+                    <td className="px-4 py-3 text-center"><DPill tone={sl.tone}>{sl.label}</DPill></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}

@@ -1,3 +1,5 @@
+import type { PillTone } from "@/components/ui/DPill";
+
 export interface StockItem {
   id: string;
   name: string;
@@ -20,13 +22,15 @@ export function catColor(cat: string): string {
   return CAT_PALETTE[h % CAT_PALETTE.length];
 }
 
-export function getStatus(item: StockItem) {
+export type StockStatus = 'ok' | 'low' | 'out';
+
+export function getStatus(item: StockItem): StockStatus {
   if (item.qty <= 0) return 'out';
   if (item.qty < item.min) return 'low';
   return 'ok';
 }
 
-export const STAT_LABELS: Record<string, { label: string; tone: string; dot: string }> = {
+export const STAT_LABELS: Record<StockStatus, { label: string; tone: PillTone; dot: string }> = {
   ok:  { label: 'OK',      tone: 'success',        dot: '#22C55E' },
   low: { label: 'BAJO',    tone: 'attentionSolid', dot: '#F59E0B' },
   out: { label: 'SIN STOCK', tone: 'criticalSolid', dot: '#EF4444' },

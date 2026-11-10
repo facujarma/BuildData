@@ -12,7 +12,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 | `bun --watch src/index.ts` | Modo dev directo del bot (hot reload) |
 | `bun test` | Tests con Bun (apps/WhatsApp-Bot) |
 | `bun test apps/Backend/services/chatbot/sqlGuard.service.test.js` | Tests del guard SQL del ChatBot AI (sin LLM) |
-| `bun run lint` | Lints solo Frontend (WhatsApp-Bot no tiene lint) |
+| `bun run lint` | ESLint del Frontend (WhatsApp-Bot no tiene lint). Es gate del CI: `TMP/**` queda excluido por ser mockups estáticos que Next no compila |
 
 - **Backend no tiene package.json** → no funciona con `--filter=backend`. Correr manual: `node apps/Backend/server.js` (puerto 3001)
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`

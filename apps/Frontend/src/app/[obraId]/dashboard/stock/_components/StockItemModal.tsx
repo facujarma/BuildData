@@ -98,6 +98,7 @@ export function StockItemModal({ item, cats, catColor, onClose, onSave, onDelete
           <div className="flex items-center gap-4">
             <div onClick={() => fileRef.current?.click()} className="w-20 h-20 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary-50 transition-colors overflow-hidden flex-none">
               {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:) de la foto elegida, no aplica la optimización de next/image
                 <img src={photo} alt="" className="w-full h-full object-cover" />
               ) : (
                 <Camera width={24} height={24} className="text-slate-400" />
