@@ -7,6 +7,7 @@ import {
   puedeAdministrarEquipo,
   puedeAsignarRol,
   permisoDeEndpoint,
+  ENDPOINT_PERMISOS,
 } from "./permisos.service.js";
 
 describe("normalizarRol", () => {
@@ -80,6 +81,21 @@ describe("puedeOperar", () => {
   test("fail closed: endpoint sin mapear no se puede operar", () => {
     expect(puedeOperar("Director", "/bot/endpoint-inexistente")).toBe(false);
     expect(permisoDeEndpoint("/bot/endpoint-inexistente")).toBeNull();
+  });
+});
+
+describe("ENDPOINT_PERMISOS", () => {
+  test("POST /bot/galeria exige foto.subir", () => {
+    // El endpoint directo no pasa por /bot/operaciones: el mapa es la fuente del gate
+    // de rol del controller (subirFotoDesdeBot) y del aviso previo del bot.
+    expect(ENDPOINT_PERMISOS["/bot/galeria"]).toBe("foto.subir");
+    expect(permisoDeEndpoint("/bot/galeria")).toEqual({
+      permiso: "foto.subir",
+      label: "subir fotos a la galería",
+    });
+    expect(puedeOperar("Obrero", "/bot/galeria")).toBe(true);
+    expect(puedeOperar("Capataz", "/bot/galeria")).toBe(true);
+    expect(puedeOperar("Director", "/bot/galeria")).toBe(true);
   });
 });
 

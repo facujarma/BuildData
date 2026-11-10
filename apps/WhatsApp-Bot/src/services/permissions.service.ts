@@ -50,6 +50,7 @@ export const ENDPOINT_PERMISOS: Record<string, string> = {
   "/bot/tareas/:id/completar": "tarea.completar",
   "/bot/retraso": "retraso.registrar",
   "/bot/alertas": "alerta.crear",
+  "/bot/galeria": "foto.subir",
 };
 
 function sinAcentos(texto: string | null | undefined): string {

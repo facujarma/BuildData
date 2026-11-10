@@ -52,6 +52,7 @@ export const ENDPOINT_PERMISOS = {
   "/bot/tareas/:id/completar": "tarea.completar",
   "/bot/retraso": "retraso.registrar",
   "/bot/alertas": "alerta.crear",
+  "/bot/galeria": "foto.subir",
 };
 
 function sinAcentos(texto) {

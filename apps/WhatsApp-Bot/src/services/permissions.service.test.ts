@@ -5,6 +5,7 @@ import {
   puedeOperar,
   puedeAprobar,
   permisoDeEndpoint,
+  ENDPOINT_PERMISOS,
 } from "./permissions.service";
 
 describe("normalizarRol", () => {
@@ -51,6 +52,21 @@ describe("puedeOperar", () => {
   test("fail closed con endpoint sin mapear", () => {
     expect(puedeOperar("Director", "/bot/nuevo")).toBe(false);
     expect(permisoDeEndpoint("/bot/nuevo")).toBeNull();
+  });
+});
+
+describe("ENDPOINT_PERMISOS", () => {
+  test("POST /bot/galeria exige foto.subir (espejo del Backend)", () => {
+    // Si el Backend mapea un endpoint nuevo y el espejo del bot no lo acompaña,
+    // el bot avisa mal antes de confirmar: este test fija la paridad de /bot/galeria.
+    expect(ENDPOINT_PERMISOS["/bot/galeria"]).toBe("foto.subir");
+    expect(permisoDeEndpoint("/bot/galeria")).toEqual({
+      permiso: "foto.subir",
+      label: "subir fotos a la galería",
+    });
+    expect(puedeOperar("Obrero", "/bot/galeria")).toBe(true);
+    expect(puedeOperar("Capataz", "/bot/galeria")).toBe(true);
+    expect(puedeOperar("Director", "/bot/galeria")).toBe(true);
   });
 });
 
