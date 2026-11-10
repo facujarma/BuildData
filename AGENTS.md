@@ -18,7 +18,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - Sin `.env.example` — crear manualmente en `apps/WhatsApp-Bot/.env` y `apps/Backend/.env`
 - Express: bot en puerto 3000, Backend API en puerto 3001
 - Existe `bun.lock` y `package-lock.json` — usar `bun install`
-- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`, `message.adapter.test.ts` — teléfono/jid y votos de poll —, `pollMessage.store.test.ts` — store de polls —). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun test apps/Backend/services` (embeddings, entitySearch, stock)
+- **Tests**: `bun test` corre los unitarios de WhatsApp-Bot (`endpointSchema.test.ts` — validación/repregunta/descripciones —, `answerParser.service.test.ts` — atajo determinista —, `entityMatch.service.test.ts`, `message.adapter.test.ts` — teléfono/jid y votos de poll —, `pollMessage.store.test.ts` — store de polls —). `tsconfig.json` excluye `*.test.ts` para que `tsc` no necesite `bun:test`. Del Backend: `bun run test:backend` (`bun test --isolate apps/Backend`: embeddings, entitySearch, stock, permisos, guard SQL y controller de galería)
 
 ## Arquitectura (lo que los nombres no dicen)
 
@@ -55,6 +55,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 - **Doble barrera**: el bot avisa antes de pedir datos/confirmar (`pollConfirmation.prepareAndExecute` con `obra.rol`), y el Backend rechaza con 403 en `operaciones.service.registrarOperaciones` (y al aprobar en la bandeja, `aprobarOperacion`). Un endpoint sin mapear en `ENDPOINT_PERMISOS` falla cerrado
 - **Administración del equipo**: asignar/quitar miembros e invitar solo lo puede hacer un **Director** (`puedeAdministrarEquipo`), y nunca puede otorgar un rol superior al propio (`puedeAsignarRol`, jerarquía Obrero < Capataz < Director). Aplica a `/obreros/asignar-obra`, `/usuarios/asignar-obra`, `/obreros/invitacion` y `DELETE /obreros/:id/obra/:obra_id`; `GET /obreros/:obra_id` y `GET /usuarios/:obra_id` exigen membresía
 - `!rol` muestra el rol y los permisos del teléfono en cada obra
+- **Endpoints directos `/bot/*`**: el gate de `/bot/operaciones` no cubre los endpoints que el bot llama directo. Regla: **todo endpoint directo valida rol o es exclusivamente interno (service key)**. Hoy `POST /bot/galeria` valida `foto.subir` con `puedeOperar(rol, "/bot/galeria")` (mapa `ENDPOINT_PERMISOS` + `rolEnObra`) y `POST /bot/pedidos/entregar` valida `pedido.entregar`; el resto son internos del executor. Inventario completo en “Backend — rutas y flujo de tareas”
 
 
 ## Invitaciones de obreros (link cifrado de uso único)
@@ -159,7 +160,7 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
 
 - Migración manual una vez: `apps/Backend/outputs/migracion_galeria.sql` (tabla `fotos_obra` + bucket público `galeria`, JPG/PNG/WebP hasta 10 MB). La tabla vieja `archivos` no se usa
 - `controllers/galeriaController.js`, montado en `/galeria`: `GET /galeria/:obra_id`, `POST /galeria/:obra_id?tarea_id=&nota=&flag=&lote=` (una imagen cruda por request, header opcional `X-File-Name`; el rubro sale de la tarea), `DELETE /galeria/:id` (borra fila y objeto del bucket). Todos validan membresía
-- **Desde WhatsApp**: `POST /bot/galeria?obra_id=&telefono=&nota=&tarea_id=` (service key + membresía por teléfono, body crudo hasta 10 MB) guarda con `origen='whatsapp'`. La usa el bot cuando una imagen **no** es comprobante ni factura (`vision` → `desconocido`): manda la encuesta de obra y sube la foto, con el caption como `nota`
+- **Desde WhatsApp**: `POST /bot/galeria?obra_id=&telefono=&nota=&tarea_id=` (service key + membresía por teléfono + rol `foto.subir`, 403 si el rol no lo tiene; body crudo hasta 10 MB) guarda con `origen='whatsapp'`. La usa el bot cuando una imagen **no** es comprobante ni factura (`vision` → `desconocido`): manda la encuesta de obra y sube la foto, con el caption como `nota`. Hoy los tres roles tienen `foto.subir`; el chequeo es la barrera si la matriz se restringe
 - **Lote**: las fotos de una misma subida comparten `lote_id` (uuid del cliente); la bitácora tiene una sola entrada por lote (`entidad_tipo = 'foto_lote'`) cuyo texto se actualiza con el contador. El frontend (`services/galeriaService.ts:uploadFotos`) sube de a una y reporta las que fallaron
 - `fotos_obra.origen` distingue `'web'` de `'whatsapp'`; ambos caminos comparten el núcleo `guardarFoto()` del controller
 
@@ -208,6 +209,20 @@ BuildData: bot WhatsApp + API REST + Frontend Web para gestión de obras de cons
   - `completada=false` → **reabre** (estado `pendiente`, limpia `completada_por`/`fecha_completada`, % = 0 o el dado); default → `completada`, % = 100 o el dado
   - Valida `porcentaje_avance` entero 0-100; el obrero se resuelve por `telefono` → `miembro_obra` de la obra de la tarea (403 si no es miembro); marca `mensajes` como `procesado`
 - Middlewares de auth: `botAuthMiddleware` (service role key directo) para `/bot/*`, `authMiddleware` (JWT Supabase vía `auth.getUser()`) para el resto
+
+### Gate de roles en endpoints directos `/bot/*`
+
+El gate de `/bot/operaciones` solo cubre las operaciones que pasan por la cola. Los endpoints directos siguen una de dos reglas:
+
+| Endpoint | Quién lo llama | Gate |
+|---|---|---|
+| `POST /bot/operaciones` | bot | rol + membresía (`registrarOperaciones`) |
+| `POST /bot/galeria` | bot (foto directa) | `foto.subir` + membresía (`subirFotoDesdeBot`) |
+| `POST /bot/pedidos/entregar` | bot (entrega directa) | `pedido.entregar` + membresía (`entregarPedidoDesdeBot`) |
+| `POST /bot/pedidoDeCompra`, `/bot/stock`, `/bot/stock/ajuste`, `/bot/tareas`, `PATCH /bot/tareas/:id/completar`, `/bot/gastos`, `/bot/alertas` | executor tras aprobación (service key) | confían en el gate de `/bot/operaciones`; no reciben identidad de usuario |
+| `/bot/mensaje`, `PATCH /bot/mensaje/:id`, `/bot/entidades/buscar`, `GET /bot/pedidos/pendientes`, `/bot/obreros/*`, `/bot/invitaciones/consumir` | interno | service key; sin rol |
+
+Al agregar un endpoint directo: validar rol con `rolEnObra` + `puede`, o documentar por qué es exclusivamente interno.
 
 ## Patrones de código
 

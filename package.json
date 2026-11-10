@@ -14,7 +14,7 @@
     "lint": "turbo run lint",
     "test": "bun run test:bot && bun run test:backend",
     "test:bot": "cd apps/WhatsApp-Bot && bun test",
-    "test:backend": "bun test apps/Backend/services",
+    "test:backend": "bun test --isolate apps/Backend",
     "typecheck": "bun run typecheck:bot && bun run typecheck:frontend",
     "typecheck:bot": "cd apps/WhatsApp-Bot && bunx tsc --noEmit",
     "typecheck:frontend": "cd apps/Frontend && bunx tsc --noEmit",
