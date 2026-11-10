@@ -8,10 +8,10 @@
 // (sin cifrar tokens ni insertar filas). No se toca la base real.
 //
 // El caso "rol superior al propio" no es alcanzable con la matriz actual (solo un
-// Director administra, y puede asignar hasta Director): se cubre en
-// obrerosController.escaladaRol.test.js simulando una matriz futura.
-// IMPORTANTE: ambos archivos mockean permisos.service.js con matrices distintas;
-// correrlos juntos requiere `bun test --isolate` (lo que usan el script y el CI).
+// Director administra, y puede asignar hasta Director); la jerarquía se cubre en
+// apps/Backend/services/permisos.service.test.js (puedeAsignarRol) en vez de
+// mockear permisos acá: dos archivos que mockean el mismo módulo se filtran entre
+// sí en Bun y rompen los tests según el orden de ejecución.
 
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
