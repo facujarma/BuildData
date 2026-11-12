@@ -1,0 +1,28 @@
+# Caddy: TLS automático (Let's Encrypt) + proxy al Backend.
+# DOMAIN y ACME_EMAIL salen del entorno del contenedor (deploy/.env vía docker-compose).
+# Si el certificado no se emite, casi siempre es DNS: el registro A tiene que apuntar
+# a la IP de la VPS y los puertos 80/443 accesibles desde internet.
+{
+	email {$ACME_EMAIL}
+	# Para probar sin gastar el rate limit de producción, descomentar:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Único servicio expuesto. El bot NO tiene puertos abiertos.
+	reverse_proxy backend:3001
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

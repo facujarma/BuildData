@@ -1,0 +1,97 @@
+# BuildData — stack de producción (Backend + Bot de WhatsApp + Caddy para TLS)
+#
+#   cp deploy/.env.example deploy/.env   # completar valores
+#   docker compose up -d --build
+#
+# El Frontend NO va acá: vive en Vercel y apunta con NEXT_PUBLIC_API_URL a https://$DOMAIN.
+# El bot no publica puertos: solo sale hacia WhatsApp y hacia el Backend por la red interna.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+    restart: unless-stopped
+    env_file: ./deploy/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      # El executor de operaciones se llama a sí mismo por loopback (services/operaciones.service.js)
+      SELF_URL: http://127.0.0.1:3001
+      TZ: America/Argentina/Buenos_Aires
+    expose:
+      - "3001"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - internal
+
+  bot:
+    build:
+      context: ./apps/WhatsApp-Bot
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./deploy/.env
+    environment:
+      NODE_ENV: production
+      # Dentro de la red de compose el Backend es "backend"; override siempre el .env
+      API_URL: http://backend:3001
+      TZ: America/Argentina/Buenos_Aires
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Baileys necesita cerrar el socket con calma; con SIGKILL queda la sesión colgada
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # DOMAIN y ACME_EMAIL los lee el Caddyfile con {$VAR} del entorno del contenedor
+    env_file: ./deploy/.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - internal
+
+volumes:
+  # Certificados de Let's Encrypt: NO borrar con "docker compose down -v"
+  # (perderlos fuerza a re-emitir y Let's Encrypt tiene rate limit semanal)
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+    driver: bridge
