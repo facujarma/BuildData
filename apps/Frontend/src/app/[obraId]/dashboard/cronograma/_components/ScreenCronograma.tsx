@@ -17,7 +17,8 @@ import { ListView } from "./ListView";
 import { CalendarView } from "./CalendarView";
 import { TaskDetail } from "./TaskDetail";
 import { NuevaTareaModal } from "./NuevaTareaModal";
-import type { TaskGroup, Timeline } from "../data";
+import { EditarTareaModal } from "./EditarTareaModal";
+import type { TaskGroup, TaskItem, Timeline } from "../data";
 import { TASK_STATE_MAP } from "../data";
 
 type ViewMode = "gantt" | "list" | "calendar";
@@ -37,6 +38,7 @@ export function ScreenCronograma() {
   const [view, setView] = useState<ViewMode>("gantt");
   const [pick, setPick] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, flash] = useToast();
 
@@ -206,7 +208,21 @@ export function ScreenCronograma() {
         onClose={() => setPick(null)}
         onComplete={handleComplete}
         onReopen={handleReopen}
+        onEdit={setEditingTask}
       />
+
+      {editingTask && (
+        <EditarTareaModal
+          key={editingTask.id}
+          task={editingTask}
+          obraId={obraId}
+          onClose={() => setEditingTask(null)}
+          onSaved={() => {
+            setEditingTask(null);
+            refresh();
+          }}
+        />
+      )}
 
       <NuevaTareaModal
         open={newTaskOpen}

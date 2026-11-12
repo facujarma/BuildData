@@ -50,8 +50,8 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState
 
   return (
     <>
-      <div onClick={onClose} className="fixed inset-0 z-[55] bg-slate-950/40 backdrop-blur-[2px] animate-fade-task" />
-      <aside className="fixed right-0 top-0 bottom-0 z-[60] w-[440px] max-w-[calc(100vw-32px)] bg-white border-l border-slate-200 shadow-big flex flex-col animate-slide-task overflow-hidden">
+      <div onClick={onClose} className="fixed inset-x-0 bottom-0 top-[var(--dash-topbar-h)] z-[55] bg-slate-950/40 backdrop-blur-[2px] animate-fade-task" />
+      <aside className="fixed right-0 top-[var(--dash-topbar-h)] bottom-0 z-[60] w-[440px] max-w-[calc(100vw-32px)] bg-white border-l border-slate-200 shadow-big flex flex-col animate-slide-task overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3 flex-none">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">

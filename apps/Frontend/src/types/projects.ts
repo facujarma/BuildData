@@ -5,8 +5,15 @@ export interface Obra {
   name: string;
   code: string;
   address: string;
+  city?: string;
+  province?: string;
+  zip?: string;
+  country?: string;
   type: string;
   status: "en-curso" | "planificacion" | "pausada" | "finalizada";
+  startDate?: string | null;
+  endDate?: string | null;
+  autoApprove?: boolean;
   progress: number;
   alerts: number;
   pedidos: number;

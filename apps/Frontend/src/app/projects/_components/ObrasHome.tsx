@@ -13,6 +13,7 @@ import { WorkspaceTopbar } from "./WorkspaceTopbar";
 import { ObraCard } from "./ObraCard";
 import { ObraRow } from "./ObraRow";
 import { NuevaObraModal } from "./NuevaObraModal";
+import { EditarObraModal } from "./EditarObraModal";
 import { ProjectsSkeleton } from "./ProjectsSkeleton";
 
 interface ObraFilter {
@@ -77,6 +78,7 @@ export function ObrasHome({
   const [tab, setTab] = useState("obras");
   const [query, setQuery] = useState("");
   const [newObraOpen, setNewObraOpen] = useState(false);
+  const [editing, setEditing] = useState<Obra | null>(null);
   const [obrasLoading, setObrasLoading] = useState(true);
 
   useEffect(() => {
@@ -269,7 +271,7 @@ export function ObrasHome({
               {view === "grid" ? (
                 <div className="obras-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filtered.map((o) => (
-                    <ObraCard key={o.id} obra={o} cover={cover} />
+                    <ObraCard key={o.id} obra={o} cover={cover} onEdit={setEditing} />
                   ))}
                 </div>
               ) : (
@@ -284,7 +286,7 @@ export function ObrasHome({
                     <div></div>
                   </div>
                   {filtered.map((o) => (
-                    <ObraRow key={o.id} obra={o} />
+                    <ObraRow key={o.id} obra={o} onEdit={setEditing} />
                   ))}
                 </DCard>
               )}
@@ -303,6 +305,18 @@ export function ObrasHome({
         open={newObraOpen}
         onClose={() => setNewObraOpen(false)}
       />
+
+      {editing && (
+        <EditarObraModal
+          key={editing.id}
+          obra={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setObras((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -18,6 +18,9 @@ interface ApiTarea {
   fecha_limite: string | null;
   fecha_completada: string | null;
   costo_estimado: string | number | null;
+  rubro_id: string | null;
+  asignado_a: string | null; // miembros_obra.id
+  asignado_a_persona_id: string | null; // personas.id (lo que espera el PATCH)
   usuario_nombre: string | null;
   rubro_nombre: string | null;
   asignado_a_nombre: string | null;
@@ -106,6 +109,12 @@ function transformCronograma(rows: ApiTarea[]): CronogramaData {
       dueDate: row.fecha_limite,
       completedBy: row.completada_por_nombre || undefined,
       completedOn: row.fecha_completada ? formatDate(row.fecha_completada) : undefined,
+      // Campos crudos para el modal de edición (el resto ya viene formateado para la UI)
+      estado: row.estado,
+      priority: row.prioridad || "",
+      rubroId: row.rubro_id || "",
+      assigneeId: row.asignado_a_persona_id || "",
+      costRaw: row.costo_estimado != null ? Number(row.costo_estimado) : null,
     };
 
     if (!byRubro.has(item.rubro)) {

@@ -35,3 +35,50 @@ export async function createTask(obraId: string, data: Record<string, string>) {
 
   return res.json();
 }
+
+export interface UpdateTaskInput {
+  nombre: string;
+  descripcion: string;
+  rubroId: string;        // "" limpia el rubro
+  estado?: "pendiente" | "en_progreso"; // undefined = no tocar (tareas completadas)
+  prioridad: string;      // "" limpia la prioridad
+  fechaInicio: string;    // NOT NULL
+  fechaLimite: string;    // "" limpia la fecha límite
+  asignadoA: string;      // "" deja la tarea sin responsable
+  costoEstimado: number | ""; // "" limpia el costo
+  porcentajeAvance?: number;
+}
+
+/** PATCH /tareas/:id — el backend interpreta "" como "limpiar" y undefined como "no tocar". */
+export async function updateTask(taskId: string, data: UpdateTaskInput) {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const payload: Record<string, unknown> = {
+    titulo: data.nombre,
+    descripcion: data.descripcion,
+    rubro_id: data.rubroId,
+    prioridad: data.prioridad,
+    fecha_inicio: data.fechaInicio,
+    fecha_limite: data.fechaLimite,
+    asignado_a: data.asignadoA,
+    costo_estimado: data.costoEstimado,
+  };
+  if (data.estado) payload.estado = data.estado;
+  if (data.porcentajeAvance !== undefined) payload.porcentaje_avance = data.porcentajeAvance;
+
+  const res = await fetch(`${API_URL}/tareas/${taskId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || err.error || "Error al actualizar tarea");
+  }
+
+  return res.json();
+}
