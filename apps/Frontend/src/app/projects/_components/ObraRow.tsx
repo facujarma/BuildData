@@ -30,7 +30,7 @@ function MoreIcon() {
   );
 }
 
-export function ObraRow({ obra }: { obra: Obra }) {
+export function ObraRow({ obra, onEdit }: { obra: Obra; onEdit?: (obra: Obra) => void }) {
   const s = STATUS[obra.status];
   return (
     <Link href={`/${obra.id}/dashboard`} className="group grid grid-cols-[40px_1fr_140px_120px_180px_100px_24px] items-center gap-4 py-3 px-4 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0">
@@ -61,7 +61,12 @@ export function ObraRow({ obra }: { obra: Obra }) {
           </div>
         ))}
       </div>
-      <button className="text-slate-400 hover:text-slate-700 p-1" onClick={(e) => { e.preventDefault(); }}>
+      <button
+        aria-label="Editar obra"
+        title="Editar obra"
+        className="text-slate-400 hover:text-slate-700 p-1"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(obra); }}
+      >
         <MoreIcon />
       </button>
     </Link>

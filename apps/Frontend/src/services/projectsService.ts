@@ -58,8 +58,15 @@ interface ObraApiRow {
   name: string;
   code: string;
   address: string;
+  city?: string;
+  province?: string;
+  zip?: string;
+  country?: string;
   type: string;
   status: Obra["status"];
+  startDate?: string | null;
+  endDate?: string | null;
+  autoApprove?: boolean;
   progress?: number;
   alerts?: number;
   pedidos?: number;
@@ -75,8 +82,15 @@ function mapObra(o: ObraApiRow): Obra {
     name: o.name,
     code: o.code,
     address: o.address,
+    city: o.city || "",
+    province: o.province || "",
+    zip: o.zip || "",
+    country: o.country || "ar",
     type: o.type,
     status: o.status,
+    startDate: o.startDate || null,
+    endDate: o.endDate || null,
+    autoApprove: o.autoApprove || false,
     progress: o.progress ?? 0,
     alerts: o.alerts ?? 0,
     pedidos: o.pedidos ?? 0,
@@ -159,6 +173,54 @@ export async function createObra(input: CreateObraInput): Promise<Obra> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "Error al crear obra");
+  }
+
+  return mapObra(await res.json());
+}
+
+/** Campos editables de una obra ya creada (modal Editar obra). */
+export interface UpdateObraInput {
+  nombre?: string;
+  codigo?: string;
+  tipo?: string;
+  status?: Obra["status"];
+  direccion?: string;
+  ciudad?: string;
+  provincia?: string;
+  zip?: string;
+  /** "" limpia la fecha; undefined no la toca */
+  inicio?: string;
+  fin?: string;
+  autoApprove?: boolean;
+}
+
+export async function updateObra(obraId: string, input: UpdateObraInput): Promise<Obra> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch(`${API_URL}/obras/${obraId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({
+      name: input.nombre,
+      code: input.codigo,
+      status: input.status,
+      type: input.tipo,
+      address: input.direccion,
+      city: input.ciudad,
+      province: input.provincia,
+      zip: input.zip,
+      startDate: input.inicio,
+      endDate: input.fin,
+      autoApprove: input.autoApprove,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Error al actualizar obra");
   }
 
   return mapObra(await res.json());

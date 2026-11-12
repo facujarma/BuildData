@@ -2,6 +2,24 @@ import { pool } from "../db.js";
 import { guardarEmbeddings } from "../services/embeddings.service.js";
 import { normalizarRol } from "../services/permisos.service.js";
 
+// Catálogo de categorías de MATERIALES con el que nace toda obra nueva
+// (tabla categorias_materiales, no son rubros). Después se edita desde Stock.
+const CATEGORIAS_DEFAULT = [
+  "Áridos",
+  "Cemento y cal",
+  "Hierros y mallas",
+  "Ladrillos y bloques",
+  "Maderas",
+  "Sanitarios y plomería",
+  "Electricidad",
+  "Pinturas",
+  "Impermeabilizantes",
+  "Seguridad y EPP",
+];
+
+// Estados válidos (CHECK obras_estado_check)
+const ESTADOS_OBRA = ["en-curso", "planificacion", "pausada", "finalizada"];
+
 // Helper: armar objeto Obra completo según el contrato
 async function buildObra(obra) {
   const team = await pool.query(
@@ -204,6 +222,24 @@ export async function crearObra(req, res) {
       rubrosCreados.push({ id: rubroResult.rows[0].id, nombre: nombreRubro });
     }
 
+    // Categorías de materiales por defecto: la obra arranca con un catálogo usable
+    // en Stock. Best-effort con SAVEPOINT: si la migración de stock no está aplicada,
+    // la obra se crea igual (no rompemos el alta por un catálogo).
+    await client.query("SAVEPOINT categorias_default");
+    try {
+      for (const nombreCategoria of CATEGORIAS_DEFAULT) {
+        await client.query(
+          `INSERT INTO categorias_materiales (obra_id, nombre) VALUES ($1, $2)
+           ON CONFLICT (obra_id, lower(nombre)) DO NOTHING`,
+          [obra_id, nombreCategoria]
+        );
+      }
+      await client.query("RELEASE SAVEPOINT categorias_default");
+    } catch (errorCategorias) {
+      await client.query("ROLLBACK TO SAVEPOINT categorias_default");
+      console.warn("[obras] no se pudieron crear las categorías por defecto:", errorCategorias.message);
+    }
+
     await client.query("COMMIT");
     await guardarEmbeddings("rubro", rubrosCreados);
 
@@ -225,36 +261,78 @@ export async function crearObra(req, res) {
 // PATCH /obras/:obraId
 export async function updateObra(req, res) {
   const { obraId } = req.params;
-  const { name, status, type, address, city, province, zip, startDate, endDate, autoApprove } = req.body;
+  const { name, code, status, type, address, city, province, zip, startDate, endDate, autoApprove } = req.body;
+
+  if (status !== undefined && status !== null && !ESTADOS_OBRA.includes(status)) {
+    return res.status(400).json({
+      code: "VALIDATION_ERROR",
+      message: `Estado inválido. Valores permitidos: ${ESTADOS_OBRA.join(", ")}`,
+    });
+  }
+  // Nombre, tipo y dirección son obligatorios: si vienen, no pueden quedar vacíos.
+  for (const [campo, valor] of Object.entries({ name, type, address })) {
+    if (valor !== undefined && valor !== null && !String(valor).trim()) {
+      return res.status(400).json({ code: "VALIDATION_ERROR", message: `${campo} no puede quedar vacío` });
+    }
+  }
+
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // Código interno: solo se toca si viene con valor (vacío = conservar el actual).
+    const codigo = code === undefined || code === null ? "" : String(code).trim();
+    if (codigo) {
+      const dup = await client.query(
+        `SELECT id FROM obras WHERE code = $1 AND id <> $2`,
+        [codigo, obraId]
+      );
+      if (dup.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(422).json({ code: "DUPLICATE_CODE", message: `Ya existe una obra con el código ${codigo}` });
+      }
+    }
+
+    const result = await client.query(
       `UPDATE obras SET
         nombre                = CASE WHEN $1::text IS NOT NULL THEN $1 ELSE nombre END,
-        estado                = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE estado END,
-        type                  = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE type END,
-        direccion             = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE direccion END,
-        city                  = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE city END,
-        province              = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE province END,
-        zip                   = CASE WHEN $7::text IS NOT NULL THEN $7 ELSE zip END,
-        fecha_inicio          = CASE WHEN $8::text IS NOT NULL THEN $8::date ELSE fecha_inicio END,
-        fecha_fin_estimada    = CASE WHEN $9::text IS NOT NULL THEN $9::date ELSE fecha_fin_estimada END,
+        code                  = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE code END,
+        estado                = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE estado END,
+        type                  = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE type END,
+        direccion             = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE direccion END,
+        city                  = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE city END,
+        province              = CASE WHEN $7::text IS NOT NULL THEN $7 ELSE province END,
+        zip                   = CASE WHEN $8::text IS NOT NULL THEN $8 ELSE zip END,
+        fecha_inicio          = CASE WHEN $9::text = '' THEN NULL WHEN $9::text IS NOT NULL THEN $9::date ELSE fecha_inicio END,
+        fecha_fin_estimada    = CASE WHEN $10::text = '' THEN NULL WHEN $10::text IS NOT NULL THEN $10::date ELSE fecha_fin_estimada END,
         aprobacion_automatica = CASE WHEN $11::boolean IS NOT NULL THEN $11 ELSE aprobacion_automatica END
-       WHERE id = $10 RETURNING *`,
-      [name ?? null, status ?? null, type ?? null, address ?? null,
+       WHERE id = $12 RETURNING *`,
+      [name ?? null, codigo || null, status ?? null, type ?? null, address ?? null,
        city ?? null, province ?? null, zip ?? null,
-       startDate ?? null, endDate ?? null, obraId, autoApprove ?? null]
+       startDate ?? null, endDate ?? null, autoApprove ?? null, obraId]
     );
-    if (!result.rows[0]) return res.status(404).json({ code: "NOT_FOUND", message: "Obra no encontrada" });
+    if (!result.rows[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ code: "NOT_FOUND", message: "Obra no encontrada" });
+    }
+    await client.query("COMMIT");
+
+    // Mismo SELECT que getObra: sin las cuentas de tareas, buildObra devolvería progress 0
     const full = await pool.query(
       `SELECT o.*,
         (SELECT COUNT(*) FROM alertas a WHERE a.obra_id = o.id AND a.resuelta = false) AS alerts,
-        (SELECT COUNT(*) FROM pedidos_materiales p WHERE p.obra_id = o.id AND p.aprobado = false) AS pedidos
+        (SELECT COUNT(*) FROM pedidos_materiales p WHERE p.obra_id = o.id AND p.aprobado = false) AS pedidos,
+        (SELECT COUNT(*) FROM tareas t WHERE t.obra_id = o.id) AS tareas_total,
+        (SELECT COUNT(*) FROM tareas t WHERE t.obra_id = o.id AND t.estado = 'completada') AS tareas_completadas
        FROM obras o WHERE o.id = $1`, [obraId]
     );
     res.json(await buildObra(full.rows[0]));
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  } finally {
+    client.release();
   }
 }
 

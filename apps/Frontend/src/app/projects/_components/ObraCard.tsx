@@ -13,7 +13,7 @@ function MoreIcon() {
   );
 }
 
-export function ObraCard({ obra, cover = "blueprint" }: { obra: Obra; cover?: string }) {
+export function ObraCard({ obra, cover = "blueprint", onEdit }: { obra: Obra; cover?: string; onEdit?: (obra: Obra) => void }) {
   const s = STATUS[obra.status];
   return (
     <Link href={`/${obra.id}/dashboard`} className="obra-card group bg-white border border-slate-200 rounded-lg overflow-hidden shadow-card hover:shadow-pop hover:border-primary transition-all">
@@ -21,7 +21,12 @@ export function ObraCard({ obra, cover = "blueprint" }: { obra: Obra; cover?: st
       <div className="p-4 obra-card-body">
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="text-[14px] font-extrabold text-slate-950 leading-tight group-hover:text-primary transition-colors">{obra.name}</div>
-          <button className="text-slate-400 hover:text-slate-700 -mt-1 -mr-1 p-1" onClick={(e) => { e.preventDefault(); }}>
+          <button
+            aria-label="Editar obra"
+            title="Editar obra"
+            className="text-slate-400 hover:text-slate-700 -mt-1 -mr-1 p-1"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(obra); }}
+          >
             <MoreIcon />
           </button>
         </div>
