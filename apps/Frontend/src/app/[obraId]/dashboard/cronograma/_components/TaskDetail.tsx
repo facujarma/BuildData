@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Check, ClockArrowRotateLeft, TriangleExclamation, Xmark } from "@gravity-ui/icons";
+import { Check, Pencil, TriangleExclamation, Xmark } from "@gravity-ui/icons";
 import { DPill, type PillTone } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
 import Button from "@/components/ui/Button";
@@ -19,6 +19,7 @@ interface Props {
   onClose: () => void;
   onComplete: (id: string) => void;
   onReopen: (id: string) => void;
+  onEdit: (task: TaskItem) => void;
 }
 
 const STATE_TONE: Record<string, PillTone> = {
@@ -32,7 +33,7 @@ function initials(name: string): string {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
-export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Props) {
+export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen, onEdit }: Props) {
   const task = useMemo<TaskItem | null>(() => {
     if (!taskId) return null;
     for (const g of groups) {
@@ -77,8 +78,8 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Pr
 
   return (
     <>
-      <div onClick={onClose} className="fixed inset-0 z-[55] bg-slate-950/40 backdrop-blur-[2px] animate-fade-task" />
-      <aside className="fixed right-0 top-0 bottom-0 z-[60] w-[420px] max-w-[calc(100vw-32px)] bg-white border-l border-slate-200 shadow-big flex flex-col animate-slide-task overflow-hidden">
+      <div onClick={onClose} className="fixed inset-x-0 bottom-0 top-[var(--dash-topbar-h)] z-[55] bg-slate-950/40 backdrop-blur-[2px] animate-fade-task" />
+      <aside className="fixed right-0 top-[var(--dash-topbar-h)] bottom-0 z-[60] w-[420px] max-w-[calc(100vw-32px)] bg-white border-l border-slate-200 shadow-big flex flex-col animate-slide-task overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3 flex-none">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 min-w-0">
@@ -217,13 +218,26 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen }: Pr
                   )}
                 </span>
               </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil width={13} height={13} />}
+                onClick={() => onEdit(task)}
+              >
+                Editar
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => onReopen(task.id)}>
                 Reabrir
               </Button>
             </>
           ) : (
             <>
-              <Button variant="secondary" size="sm" icon={<ClockArrowRotateLeft width={13} height={13} />}>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil width={13} height={13} />}
+                onClick={() => onEdit(task)}
+              >
                 Editar
               </Button>
               <Button

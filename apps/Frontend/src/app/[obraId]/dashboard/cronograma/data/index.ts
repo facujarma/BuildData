@@ -113,6 +113,12 @@ export interface TaskItem {
   dueDate?: string | null;   // yyyy-mm-dd opcional
   completedBy?: string;
   completedOn?: string;
+  // Valores crudos de la API, para el modal de edición
+  estado?: string;
+  priority?: string;
+  rubroId?: string;
+  assigneeId?: string;
+  costRaw?: number | null;
 }
 
 export interface TaskGroup {

@@ -27,6 +27,7 @@ export async function getTareas(req, res) {
               p.nombre AS usuario_nombre,
               r.nombre AS rubro_nombre,
               pa.nombre AS asignado_a_nombre,
+              pa.id AS asignado_a_persona_id,
               pc.nombre AS completada_por_nombre,
               COALESCE((
                 SELECT array_agg(td.depende_de ORDER BY td.depende_de)
@@ -259,6 +260,13 @@ export async function actualizarTarea(req, res) {
   if (prioridad && !PRIORIDADES_VALIDAS.includes(prioridad)) {
     return res.status(400).json({ error: `prioridad inválida. Usar: ${PRIORIDADES_VALIDAS.join(", ")}` });
   }
+  // Obligatorios: si vienen, no pueden quedar vacíos (la base los exige NOT NULL)
+  if (titulo !== undefined && !String(titulo).trim()) {
+    return res.status(400).json({ error: "titulo no puede quedar vacío" });
+  }
+  if (fecha_inicio !== undefined && fecha_inicio !== null && !String(fecha_inicio).trim()) {
+    return res.status(400).json({ error: "fecha_inicio no puede quedar vacía" });
+  }
 
   let pct = null;
   if (porcentaje_avance !== undefined && porcentaje_avance !== null) {
@@ -309,31 +317,39 @@ export async function actualizarTarea(req, res) {
       // Cambiar el estado fuera de 'completada' implica reabrir: limpiar datos de completado.
       const reabrir = Boolean(estado);
 
+      // Contrato de campos opcionales:
+      //   "" (string vacío)  -> limpiar el campo (NULL)
+      //   null / undefined   -> no tocar el valor actual
+      // titulo y fecha_inicio son NOT NULL: no admiten limpieza (se validan arriba).
+      const rubroParam = rubro_id === "" ? "" : rubro_id ?? null;
+      const asignadoParam = asignado_a === "" ? "" : miembroObraId;
+      const costoParam = costo_estimado === "" ? "" : costo_estimado ?? null;
+
       const result = await client.query(
         `UPDATE tareas
          SET titulo = COALESCE($1, titulo),
-             descripcion = COALESCE($2, descripcion),
-             rubro_id = COALESCE($3, rubro_id),
+             descripcion = CASE WHEN $2::text = '' THEN NULL WHEN $2::text IS NOT NULL THEN $2 ELSE descripcion END,
+             rubro_id = CASE WHEN $3::text = '' THEN NULL WHEN $3::text IS NOT NULL THEN $3::uuid ELSE rubro_id END,
              estado = COALESCE($4, estado),
-             prioridad = COALESCE($5, prioridad),
+             prioridad = CASE WHEN $5::text = '' THEN NULL WHEN $5::text IS NOT NULL THEN $5 ELSE prioridad END,
              fecha_inicio = COALESCE($6, fecha_inicio),
-             fecha_limite = COALESCE($7, fecha_limite),
-             asignado_a = COALESCE($8, asignado_a),
-             costo_estimado = COALESCE($9, costo_estimado),
+             fecha_limite = CASE WHEN $7::text = '' THEN NULL WHEN $7::text IS NOT NULL THEN $7::date ELSE fecha_limite END,
+             asignado_a = CASE WHEN $8::text = '' THEN NULL WHEN $8::text IS NOT NULL THEN $8::uuid ELSE asignado_a END,
+             costo_estimado = CASE WHEN $9::text = '' THEN NULL WHEN $9::text IS NOT NULL THEN $9::numeric ELSE costo_estimado END,
              porcentaje_avance = COALESCE($10, porcentaje_avance)
              ${reabrir ? ", completada_por = NULL, fecha_completada = NULL" : ""}
          WHERE id = $11
          RETURNING *`,
         [
-          titulo,
-          descripcion,
-          rubro_id,
-          estado,
-          prioridad,
-          fecha_inicio,
-          fecha_limite,
-          miembroObraId,
-          costo_estimado,
+          titulo ?? null,
+          descripcion ?? null,
+          rubroParam,
+          estado ?? null,
+          prioridad ?? null,
+          fecha_inicio ?? null,
+          fecha_limite ?? null,
+          asignadoParam,
+          costoParam,
           pct,
           id,
         ]
