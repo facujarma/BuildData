@@ -4,14 +4,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   ChartLineArrowUp,
   Check,
-  ChevronDown,
-  ChevronUp,
   CircleDollar,
-  CircleInfo,
   Clock,
   FileArrowDown,
   Pencil,
-  Sparkles,
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
@@ -72,13 +68,6 @@ function KpiCard({
   );
 }
 
-const ASSUMPTIONS = [
-  "Los precios unitarios se mantienen como en los últimos comprobantes cargados.",
-  "El ritmo de ejecución de cada rubro sigue la tendencia de las últimas 4 semanas.",
-  "Los pedidos aprobados y no entregados se ejecutan por su monto actual.",
-  "No se incorporan trabajos adicionales ni cambios de proyecto.",
-];
-
 export function ScreenPresupuesto() {
   const { obraId } = useDashboardData();
   const [lines, setLines] = useState<BudgetLine[]>([]);
@@ -86,7 +75,6 @@ export function ScreenPresupuesto() {
   const [loading, setLoading] = useState(true);
   const [cur, setCur] = useState<CurrencyKey>("ARS");
   const [editOpen, setEditOpen] = useState(false);
-  const [showMethod, setShowMethod] = useState(false);
   const [toast, flash] = useToast();
   const [auditLog, setAuditLog] = useState<BudgetAuditEntry[]>([]);
 
@@ -136,24 +124,6 @@ export function ScreenPresupuesto() {
       }),
     [lines],
   );
-  const projTotal = Math.round(proj.reduce((a, l) => a + l.projected, 0));
-  const projDev = projTotal - total;
-  const projDevPct = total > 0 ? Math.round((projDev / total) * 100) : 0;
-  const riskRubros = proj
-    .filter((l) => l.deviation > 0.5)
-    .sort((a, b) => b.deviation - a.deviation);
-
-  const advance = pctSpent;
-  const band = advance < 40 ? 0.12 : advance < 70 ? 0.08 : 0.05;
-  const low = Math.round(projTotal * (1 - band));
-  const high = Math.round(projTotal * (1 + band));
-  const confLabel = advance < 40 ? "Baja" : advance < 70 ? "Media" : "Alta";
-  const confTone =
-    advance < 40
-      ? "bg-critical-50 text-[#B91C1C]"
-      : advance < 70
-        ? "bg-attention-50 text-[#A16207]"
-        : "bg-success-50 text-[#15803D]";
 
   if (loading) {
     return (
@@ -243,92 +213,6 @@ export function ScreenPresupuesto() {
             label="Disponible"
             foot={avail < 0 ? "Sobregiro" : total > 0 ? `${Math.round((avail / total) * 100)}% libre` : "—"}
           />
-        </div>
-      </div>
-
-      <div className="blueprint-bg rounded-lg p-5 text-white mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center gap-1 bg-accent/20 text-accent text-[9px] font-bold tracking-wider uppercase px-2 py-[3px] rounded">
-            <Sparkles width={10} height={10} /> Predicción IA
-          </span>
-          <span className="text-[10px] text-white/60">en base a ritmo de gasto y pedidos</span>
-        </div>
-        <div className="grid grid-cols-[200px_1fr] gap-6 items-center">
-          <div className="flex flex-col items-center">
-            <Donut
-              value={total > 0 ? Math.min(100, Math.round((projTotal / total) * 100)) : 0}
-              size={130}
-              stroke={13}
-              color={projDev > 0 ? "#F59E0B" : "#22C55E"}
-              track="rgba(255,255,255,0.14)"
-              labelColor="#ffffff"
-              label={`${projDev >= 0 ? "+" : ""}${projDevPct}%`}
-              sub="vs presupuesto"
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className="text-[9px] font-bold tracking-[0.08em] uppercase bg-white/10 text-white/70 rounded px-2 py-[3px]">
-                Estimación · no es una garantía
-              </span>
-              <span
-                className={`text-[9px] font-bold tracking-[0.06em] uppercase rounded px-2 py-[3px] ${confTone}`}
-              >
-                Confianza {confLabel}
-              </span>
-            </div>
-            <div className="text-[15px] font-bold leading-snug mb-1">
-              Cierre estimado entre <span className="text-accent">{fmt(low)}</span> y{" "}
-              <span className="text-accent">{fmt(high)}</span>
-            </div>
-            <div className="text-[12px] text-white/70 leading-snug mb-3">
-              {projDev > 0
-                ? `Si se mantiene el ritmo y los precios actuales, la obra podría cerrar por encima del presupuesto. Escenario más probable: ${fmt(projTotal)} (${projDevPct > 0 ? "+" : ""}${projDevPct}%). ${riskRubros.length} rubro${riskRubros.length === 1 ? "" : "s"} explican la mayor parte del desvío.`
-                : "Si se mantiene el ritmo y los precios actuales, la obra cerraría dentro del presupuesto."}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {riskRubros.slice(0, 3).map((r) => (
-                <span
-                  key={r.rubroId}
-                  className="inline-flex items-center gap-1 bg-white/10 rounded-full px-3 py-[5px] text-[11px] font-semibold"
-                >
-                  <span className="w-[6px] h-[6px] rounded-full bg-critical" /> {r.name}{" "}
-                  <span className="text-critical">+{fmt(r.deviation)}</span>
-                </span>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowMethod((v) => !v)}
-              className="mt-3 inline-flex items-center gap-[6px] text-[11px] font-bold text-white/70 hover:text-white"
-            >
-              <CircleInfo width={11} height={11} /> {showMethod ? "Ocultar" : "Ver"} en qué se basa esta estimación
-              {showMethod ? <ChevronUp width={11} height={11} /> : <ChevronDown width={11} height={11} />}
-            </button>
-
-            {showMethod && (
-              <div className="mt-3 bg-white/[0.06] border border-white/10 rounded-lg p-3">
-                <div className="text-[10px] tracking-[0.06em] uppercase font-bold text-white/55 mb-2">
-                  Supuestos del cálculo
-                </div>
-                <ul className="space-y-[6px] mb-3">
-                  {ASSUMPTIONS.map((a) => (
-                    <li key={a} className="flex items-start gap-2 text-[11px] text-white/75 leading-snug">
-                      <span className="w-[4px] h-[4px] rounded-full bg-accent mt-[6px] flex-none" />
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-                <div className="text-[11px] text-white/60 leading-snug border-t border-white/10 pt-2">
-                  Se calcula con los datos cargados en la obra ({pctSpent}% de avance financiero). A menor avance,
-                  mayor incertidumbre — por eso se muestra un rango y no un valor único.{" "}
-                  <b className="text-white/80">
-                    No reemplaza el criterio profesional ni constituye una garantía de resultado.
-                  </b>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

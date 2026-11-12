@@ -49,6 +49,8 @@
 :root {
   --background: #F7F8FA;
   --foreground: #0F172A;
+  /* Alto del DashTopBar: los drawers (fixed) arrancan debajo para no quedar tapados */
+  --dash-topbar-h: 52px;
 }
 
 html {
