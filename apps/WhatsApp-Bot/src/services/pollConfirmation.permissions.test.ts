@@ -6,10 +6,11 @@ import { describe, expect, test } from "bun:test";
 import type { Obra } from "../types/api.types";
 import type { PendingQuery } from "../handlers/pendingQuery.store";
 
-// pollConfirmation importa api.service, que exige estas variables al cargar.
-// Los tests no hacen requests: solo evalúan la decisión de permisos.
+// pollConfirmation importa api.service y llm.service, que exigen estas variables
+// al cargar. Los tests no hacen requests: solo evalúan la decisión de permisos.
 process.env.API_URL ??= "http://127.0.0.1:1";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-key";
+process.env.GROQ_API_KEY ??= "test-groq-key";
 
 const { permisoBloqueado } = await import("./pollConfirmation.service");
 
