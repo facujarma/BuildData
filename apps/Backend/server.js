@@ -56,6 +56,12 @@ app.use("/auth", authRoutes); // va ANTES del authMiddleware: no exige token
 
 app.use("/bot", botRoutes); // también antes: el bot usa su propio middleware (botAuthMiddleware)
 
+// Health check: va ANTES del authMiddleware a propósito. Es público (solo un texto fijo),
+// lo usa el healthcheck de Docker y sirve para ver rápido si la API está viva.
+app.get("/", (req, res) => {
+  res.send("BuildData API funcionando");
+});
+
 // ──────────────────────────────────────────
 // Todo lo demás requiere usuario autenticado
 // ──────────────────────────────────────────
@@ -119,12 +125,6 @@ app.use("/galeria", galeriaRoutes);
 
 // ChatBot AI (preguntas en lenguaje natural → SQL)
 app.use("/chat", chatbotRoutes);
-
-// Health check
-// (GET / responde un texto: sirve para ver rápido si la API está viva)
-app.get("/", (req, res) => {
-  res.send("BuildData API funcionando");
-});
 
 const PORT = process.env.PORT || 3001; // puerto: el del .env o 3001 por defecto
 

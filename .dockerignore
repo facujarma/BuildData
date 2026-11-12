@@ -1,0 +1,14 @@
+# Contexto de build del Backend (la raíz del repo).
+# Sin esto, Docker manda node_modules, .git y el Frontend entero al daemon.
+node_modules
+**/node_modules
+.git
+.github
+graphify-out
+.turbo
+.opencode
+coverage
+apps/Frontend
+apps/WhatsApp-Bot
+deploy/.env
+*.md
