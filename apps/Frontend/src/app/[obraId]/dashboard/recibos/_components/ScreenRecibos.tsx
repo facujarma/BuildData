@@ -15,6 +15,7 @@ import Button from "@/components/ui/Button";
 import { DPageHeader } from "@/app/[obraId]/dashboard/_components/DPageHeader";
 import { DStatTile } from "@/app/[obraId]/dashboard/_components/DStatTile";
 import { useToast, DashToast } from "@/app/[obraId]/dashboard/_components/useToast";
+import { useRole } from "@/app/[obraId]/dashboard/_components/RoleContext";
 import { ReceiptModal } from "./ReceiptModal";
 
 function formatMonto(amount: number, currency: string): string {
@@ -39,6 +40,8 @@ export function ScreenRecibos() {
   const [attachFor, setAttachFor] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeGestionar = puede("recibos.gestionar");
 
   useEffect(() => {
     if (!obraId) return;
@@ -141,9 +144,11 @@ export function ScreenRecibos() {
       <DPageHeader
         title="Recibos y comprobantes"
         right={
-          <Button size="sm" icon={<Plus width={16} height={16} />} onClick={() => setShowModal(true)}>
-            Cargar recibo
-          </Button>
+          puedeGestionar ? (
+            <Button size="sm" icon={<Plus width={16} height={16} />} onClick={() => setShowModal(true)}>
+              Cargar recibo
+            </Button>
+          ) : undefined
         }
       />
 
@@ -217,11 +222,17 @@ export function ScreenRecibos() {
                 <td className="px-4 py-3 text-slate-500 tnum">{r.date ? formatDateShort(r.date) : "—"}</td>
                 <td className="px-4 py-3 text-right font-bold tnum text-slate-900">{formatMonto(r.amount, r.currency)}</td>
                 <td className="px-4 py-3">
-                  <button onClick={() => toggleStatus(r)} title="Cambiar estado de pago">
+                  {puedeGestionar ? (
+                    <button onClick={() => toggleStatus(r)} title="Cambiar estado de pago">
+                      <DPill tone={r.status === "pagado" ? "successSolid" : "attentionSolid"}>
+                        {r.status === "pagado" ? "PAGADO" : "PENDIENTE"}
+                      </DPill>
+                    </button>
+                  ) : (
                     <DPill tone={r.status === "pagado" ? "successSolid" : "attentionSolid"}>
                       {r.status === "pagado" ? "PAGADO" : "PENDIENTE"}
                     </DPill>
-                  </button>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {r.fileUrl ? (
@@ -229,12 +240,14 @@ export function ScreenRecibos() {
                       className="text-slate-400 hover:text-primary transition-colors inline-flex">
                       <FileArrowDown width={15} height={15} />
                     </a>
-                  ) : (
+                  ) : puedeGestionar ? (
                     <button title="Adjuntar comprobante"
                       onClick={() => { setAttachFor(r.id); fileRef.current?.click(); }}
                       className="text-slate-400 hover:text-primary transition-colors">
                       <FileArrowUp width={15} height={15} />
                     </button>
+                  ) : (
+                    <span className="text-slate-300">—</span>
                   )}
                 </td>
               </tr>

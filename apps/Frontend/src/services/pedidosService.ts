@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { apiErrorDesde } from "@/lib/apiError";
 import type { PedidoItem } from "@/app/[obraId]/dashboard/pedidos/data";
 import { formatARS, formatDate, formatDateShort, formatNumber, formatTime } from "@/lib/format";
 
@@ -139,7 +140,8 @@ async function authHeaders(): Promise<Record<string, string>> {
 // curso"). Ese mensaje es el que termina mostrando el modal.
 async function parseError(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({})); // si el body no es JSON, objeto vacío
-  return new Error(err.message || err.error || `Request failed: ${res.status}`);
+  // Conserva status/code: un 403 SIN_PERMISO se muestra con su motivo real.
+  return apiErrorDesde(res.status, err, `Request failed: ${res.status}`);
 }
 
 export async function getPedidos(obraId: string): Promise<PedidoItem[]> {

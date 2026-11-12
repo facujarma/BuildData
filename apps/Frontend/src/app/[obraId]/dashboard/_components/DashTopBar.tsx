@@ -7,6 +7,7 @@ import { QuickAddMenu } from "./QuickAddMenu";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { AvatarMenu } from "@/components/ui/AvatarMenu";
 import { useDashboardData } from "./DashboardDataContext";
+import { useRole } from "./RoleContext";
 
 const CRUMB_MAP: Record<string, string> = {
   dashboard: "Dashboard",
@@ -56,15 +57,26 @@ export function DashTopBar({
   onQuickAdd?: (kind: string) => void;
 }) {
   const { obraName } = useDashboardData();
+  const { rol, loading: rolLoading } = useRole();
 
   return (
     <header className="relative z-[150] h-[var(--dash-topbar-h)] px-5 border-b border-slate-200 bg-white/85 backdrop-blur flex items-center justify-between gap-3 flex-none">
-      <div className="text-[12px] text-slate-500 min-w-0 truncate">
+      <div className="text-[12px] text-slate-500 min-w-0 truncate flex items-center">
         {obraName || "Obra"}
         <span className="mx-2 text-slate-300">/</span>
         <Suspense fallback={null}>
           <Crumb />
         </Suspense>
+        {rolLoading ? (
+          <span className="ml-2 h-[18px] w-16 rounded-full bg-slate-100 animate-pulse" />
+        ) : rol ? (
+          <span
+            className="ml-2 inline-flex items-center text-[10px] font-bold tracking-[0.04em] uppercase text-primary bg-primary-50 border border-primary-100 rounded-full px-2 py-[1px]"
+            title={`Tu rol en esta obra: ${rol.nombre}`}
+          >
+            {rol.nombre}
+          </span>
+        ) : null}
       </div>
       <div className="flex items-center gap-2">
         <div className="hidden md:flex items-center gap-2 w-[260px] bg-white border border-slate-200 rounded-md px-3 py-[6px] text-[12px] text-slate-500 focus-within:border-primary transition-colors">

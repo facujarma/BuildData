@@ -1,7 +1,8 @@
 export interface DashboardData {
   obra: ObraInfo;
   stats: DashboardStats;
-  budget: BudgetOverview;
+  // Según permisos: sin `presupuesto.ver` el Backend omite estos bloques.
+  budget?: BudgetOverview;
   budgetBreakdown: BudgetItem[];
   tradeProgress: TradeProgress[];
   activityFeed: ActivityFeedItem[];

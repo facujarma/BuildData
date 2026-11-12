@@ -15,6 +15,19 @@ export const SECCIONES = [
 const DIAS_POR_RANGO = { semana: 7, mes: 30, trimestre: 90 };
 const LIMITE_FILAS = 500; // tope por sección para que el reporte no crezca sin límite
 
+// Secciones que exponen costos o inventario interno: sin el permiso web
+// correspondiente no se arman (un rol con `reportes.exportar` pero sin
+// `presupuesto.ver` no puede pedirlas por body).
+const SECCION_PERMISO = {
+  presupuesto: "presupuesto.ver",
+  pedidos: "pedidos.ver",
+  stock: "stock.ver",
+  recibos: "recibos.ver",
+};
+
+// Fail closed: solo la clave explícitamente habilitada cuenta.
+const puedeVer = (permisosWeb, permiso) => permisosWeb?.[permiso] === true;
+
 // Fecha desde la que cuenta el período (YYYY-MM-DD, en la TZ del negocio), o null para "total".
 // Ej: rango 'semana' el 28/10 → '2026-10-21'.
 export async function desdeDelRango(db, rango) {
@@ -53,12 +66,16 @@ async function ejecutadoEnPeriodo(db, obraId, desde) {
 // KPIs de la portada del reporte. Los conteos de estado (tareas, stock, recibos pendientes,
 // equipo, alertas activas) son la foto de HOY; ejecutado, pedidos, alertas nuevas y tareas
 // completadas se acotan al período.
-export async function calcularSnapshot(db, obraId, rango) {
+// `permisosWeb` es la matriz web del que pide el reporte (req.perfilObra.permisos.web):
+// los campos de costos/inventario se omiten si falta el permiso. Fail closed.
+export async function calcularSnapshot(db, obraId, rango, permisosWeb = {}) {
+  const verPresupuesto = puedeVer(permisosWeb, "presupuesto.ver");
   const desde = await desdeDelRango(db, rango);
   const [obra, rubros, ejecutadoPeriodo, conteos] = await Promise.all([
     db.query(`SELECT nombre, code FROM obras WHERE id = $1`, [obraId]),
-    calcularRubros(db, obraId),
-    rango === "total" ? null : ejecutadoEnPeriodo(db, obraId, desde),
+    verPresupuesto ? calcularRubros(db, obraId) : [],
+    // El ejecutado del período solo se consulta si se va a poder mostrar.
+    verPresupuesto && rango !== "total" ? ejecutadoEnPeriodo(db, obraId, desde) : null,
     db.query(
       `SELECT
          (SELECT COALESCE(ROUND(AVG(porcentaje_avance)), 0)::int FROM tareas
@@ -82,26 +99,31 @@ export async function calcularSnapshot(db, obraId, rango) {
   ]);
 
   const c = conteos.rows[0];
-  const presupuesto = resumir(rubros);
-  return {
+  const presupuesto = verPresupuesto ? resumir(rubros) : null;
+  const snapshot = {
     rango,
     desde, // null = toda la obra
     obra: obra.rows[0]?.nombre || "",
     code: obra.rows[0]?.code || "",
     avance: c.avance,
-    presupuestoTotal: presupuesto.total,
-    // En "total" es el ejecutado acumulado (igual que Presupuesto); en otro rango, lo del período
-    ejecutado: ejecutadoPeriodo ?? presupuesto.ejecutado,
-    ejecutadoTotal: presupuesto.ejecutado,
-    comprometido: presupuesto.comprometido,
-    tareas: { total: c.t_total, done: c.t_done, prog: c.t_prog, late: c.t_late, donePeriodo: c.t_done_periodo },
-    alertas: c.alertas,
-    alertasPeriodo: c.alertas_periodo,
-    pedidos: c.pedidos,
-    stockLow: c.stock_low,
-    recibosPend: c.recibos_pend,
-    equipo: c.equipo,
   };
+
+  if (presupuesto) {
+    snapshot.presupuestoTotal = presupuesto.total;
+    // En "total" es el ejecutado acumulado (igual que Presupuesto); en otro rango, lo del período
+    snapshot.ejecutado = ejecutadoPeriodo ?? presupuesto.ejecutado;
+    snapshot.ejecutadoTotal = presupuesto.ejecutado;
+    snapshot.comprometido = presupuesto.comprometido;
+  }
+
+  snapshot.tareas = { total: c.t_total, done: c.t_done, prog: c.t_prog, late: c.t_late, donePeriodo: c.t_done_periodo };
+  snapshot.alertas = c.alertas;
+  snapshot.alertasPeriodo = c.alertas_periodo;
+  snapshot.pedidos = c.pedidos;
+  if (puedeVer(permisosWeb, "stock.ver")) snapshot.stockLow = c.stock_low;
+  if (puedeVer(permisosWeb, "recibos.ver")) snapshot.recibosPend = c.recibos_pend;
+  snapshot.equipo = c.equipo;
+  return snapshot;
 }
 
 // Detalle de una sección. `snapshot` ya trae `desde` y la portada.
@@ -221,9 +243,14 @@ async function detalleSeccion(db, obraId, seccion, snapshot) {
 }
 
 // Reporte completo: portada + el detalle de cada sección pedida (en el orden de SECCIONES).
-export async function armarReporte(db, obraId, rango, secciones) {
-  const snapshot = await calcularSnapshot(db, obraId, rango);
-  const pedidas = SECCIONES.filter((s) => secciones.includes(s));
+// Las secciones de costos/inventario se filtran por permiso, igual que el snapshot.
+export async function armarReporte(db, obraId, rango, secciones, permisosWeb = {}) {
+  const snapshot = await calcularSnapshot(db, obraId, rango, permisosWeb);
+  const pedidas = SECCIONES.filter(
+    (s) =>
+      secciones.includes(s) &&
+      (!SECCION_PERMISO[s] || puedeVer(permisosWeb, SECCION_PERMISO[s]))
+  );
   const detalles = await Promise.all(pedidas.map((s) => detalleSeccion(db, obraId, s, snapshot)));
   return {
     snapshot,

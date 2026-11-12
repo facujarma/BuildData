@@ -16,6 +16,8 @@ import { DPageHeader } from "../../_components/DPageHeader";
 import { DStatTile } from "../../_components/DStatTile";
 import { DashToast, useToast } from "../../_components/useToast";
 import DButton from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
+import { ActionBlocked } from "../../_components/SectionBlocked";
 import { DAvatar } from "@/components/ui/DAvatar";
 import {
   aprobarOperacion,
@@ -66,12 +68,14 @@ function operacionesPendientes(m: InboxMessage): Operacion[] {
 function OperacionCard({
   op,
   busy,
+  puedeAprobar,
   onAprobar,
   onRechazar,
   onReintentar,
 }: {
   op: Operacion;
   busy: boolean;
+  puedeAprobar: boolean;
   onAprobar: () => void;
   onRechazar: () => void;
   onReintentar: () => void;
@@ -118,7 +122,7 @@ function OperacionCard({
         </div>
       )}
 
-      {pendiente && (
+      {pendiente && puedeAprobar && (
         <div className="flex items-center gap-2 flex-wrap">
           <DButton
             variant="primary"
@@ -139,7 +143,7 @@ function OperacionCard({
         </div>
       )}
 
-      {op.estado === "error" && (
+      {op.estado === "error" && puedeAprobar && (
         <div className="flex items-center gap-2 flex-wrap">
           <DButton
             variant="primary"
@@ -159,6 +163,10 @@ function OperacionCard({
           </button>
         </div>
       )}
+
+      {(pendiente || op.estado === "error") && !puedeAprobar && (
+        <ActionBlocked permiso="bandeja.aprobar" />
+      )}
     </div>
   );
 }
@@ -170,6 +178,8 @@ export function ScreenInbox() {
   const [tab, setTab] = useState<TabId>("pendientes");
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeAprobar = puede("bandeja.aprobar");
 
   const load = useCallback(async () => {
     try {
@@ -299,15 +309,17 @@ export function ScreenInbox() {
         title="Bandeja de WhatsApp"
         subtitle={`${totalPendientes} operaciones esperan tu aprobación · el bot registra pero no ejecuta solo`}
         right={
-          <DButton
-            variant="primary"
-            size="sm"
-            icon={<Check width={13} height={13} />}
-            disabled={altaConfianza === 0}
-            onClick={aprobarAltaConfianza}
-          >
-            Aprobar confianza alta
-          </DButton>
+          puedeAprobar ? (
+            <DButton
+              variant="primary"
+              size="sm"
+              icon={<Check width={13} height={13} />}
+              disabled={altaConfianza === 0}
+              onClick={aprobarAltaConfianza}
+            >
+              Aprobar confianza alta
+            </DButton>
+          ) : undefined
         }
       />
 
@@ -432,6 +444,7 @@ export function ScreenInbox() {
                           key={op.id}
                           op={op}
                           busy={busy.has(op.id)}
+                          puedeAprobar={puedeAprobar}
                           onAprobar={() => aprobar(op)}
                           onRechazar={() => rechazar(op)}
                           onReintentar={() => reintentar(op)}

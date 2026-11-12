@@ -2,22 +2,24 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Rango } from "@/app/[obraId]/dashboard/reportes/data";
 
 // Portada del reporte (GET /reportes/:obra_id/snapshot). Montos en pesos.
+// Los campos de costos/inventario son opcionales: el Backend los omite si el rol
+// no tiene `presupuesto.ver`, `recibos.ver` o `stock.ver`.
 export interface ReporteSnapshot {
   rango: Rango;
   desde: string | null; // YYYY-MM-DD; null = toda la obra
   obra: string;
   code: string;
   avance: number;
-  presupuestoTotal: number;
-  ejecutado: number; // del período (o acumulado si rango = total)
-  ejecutadoTotal: number;
-  comprometido: number;
+  presupuestoTotal?: number;
+  ejecutado?: number; // del período (o acumulado si rango = total)
+  ejecutadoTotal?: number;
+  comprometido?: number;
   tareas: { total: number; done: number; prog: number; late: number; donePeriodo: number };
   alertas: number; // activas hoy
   alertasPeriodo: number;
   pedidos: number; // del período
-  stockLow: number;
-  recibosPend: number;
+  stockLow?: number;
+  recibosPend?: number;
   equipo: number;
 }
 

@@ -34,6 +34,7 @@ import mensajesRoutes from "./routes/mensajes.js";
 import operacionesRoutes from "./routes/operaciones.js";
 import chatbotRoutes from "./routes/chatbot.js";
 import galeriaRoutes from "./routes/galeria.js"; // galería de obra (fotos en Storage)
+import rolesRoutes from "./routes/roles.js"; // roles y permisos por obra
 import { verificarInactividad } from "./controllers/alertasController.js"; // tarea periódica (abajo)
 
 dotenv.config(); // carga el .env en process.env
@@ -125,6 +126,9 @@ app.use("/galeria", galeriaRoutes);
 
 // ChatBot AI (preguntas en lenguaje natural → SQL)
 app.use("/chat", chatbotRoutes);
+
+// Roles y permisos por obra (Configuración → Roles y permisos)
+app.use("/roles", rolesRoutes);
 
 const PORT = process.env.PORT || 3001; // puerto: el del .env o 3001 por defecto
 

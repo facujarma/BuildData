@@ -18,6 +18,7 @@ import {
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { getSnapshot, generarReporte, type ReporteSnapshot, type ReporteGenerado } from "@/services/reportesService";
 import { useDashboardData } from "../../_components/DashboardDataContext";
 import { SECTION_DEFS, RANGE_LABELS, RANGES, type Rango } from "../data";
@@ -41,6 +42,8 @@ const RANGE_SHORT: Record<Rango, string> = { semana: "Semana", mes: "Mes", trime
 
 export function ScreenReportes() {
   const { obraId } = useDashboardData();
+  const { puede } = useRole();
+  const puedeExportar = puede("reportes.exportar");
   const [snapshot, setSnapshot] = useState<ReporteSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Rango>("mes");
@@ -82,6 +85,8 @@ export function ScreenReportes() {
 
   const allSelected = selected.size === SECTION_DEFS.length;
   const someSelected = selected.size > 0;
+  // Sin `presupuesto.ver` el Backend omite `ejecutado`: el KPI de costos no se pinta.
+  const muestraEjecutado = snapshot.ejecutado !== undefined;
 
   const toggleAll = () => {
     if (allSelected) {
@@ -131,10 +136,12 @@ export function ScreenReportes() {
       <DPageHeader
         title="Reporte de obra"
         right={
-          <Button variant="primary" size="sm" icon={<FileArrowDown width={13} height={13} />}
-            disabled={!someSelected} onClick={handleGenerate}>
-            Generar reporte
-          </Button>
+          puedeExportar ? (
+            <Button variant="primary" size="sm" icon={<FileArrowDown width={13} height={13} />}
+              disabled={!someSelected} onClick={handleGenerate}>
+              Generar reporte
+            </Button>
+          ) : undefined
         }
       />
 
@@ -160,7 +167,7 @@ export function ScreenReportes() {
               <div className="text-[11px] text-white/60 mt-[2px]">{snapshot.code}</div>
               <div className="text-[10px] text-white/40 mt-1">Generado el {genDate}</div>
 
-              <div className="grid grid-cols-4 gap-4 mt-6">
+              <div className={`grid ${muestraEjecutado ? "grid-cols-4" : "grid-cols-3"} gap-4 mt-6`}>
                 <div>
                   <div className="text-[22px] font-extrabold display-tight tnum leading-none">
                     {snapshot.avance}%
@@ -169,14 +176,16 @@ export function ScreenReportes() {
                     Avance
                   </div>
                 </div>
-                <div>
-                  <div className="text-[22px] font-extrabold display-tight tnum leading-none">
-                    {formatARSCompact(snapshot.ejecutado)}
+                {muestraEjecutado && (
+                  <div>
+                    <div className="text-[22px] font-extrabold display-tight tnum leading-none">
+                      {formatARSCompact(snapshot.ejecutado)}
+                    </div>
+                    <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-white/50 mt-1">
+                      {range === "total" ? "Ejecutado" : "Ejecutado en el período"}
+                    </div>
                   </div>
-                  <div className="text-[9px] tracking-[0.06em] uppercase font-bold text-white/50 mt-1">
-                    {range === "total" ? "Ejecutado" : "Ejecutado en el período"}
-                  </div>
-                </div>
+                )}
                 <div>
                   <div className="text-[22px] font-extrabold display-tight tnum leading-none">
                     {snapshot.alertas}
@@ -281,16 +290,18 @@ export function ScreenReportes() {
           </DCard>
 
           <div className="flex flex-col gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              className="justify-center"
-              icon={<FileArrowDown width={13} height={13} />}
-              disabled={!someSelected}
-              onClick={handleGenerate}
-            >
-              Generar reporte
-            </Button>
+            {puedeExportar && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="justify-center"
+                icon={<FileArrowDown width={13} height={13} />}
+                disabled={!someSelected}
+                onClick={handleGenerate}
+              >
+                Generar reporte
+              </Button>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="secondary"

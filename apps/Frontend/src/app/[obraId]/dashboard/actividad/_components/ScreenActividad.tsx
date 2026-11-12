@@ -10,6 +10,7 @@ import { DCard } from "@/components/ui/DCard";
 import { DPill } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { DPageHeader } from "@/app/[obraId]/dashboard/_components/DPageHeader";
 
 const KIND_ELEM: Record<string, React.ReactNode> = {
@@ -30,6 +31,8 @@ function renderBold(text: string) {
 }
 
 export function ScreenActividad({ obraId }: { obraId: string }) {
+  const { puede } = useRole();
+  const puedeRegistrar = puede("actividad.registrar");
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<ActivityGroup[]>([]);
   const [question, setQuestion] = useState("");
@@ -77,9 +80,11 @@ export function ScreenActividad({ obraId }: { obraId: string }) {
       <DPageHeader
         title="Actividad de la obra"
         right={
-          <Button size="sm" icon={<Plus width={16} height={16} />}>
-            Nueva actividad
-          </Button>
+          puedeRegistrar ? (
+            <Button size="sm" icon={<Plus width={16} height={16} />}>
+              Nueva actividad
+            </Button>
+          ) : undefined
         }
       />
 

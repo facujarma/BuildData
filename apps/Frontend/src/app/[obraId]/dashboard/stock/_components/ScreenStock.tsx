@@ -8,6 +8,8 @@ import DButton from "@/components/ui/Button";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
 import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
+import { useRole } from "@/app/[obraId]/dashboard/_components/RoleContext";
+import { mensajeAccionRechazada } from "@/lib/apiError";
 import { getStock, createMaterial, updateMaterial, ajustarStock, deleteMaterial, createCategoria } from "@/services/stockService";
 import type { StockItem } from "../data";
 import { getStatus, STAT_LABELS, catColor } from "../data";
@@ -25,6 +27,8 @@ export function ScreenStock() {
   const [showAdd, setShowAdd] = useState(false);
   const [showNewCat, setShowNewCat] = useState(false);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeAjustar = puede("stock.ajustar");
 
   const load = useCallback(async () => {
     const d = await getStock(obraId);
@@ -54,7 +58,7 @@ export function ScreenStock() {
     try {
       await ajustarStock(id, delta);
     } catch (e) {
-      flash(e instanceof Error ? e.message : "No se pudo ajustar el stock");
+      flash(mensajeAccionRechazada(e, "No se pudo ajustar el stock"));
       load().catch(() => {});
     }
   };
@@ -82,7 +86,7 @@ export function ScreenStock() {
       setItems((prev) => prev.filter((i) => i.id !== id));
       flash("Material eliminado");
     } catch (e) {
-      flash(e instanceof Error ? e.message : "No se pudo eliminar el material");
+      flash(mensajeAccionRechazada(e, "No se pudo eliminar el material"));
     }
   };
 
@@ -101,10 +105,12 @@ export function ScreenStock() {
     <div>
       <DPageHeader title="Stock" subtitle="Inventario de materiales"
         right={
-          <div className="flex gap-2">
-            <DButton variant="outline" icon={<FolderPlus width={14} height={14} />} onClick={() => setShowNewCat(true)}>Nueva categoría</DButton>
-            <DButton icon={<Plus width={14} height={14} />} onClick={() => setShowAdd(true)}>Agregar material</DButton>
-          </div>
+          puedeAjustar ? (
+            <div className="flex gap-2">
+              <DButton variant="outline" icon={<FolderPlus width={14} height={14} />} onClick={() => setShowNewCat(true)}>Nueva categoría</DButton>
+              <DButton icon={<Plus width={14} height={14} />} onClick={() => setShowAdd(true)}>Agregar material</DButton>
+            </div>
+          ) : undefined
         } />
 
       <div className="grid grid-cols-4 gap-3 mb-4">
@@ -173,22 +179,24 @@ export function ScreenStock() {
                 <div className="h-[6px] bg-slate-100 rounded-full overflow-hidden mb-3">
                   <div className="h-full rounded-full transition-all" style={{ width: Math.min(pct, 100) + "%", background: sl.dot }} />
                 </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
-                    className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950 disabled:opacity-40 disabled:pointer-events-none">
-                    <Minus width={12} height={12} />
-                  </button>
-                  <span className="text-[13px] font-bold tnum text-slate-950 w-[32px] text-center">{item.qty}</span>
-                  <button onClick={() => adjust(item.id, 1)}
-                    className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950">
-                    <Plus width={12} height={12} />
-                  </button>
-                  <div className="flex-1" />
-                  <button onClick={() => setEditItem(item)}
-                    className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950">
-                    <Pencil width={12} height={12} />
-                  </button>
-                </div>
+                {puedeAjustar && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
+                      className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950 disabled:opacity-40 disabled:pointer-events-none">
+                      <Minus width={12} height={12} />
+                    </button>
+                    <span className="text-[13px] font-bold tnum text-slate-950 w-[32px] text-center">{item.qty}</span>
+                    <button onClick={() => adjust(item.id, 1)}
+                      className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950">
+                      <Plus width={12} height={12} />
+                    </button>
+                    <div className="flex-1" />
+                    <button onClick={() => setEditItem(item)}
+                      className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950">
+                      <Pencil width={12} height={12} />
+                    </button>
+                  </div>
+                )}
               </DCard>
             );
           })}
@@ -203,8 +211,12 @@ export function ScreenStock() {
                 <th className="text-left px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Ubicación</th>
                 <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Disponible</th>
                 <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Estado</th>
-                <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Ajustar</th>
-                <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Editar</th>
+                {puedeAjustar && (
+                  <>
+                    <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Ajustar</th>
+                    <th className="text-center px-4 py-3 font-bold text-slate-600 tracking-[0.04em] uppercase">Editar</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -235,25 +247,29 @@ export function ScreenStock() {
                     <td className="px-4 py-3 text-slate-600">{item.loc || "—"}</td>
                     <td className="px-4 py-3 text-center font-bold tnum">{item.qty} <span className="font-normal text-slate-500">{item.unit}</span></td>
                     <td className="px-4 py-3 text-center"><DPill tone={sl.tone}>{sl.label}</DPill></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
-                          className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none">
-                          <Minus width={12} height={12} />
-                        </button>
-                        <span className="text-[13px] font-bold tnum w-[32px] text-center">{item.qty}</span>
-                        <button onClick={() => adjust(item.id, 1)}
-                          className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50">
-                          <Plus width={12} height={12} />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button onClick={() => setEditItem(item)}
-                        className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950 mx-auto">
-                        <Pencil width={12} height={12} />
-                      </button>
-                    </td>
+                    {puedeAjustar && (
+                      <>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => adjust(item.id, -1)} disabled={item.qty <= 0}
+                              className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none">
+                              <Minus width={12} height={12} />
+                            </button>
+                            <span className="text-[13px] font-bold tnum w-[32px] text-center">{item.qty}</span>
+                            <button onClick={() => adjust(item.id, 1)}
+                              className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50">
+                              <Plus width={12} height={12} />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button onClick={() => setEditItem(item)}
+                            className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-950 mx-auto">
+                            <Pencil width={12} height={12} />
+                          </button>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

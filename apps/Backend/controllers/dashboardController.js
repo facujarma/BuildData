@@ -4,6 +4,12 @@ import { calcularRubros, resumir } from "../services/presupuesto.service.js";
 // GET /obras/:obraId/dashboard
 export async function getDashboard(req, res) {
   const { obraId } = req.params;
+  // Costos internos: el middleware deja el perfil en `req.perfilObra` y acá se
+  // filtra lo que se serializa (docs/roles-permisos.md §Decisiones 5). Fail
+  // closed: sin perfil no viaja ningún bloque de costos.
+  const permisosWeb = req.perfilObra?.permisos?.web ?? {};
+  const puedeVerPresupuesto = permisosWeb["presupuesto.ver"] === true;
+  const puedeVerPedidos = permisosWeb["pedidos.ver"] === true;
   try {
     // Info básica de la obra
     const obraResult = await pool.query(
@@ -69,48 +75,63 @@ export async function getDashboard(req, res) {
     );
     const operacionesPendientes = parseInt(operacionesResult.rows[0].pendientes) || 0;
 
-    const pedidosResultRaw = await pool.query(
-      `SELECT
-          id,
-          estado,
-          aprobado,
-          fecha,
-          proveedor_id
-      FROM pedidos_materiales
-      WHERE obra_id = $1
-      ORDER BY fecha DESC`,
-      [obraId]
-    );
+    // Pedidos con sus ítems (incluyen precios): solo con `pedidos.ver`.
+    // Sin el permiso se devuelve el array vacío que espera la pantalla.
+    let pedidosConItems = [];
+    if (puedeVerPedidos) {
+      const pedidosResultRaw = await pool.query(
+        `SELECT
+            id,
+            estado,
+            aprobado,
+            fecha,
+            proveedor_id
+        FROM pedidos_materiales
+        WHERE obra_id = $1
+        ORDER BY fecha DESC`,
+        [obraId]
+      );
 
-const pedidosConItems = await Promise.all(
-  pedidosResultRaw.rows.map(async (pedido) => {
-    const itemsResult = await pool.query(
-      `SELECT
-          material_id,
-          cantidad,
-          precio_unitario
-       FROM pedidos_items
-       WHERE pedido_id = $1`,
-      [pedido.id]
-    );
+      pedidosConItems = await Promise.all(
+        pedidosResultRaw.rows.map(async (pedido) => {
+          const itemsResult = await pool.query(
+            `SELECT
+                material_id,
+                cantidad,
+                precio_unitario
+             FROM pedidos_items
+             WHERE pedido_id = $1`,
+            [pedido.id]
+          );
 
-    return {
-      ...pedido,
-      items: itemsResult.rows,
-    };
-  })
-);
+          return {
+            ...pedido,
+            items: itemsResult.rows,
+          };
+        })
+      );
+    }
 
     // Presupuesto y desglose por rubro: mismo cálculo que /presupuestos/:obra_id
     // (services/presupuesto.service.js). Ejecutado y comprometido se calculan al
     // vuelo desde gastos y pedidos — nunca desde presupuesto_rubros.spent.
-    const [rubrosPresupuesto, presupuestoResult] = await Promise.all([
-      calcularRubros(pool, obraId),
-      pool.query(`SELECT updated_at FROM presupuestos WHERE obra_id = $1`, [obraId]),
-    ]);
-    const presupuesto = resumir(rubrosPresupuesto);
+    // Solo se consulta/serializa con `presupuesto.ver`.
+    let rubrosPresupuesto = [];
+    let presupuesto = null;
+    let presupuestoUpdatedAt = null;
+    if (puedeVerPresupuesto) {
+      const [rubros, presupuestoResult] = await Promise.all([
+        calcularRubros(pool, obraId),
+        pool.query(`SELECT updated_at FROM presupuestos WHERE obra_id = $1`, [obraId]),
+      ]);
+      rubrosPresupuesto = rubros;
+      presupuesto = resumir(rubros);
+      presupuestoUpdatedAt = presupuestoResult.rows[0]?.updated_at || null;
+    }
     const pctPresupuesto = (monto) =>
-      presupuesto.total > 0 ? Math.round((monto / presupuesto.total) * 100) : 0;
+      presupuesto && presupuesto.total > 0
+        ? Math.round((monto / presupuesto.total) * 100)
+        : 0;
 
     // Trade progress — avance calculado desde las tareas del rubro
     // (promedio simple de porcentaje_avance, excluyendo canceladas).
@@ -194,7 +215,7 @@ const pedidosConItems = await Promise.all(
       ? Math.round((tareas.completadas / tareas.total) * 100)
       : 0;
 
-    res.json({
+    const respuesta = {
       obra: {
         name: obra.nombre,
         lastUpdate: obra.last_activity,
@@ -210,26 +231,34 @@ const pedidosConItems = await Promise.all(
         tareasCompletadas: parseInt(tareas.completadas),
         tareasTotal: parseInt(tareas.total),
       },
-      budget: {
+      tradeProgress: tradeResult.rows.map(r => ({ ...r, pct: parseInt(r.pct) })),
+      activityFeed: actividadResult.rows,
+      alerts: alertasListResult.rows,
+      tasks: tareasListResult.rows,
+      orders: pedidosConItems,
+    };
+
+    // Los bloques de costos no viajan si el rol no tiene el permiso: el
+    // dashboard es la única pantalla con `dashboard.ver` que los mezclaba.
+    if (puedeVerPresupuesto && presupuesto) {
+      respuesta.budget = {
         total: presupuesto.total,
         ejecutado: presupuesto.ejecutado,
         disponible: presupuesto.disponible,
         ejecutadoPct: pctPresupuesto(presupuesto.ejecutado),
         comprometidoPct: pctPresupuesto(presupuesto.comprometido),
         librePct: pctPresupuesto(presupuesto.disponible),
-        updatedAt: presupuestoResult.rows[0]?.updated_at || null,
-      },
-      budgetBreakdown: rubrosPresupuesto.map((r) => ({
+        updatedAt: presupuestoUpdatedAt,
+      };
+      respuesta.budgetBreakdown = rubrosPresupuesto.map((r) => ({
         name: r.nombre,
         spent: r.spent,
         comp: r.comp,
         cap: r.cap,
-      })),
-      tradeProgress: tradeResult.rows.map(r => ({ ...r, pct: parseInt(r.pct) })),
-      activityFeed: actividadResult.rows,
-      alerts: alertasListResult.rows,
-      tasks: tareasListResult.rows,
-      orders: pedidosConItems,    });
+      }));
+    }
+
+    res.json(respuesta);
   } catch (error) {
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });

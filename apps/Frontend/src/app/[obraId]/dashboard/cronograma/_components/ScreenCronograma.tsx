@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ChartBar, FileArrowDown, ListUl, Calendar, Plus } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { DashToast, useToast } from "../../_components/useToast";
 import {
   getCronograma,
@@ -41,6 +42,9 @@ export function ScreenCronograma() {
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeEditar = puede("cronograma.editar");
+  const puedeExportar = puede("reportes.exportar");
 
   // El estado se actualiza dentro de los callbacks del fetch (no sincrónico
   // en el cuerpo del efecto). Para recargar, los handlers incrementan refreshKey.
@@ -136,22 +140,26 @@ export function ScreenCronograma() {
         subtitle={`${totalTasks} tareas en ${groups.length} rubros · ${doneTasks} completadas · ${progTasks} en curso · ${lateTasks} en retraso`}
         right={
           <>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<FileArrowDown width={13} height={13} />}
-              onClick={() => flash("Exportando cronograma…")}
-            >
-              Exportar
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus width={13} height={13} />}
-              onClick={() => setNewTaskOpen(true)}
-            >
-              Nueva tarea
-            </Button>
+            {puedeExportar && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<FileArrowDown width={13} height={13} />}
+                onClick={() => flash("Exportando cronograma…")}
+              >
+                Exportar
+              </Button>
+            )}
+            {puedeEditar && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus width={13} height={13} />}
+                onClick={() => setNewTaskOpen(true)}
+              >
+                Nueva tarea
+              </Button>
+            )}
           </>
         }
       />

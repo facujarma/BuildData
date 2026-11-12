@@ -24,4 +24,11 @@ export interface InvitacionObreroCreada {
   link: string;
 }
 
-export const ROLES = ['Obrero', 'Capataz', 'Director'];
+export const ROLES = [
+  'Cliente',
+  'Obrero',
+  'Seguridad e Higiene',
+  'Capataz',
+  'Administrativo',
+  'Director',
+];

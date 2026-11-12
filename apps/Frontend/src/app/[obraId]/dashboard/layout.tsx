@@ -1,12 +1,14 @@
 "use client";
 
-import { use, useState, useEffect, type ReactNode } from "react";
+import { Suspense, use, useState, useEffect, type ReactNode } from "react";
 import { DashSidebar } from "@/app/[obraId]/dashboard/_components/DashSidebar";
 import { DashTopBar } from "@/app/[obraId]/dashboard/_components/DashTopBar";
 import { DashboardDataProvider, useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
 import { QuickAddModal } from "@/app/[obraId]/dashboard/_components/QuickAddModal";
 import { ChatBubble } from "@/app/[obraId]/dashboard/_components/ChatBubble";
 import { useToast, DashToast } from "@/app/[obraId]/dashboard/_components/useToast";
+import { RoleProvider } from "@/app/[obraId]/dashboard/_components/RoleContext";
+import { SectionGate, SectionSkeleton } from "@/app/[obraId]/dashboard/_components/SectionGate";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { getObra } from "@/services/projectsService";
 
@@ -21,11 +23,13 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
-      <DashboardDataProvider>
-        <LayoutInner obraId={obraId}>
-          {children}
-        </LayoutInner>
-      </DashboardDataProvider>
+      <RoleProvider obraId={obraId}>
+        <DashboardDataProvider>
+          <LayoutInner obraId={obraId}>
+            {children}
+          </LayoutInner>
+        </DashboardDataProvider>
+      </RoleProvider>
     </ProtectedRoute>
   );
 }
@@ -55,7 +59,13 @@ function LayoutInner({ children, obraId }: { children: ReactNode; obraId: string
         <div className="flex-1 min-w-0 flex flex-col">
           <DashTopBar onQuickAdd={setQuickAdd} />
           <main className="flex-1 overflow-y-auto">
-            <div className="p-6 max-w-[1100px] mx-auto">{children}</div>
+            <div className="p-6 max-w-[1100px] mx-auto">
+              {/* useSearchParams pide Suspense en el layout; el gate vive acá
+                  para no montar la pantalla (ni sus requests) sin permiso. */}
+              <Suspense fallback={<SectionSkeleton />}>
+                <SectionGate>{children}</SectionGate>
+              </Suspense>
+            </div>
           </main>
         </div>
       </div>

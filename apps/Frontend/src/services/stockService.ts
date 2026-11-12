@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { apiErrorDesde } from "@/lib/apiError";
 import type { StockItem } from "@/app/[obraId]/dashboard/stock/data";
 
 export interface StockData {
@@ -51,7 +52,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 async function parseError(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({}));
-  return new Error(err.message || err.error || `Request failed: ${res.status}`);
+  return apiErrorDesde(res.status, err, `Request failed: ${res.status}`);
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {

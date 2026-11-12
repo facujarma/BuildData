@@ -12,6 +12,7 @@ import {
 } from "@gravity-ui/icons";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
+import { ActionBlocked } from "../../_components/SectionBlocked";
 import type { PedidoItem } from "../data";
 import { STATE_MAP } from "../data";
 import { formatARS } from "@/lib/format";
@@ -24,6 +25,9 @@ interface Props {
   onChangeState: (id: string, estado: "en_camino" | "demorado") => void;
   onDeliver: (id: string) => void;
   onComprobante: () => void;
+  /** Permisos de la pantalla: las acciones sin permiso no se muestran. */
+  puedeAprobar: boolean;
+  puedeEntregar: boolean;
 }
 
 const STEPS = [
@@ -34,7 +38,7 @@ const STEPS = [
   { key: "delivered", label: "Entregado", n: 4 },
 ];
 
-export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState, onDeliver, onComprobante }: Props) {
+export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState, onDeliver, onComprobante, puedeAprobar, puedeEntregar }: Props) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -172,25 +176,31 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState
           )}
         </div>
 
-        <div className="border-t border-slate-200 p-3 flex items-center gap-2 flex-none">
+        <div className="border-t border-slate-200 p-3 flex items-center gap-2 flex-none flex-wrap">
           {order.state === "pending" ? (
-            <>
-              <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
-                Cancelar pedido
-              </DButton>
-              <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => onApprove(order.id)}>
-                Aprobar pedido
-              </DButton>
-            </>
+            puedeAprobar ? (
+              <>
+                <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
+                  Cancelar pedido
+                </DButton>
+                <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => onApprove(order.id)}>
+                  Aprobar pedido
+                </DButton>
+              </>
+            ) : (
+              <ActionBlocked permiso="pedidos.aprobar" />
+            )
           ) : isCancelled || isDelivered ? (
             <DButton variant="secondary" size="sm" className="flex-1 justify-center" onClick={onComprobante}>
               Comprobante
             </DButton>
-          ) : (
+          ) : puedeEntregar ? (
             <>
-              <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
-                Cancelar
-              </DButton>
+              {puedeAprobar && (
+                <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
+                  Cancelar
+                </DButton>
+              )}
               {order.state !== "transit" && (
                 <DButton variant="secondary" size="sm" onClick={() => onChangeState(order.id, "en_camino")}>
                   En camino
@@ -210,6 +220,15 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState
               >
                 Registrar entrega
               </DButton>
+            </>
+          ) : (
+            <>
+              {puedeAprobar && (
+                <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>
+                  Cancelar
+                </DButton>
+              )}
+              <ActionBlocked permiso="pedidos.entregar" />
             </>
           )}
         </div>

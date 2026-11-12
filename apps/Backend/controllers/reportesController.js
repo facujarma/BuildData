@@ -37,7 +37,7 @@ export async function getSnapshot(req, res) {
   }
   try {
     if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
-    res.json(await calcularSnapshot(pool, obra_id, rango));
+    res.json(await calcularSnapshot(pool, obra_id, rango, req.perfilObra?.permisos?.web));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error calculando el reporte" });
@@ -63,7 +63,7 @@ export async function generarReporte(req, res) {
   try {
     if (!(await esMiembroDeObra(req.personaId, obra_id))) return sinAcceso(res);
 
-    const reporte = await armarReporte(pool, obra_id, rango, secciones);
+    const reporte = await armarReporte(pool, obra_id, rango, secciones, req.perfilObra?.permisos?.web);
     const titulo = `Reporte ${reporte.snapshot.obra} · ${RANGO_LABEL[rango]}`;
     const s = reporte.snapshot;
     const contenido =

@@ -1,6 +1,12 @@
 import { pool } from "../db.js";
 import { guardarEmbeddings } from "../services/embeddings.service.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
 import { normalizarRol } from "../services/permisos.service.js";
+import {
+  perfilEnObra,
+  sembrarRoles,
+  serializarMiRol,
+} from "../services/roles.service.js";
 
 // Catálogo de categorías de MATERIALES con el que nace toda obra nueva
 // (tabla categorias_materiales, no son rubros). Después se edita desde Stock.
@@ -90,6 +96,11 @@ export async function getObras(req, res) {
 export async function getObra(req, res) {
   const { obraId } = req.params;
   try {
+    // La obra solo se muestra a sus miembros (mismo criterio que el resto de la web).
+    if (!(await esMiembroDeObra(req.personaId, obraId))) {
+      return res.status(403).json({ code: "FORBIDDEN", message: "No pertenecés a esta obra" });
+    }
+
     const result = await pool.query(
       `SELECT o.*,
         (SELECT COUNT(*) FROM alertas a WHERE a.obra_id = o.id AND a.resuelta = false) AS alerts,
@@ -100,7 +111,25 @@ export async function getObra(req, res) {
       [obraId]
     );
     if (!result.rows[0]) return res.status(404).json({ code: "NOT_FOUND", message: "Obra no encontrada" });
-    res.json(await buildObra(result.rows[0]));
+
+    const perfil = await perfilEnObra(req.personaId, obraId);
+    res.json({ ...(await buildObra(result.rows[0])), miRol: serializarMiRol(perfil) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+}
+
+// GET /obras/:obraId/mi-rol — rol y permisos efectivos del que llama en la obra.
+// Lo usa el frontend (RoleProvider/useRole) para armar el sidebar y los gates.
+export async function getMiRol(req, res) {
+  const { obraId } = req.params;
+  try {
+    const perfil = await perfilEnObra(req.personaId, obraId);
+    if (!perfil) {
+      return res.status(403).json({ code: "FORBIDDEN", message: "No pertenecés a esta obra" });
+    }
+    res.json(serializarMiRol(perfil));
   } catch (error) {
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
@@ -161,6 +190,10 @@ export async function crearObra(req, res) {
       [name, codigo, type, address, city || null, province || null, zip || null, country || 'ar', startDate || null, endDate || null, status || 'planificacion']
     );
     const obra_id = obra.rows[0].id;
+
+    // Sembrar los seis roles de sistema de la obra antes de vincular al creador:
+    // su rol (Director) tiene que existir en roles_obra.
+    await sembrarRoles(client, obra_id);
 
     // Vincular creador (persona existente o creada con su nombre)
     const personaExistente = await client.query(

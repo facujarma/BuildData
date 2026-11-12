@@ -12,6 +12,7 @@ import { DPageHeader } from "@/app/[obraId]/dashboard/_components/DPageHeader";
 import { DStatTile } from "@/app/[obraId]/dashboard/_components/DStatTile";
 import { QuickAddModal } from "@/app/[obraId]/dashboard/_components/QuickAddModal";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
+import { useRole } from "@/app/[obraId]/dashboard/_components/RoleContext";
 import { AlertaDrawer } from "./AlertaDrawer";
 
 type TabId = "activas" | "criticas" | "importantes" | "moderadas" | "todas";
@@ -39,6 +40,8 @@ export function ScreenAlertas() {
   const [reportOpen, setReportOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeGestionar = puede("alertas.gestionar");
 
   useEffect(() => {
     let cancelled = false;
@@ -106,14 +109,16 @@ export function ScreenAlertas() {
         title="Alertas de obra"
         subtitle={`${openCount} sin atender · ${critCount} crítica${critCount === 1 ? "" : "s"} activa${critCount === 1 ? "" : "s"}`}
         right={
-          <Button
-            variant="danger"
-            size="sm"
-            icon={<CircleExclamation width={13} height={13} />}
-            onClick={() => setReportOpen(true)}
-          >
-            Reportar alerta
-          </Button>
+          puedeGestionar ? (
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<CircleExclamation width={13} height={13} />}
+              onClick={() => setReportOpen(true)}
+            >
+              Reportar alerta
+            </Button>
+          ) : undefined
         }
       />
 
@@ -226,14 +231,16 @@ export function ScreenAlertas() {
                 </div>
               </div>
               <div className="border-t border-slate-100 px-5 py-2 flex items-center gap-2 flex-wrap bg-slate-50/50">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Check width={12} height={12} />}
-                  onClick={() => handleResolve(a.id)}
-                >
-                  Resolver
-                </Button>
+                {puedeGestionar && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Check width={12} height={12} />}
+                    onClick={() => handleResolve(a.id)}
+                  >
+                    Resolver
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => setPick(a)}>
                   Ver detalle
                 </Button>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Car, CircleDollar, Clock, Plus, TriangleExclamation } from "@gravity-ui/icons";
 import { DPill } from "@/components/ui/DPill";
 import DButton from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { DStatTile, DPageHeader } from "@/app/[obraId]/dashboard/_components";
 import { DashToast, useToast } from "@/app/[obraId]/dashboard/_components/useToast";
 import { useDashboardData } from "@/app/[obraId]/dashboard/_components/DashboardDataContext";
@@ -20,6 +21,7 @@ import { formatARS } from "@/lib/format";
 import { OrderDrawer } from "./OrderDrawer";
 import { NewOrderModal } from "./NewOrderModal";
 import { DeliveryModal } from "./DeliveryModal";
+import { mensajeAccionRechazada } from "@/lib/apiError";
 
 const FILTER_MATCH: Record<string, (o: PedidoItem) => boolean> = {
   Todos: () => true,
@@ -43,6 +45,10 @@ export function ScreenPedidos() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [materiales, setMateriales] = useState<MaterialOption[]>([]);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeCrear = puede("pedidos.crear");
+  const puedeAprobar = puede("pedidos.aprobar");
+  const puedeEntregar = puede("pedidos.entregar");
 
   const load = useCallback(() => {
     return getPedidos(obraId).then(setOrders);
@@ -75,8 +81,8 @@ export function ScreenPedidos() {
       await load();
       setSelected(null);
       flash("Pedido aprobado");
-    } catch {
-      flash("No se pudo aprobar el pedido");
+    } catch (e) {
+      flash(mensajeAccionRechazada(e, "No se pudo aprobar el pedido"));
     }
   };
 
@@ -86,8 +92,8 @@ export function ScreenPedidos() {
       await load();
       setSelected(null);
       flash("Pedido cancelado");
-    } catch {
-      flash("No se pudo cancelar el pedido");
+    } catch (e) {
+      flash(mensajeAccionRechazada(e, "No se pudo cancelar el pedido"));
     }
   };
 
@@ -139,7 +145,7 @@ export function ScreenPedidos() {
       <DPageHeader
         title="Pedidos de materiales"
         subtitle={`${orders.length} pedidos · ${pendingCount} esperan tu aprobación`}
-        right={<DButton icon={<Plus width={14} height={14} />} onClick={() => setShowNew(true)}>Nuevo pedido</DButton>}
+        right={puedeCrear ? <DButton icon={<Plus width={14} height={14} />} onClick={() => setShowNew(true)}>Nuevo pedido</DButton> : undefined}
       />
 
       <div className="grid grid-cols-4 gap-3 mb-4">
@@ -245,9 +251,11 @@ export function ScreenPedidos() {
 
                 {o.state === "pending" && (
                   <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                    <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => handleApprove(o.id)}>
-                      Aprobar
-                    </DButton>
+                    {puedeAprobar && (
+                      <DButton variant="primary" size="sm" className="flex-1 justify-center" onClick={() => handleApprove(o.id)}>
+                        Aprobar
+                      </DButton>
+                    )}
                     <DButton variant="secondary" size="sm" onClick={() => setSelected(o)}>
                       Ver
                     </DButton>
@@ -273,6 +281,8 @@ export function ScreenPedidos() {
           onChangeState={handleChangeState}
           onDeliver={(id) => { setDeliverFor(orders.find((o) => o.id === id) || selected); setSelected(null); }}
           onComprobante={() => flash("Comprobante no disponible")}
+          puedeAprobar={puedeAprobar}
+          puedeEntregar={puedeEntregar}
         />
       )}
 

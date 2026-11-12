@@ -23,8 +23,8 @@ async function actividadPedido(db, { obraId, usuarioId, pedidoId, accion, texto,
     tags: [...p.tags, ...tags], // "Urgente" (si aplica) + los extra del caller
   });
 }
-import { esMiembroDeObra, obraDePedido, proveedorAccesible, rolEnObra } from "../services/obraAccess.service.js"; // permisos
-import { puedeOperar } from "../services/permisos.service.js";
+import { esMiembroDeObra, obraDePedido, proveedorAccesible } from "../services/obraAccess.service.js"; // permisos
+import { perfilEnObra } from "../services/roles.service.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js"; // teléfono del bot → personas.id
 
 // Respuestas de error reutilizables (403 = sin permiso, 404 = no existe)
@@ -557,11 +557,13 @@ export async function entregarPedidoDesdeBot(req, res) {
       return res.status(403).json({ error: "No pertenecés a esta obra" });
     }
     // Defensa en profundidad: el camino normal (/bot/operaciones) ya gatea el
-    // permiso, pero el endpoint directo no debe dejar entregar a un Obrero.
-    const rol = await rolEnObra(personaId, obra_id);
-    if (!puedeOperar(rol, "/bot/pedidos/entregar")) {
+    // permiso, pero el endpoint directo no debe dejar entregar a un Obrero ni
+    // ignorar la matriz dinámica de roles_obra (roles personalizados incluidos).
+    const perfil = await perfilEnObra(personaId, obra_id);
+    if (!perfil) return sinAcceso(res);
+    if (perfil.permisos.bot["pedido.entregar"] !== true) {
       return res.status(403).json({
-        error: `tu rol ${rol ?? "sin rol"} no puede marcar pedidos como entregados`,
+        error: `tu rol ${perfil.rol.nombre} no puede marcar pedidos como entregados`,
       });
     }
     const persona = await pool.query(`SELECT nombre FROM personas WHERE id = $1`, [personaId]);

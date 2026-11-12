@@ -1,6 +1,10 @@
 import { Command } from "./index";
 import { getUserObras } from "../services/user.service";
-import { normalizarRol, permisosDe } from "../services/permissions.service";
+import {
+  nombreRolVisible,
+  origenPermisosDeObra,
+  permisosDeObra,
+} from "../services/permissions.service";
 
 export const rolCommand: Command = {
   name: "!rol",
@@ -14,11 +18,20 @@ export const rolCommand: Command = {
     }
 
     const bloques = user.obras.map((obra) => {
-      const rol = normalizarRol(obra.rol);
-      const permisos = permisosDe(rol)
-        .map((p) => `  • ${p.label}`)
-        .join("\n");
-      return `🏗️ *${obra.obra_nombre}*\n👤 Rol: *${rol}*\n${permisos}`;
+      // Rol y permisos tal como los resuelve el Backend para esa obra (incluye
+      // roles personalizados y permisos editados desde la web). La matriz
+      // estática solo se usa si el Backend todavía no manda `permisos`.
+      const rol = nombreRolVisible(obra.rol, obra.permisos);
+      const permisos = permisosDeObra(obra);
+      const detalle = permisos.length
+        ? permisos.map((p) => `  • ${p.label}`).join("\n")
+        : "  • Sin permisos de WhatsApp en esta obra.";
+      // De dónde salen las capacidades: roles_obra o la matriz por defecto.
+      const origen =
+        origenPermisosDeObra(obra) === "obra"
+          ? "ℹ️ Permisos configurados en la obra."
+          : "ℹ️ Permisos por defecto del rol.";
+      return `🏗️ *${obra.obra_nombre}*\n👤 Rol: *${rol}*\n${detalle}\n${origen}`;
     });
 
     await message.reply(
