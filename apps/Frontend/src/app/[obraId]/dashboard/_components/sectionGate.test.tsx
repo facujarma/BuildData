@@ -22,6 +22,18 @@ let busquedaActual = "";
 mock.module("next/navigation", () => ({
   usePathname: () => pathnameActual,
   useSearchParams: () => new URLSearchParams(busquedaActual),
+  // Exports que otros componentes del árbol pueden importar aunque este test no
+  // los use: un mock parcial rompe el archivo siguiente por el registry global.
+  useRouter: () => ({
+    push: () => {},
+    replace: () => {},
+    refresh: () => {},
+    back: () => {},
+    prefetch: () => {},
+  }),
+  useParams: () => ({ obraId: OBRA }),
+  redirect: () => {},
+  notFound: () => {},
 }));
 
 // happy-dom se registra una vez para todo el proceso en test/setup.ts.

@@ -14,6 +14,9 @@ mock.module("../services/user.service", () => ({
     telefonos.push(telefono);
     return respuesta;
   },
+  // El registry de mocks es global al proceso: si otro archivo importa este módulo
+  // después, el mock tiene que exponer todos los exports que usa el bot.
+  invalidateUserCache: () => {},
 }));
 
 const { rolCommand } = await import("./rol.command");
