@@ -1,4 +1,34 @@
+import { supabase } from "@/lib/supabaseClient";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+export async function loginWithGoogle(): Promise<void> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: { prompt: "select_account" },
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || "No se pudo conectar con Google");
+  }
+}
+
+export async function syncProfile(token: string) {
+  const res = await fetch(`${API_URL}/auth/sync`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "No se pudo sincronizar el perfil");
+  }
+
+  return res.json();
+}
 
 export async function registerUser(
   email: string,

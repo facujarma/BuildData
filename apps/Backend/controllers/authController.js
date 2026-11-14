@@ -42,6 +42,37 @@ export async function register(req, res) {
 }
 
 
+// POST /auth/sync
+// Header: Authorization: Bearer <token>
+// Crea la persona del usuario autenticado si todavía no existe (ej: primer login con Google).
+export async function syncPersona(req, res) {
+  const user = req.user;
+  const metadata = user.user_metadata || {};
+  const nombre =
+    String(
+      metadata.full_name ||
+        metadata.name ||
+        metadata.nombre ||
+        (user.email ? user.email.split("@")[0] : "Usuario")
+    ).trim() || "Usuario";
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO personas (auth_user_id, nombre)
+       VALUES ($1, $2)
+       ON CONFLICT (auth_user_id) DO UPDATE
+         SET nombre = COALESCE(NULLIF(personas.nombre, ''), EXCLUDED.nombre)
+       RETURNING *`,
+      [user.id, nombre]
+    );
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("Error sincronizando persona:", error);
+    res.status(500).json({ error: "No se pudo sincronizar el perfil" });
+  }
+}
+
+
 // POST /auth/login
 // Body: { email, password }
 export async function login(req, res) {
