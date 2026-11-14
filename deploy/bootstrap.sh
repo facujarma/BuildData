@@ -23,6 +23,13 @@ else
 fi
 systemctl enable --now docker
 
+# El usuario que invocó sudo (el de SSH) tiene que poder usar docker sin sudo.
+# Sin esto, el primer "docker compose up" falla con permission denied.
+if [[ -n "${SUDO_USER:-}" ]]; then
+  usermod -aG docker "$SUDO_USER"
+  echo "▸ $SUDO_USER agregado al grupo docker"
+fi
+
 # Swap: Baileys + Node pueden tener picos de memoria; con 2 GB conviene tener colchón.
 if ! swapon --show | grep -q .; then
   echo "▸ Creando 2 GB de swap"
