@@ -21,44 +21,15 @@ import {
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import DButton from "@/components/ui/Button";
+import { SettingsCard, Field, Toggle, inputCls } from "./settingsUi";
+import { RolesPermisosSection } from "./RolesPermisosSection";
+import { useRole } from "../../_components/RoleContext";
 import { getConfiguracion } from "@/services/mock/configuracionService";
 import { getRubros } from "@/services/mock/rubrosService";
 import { formatARS } from "@/lib/format";
 import type { ObraSettings, IntegracionItem, SesionActiva, ConfiguracionPlan } from "../../configuracion/data";
 import { PLAN_FIXTURE } from "../../configuracion/data";
 import type { Rubro, CategoriaSeccion } from "../../configuracion/data/rubros";
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[10px] tracking-wide uppercase font-bold text-slate-500">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const inputCls = "text-[13px] bg-slate-50 border border-slate-200 rounded-md px-3 py-[7px] focus:outline-none focus:border-primary focus:bg-white transition-colors";
-
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button onClick={() => onChange(!on)} aria-pressed={on}
-      className={`w-[38px] h-[22px] rounded-full flex items-center px-[3px] transition-colors flex-none ${on ? "bg-primary justify-end" : "bg-slate-200 justify-start"}`}>
-      <span className="w-4 h-4 rounded-full bg-white shadow-sm" />
-    </button>
-  );
-}
-
-function SettingsCard({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5">
-      <div className="mb-4">
-        <h2 className="text-[15px] font-bold text-slate-950">{title}</h2>
-        {hint && <div className="text-[11px] text-slate-500 mt-[2px]">{hint}</div>}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 export function ScreenConfiguracion() {
   const [tab, setTab] = useState("obra");
@@ -82,15 +53,24 @@ export function ScreenConfiguracion() {
 
   const notifToggles = useState({ crit: true, weekly: true, daily: false, whatsapp: true });
 
-  const NAV: { id: string; label: string; icon: ReactNode }[] = [
-    { id: "obra", label: "Obra", icon: <LayoutHeaderCellsLarge width={14} height={14} /> },
-    { id: "roles", label: "Roles y permisos", icon: <Persons width={14} height={14} /> },
-    { id: "taxonomia", label: "Rubros y categorías", icon: <Layers width={14} height={14} /> },
-    { id: "integraciones", label: "Integraciones", icon: <Database width={14} height={14} /> },
-    { id: "notificaciones", label: "Notificaciones", icon: <Bell width={14} height={14} /> },
-    { id: "plan", label: "Plan y facturación", icon: <CircleDollar width={14} height={14} /> },
-    { id: "seguridad", label: "Seguridad", icon: <Shield width={14} height={14} /> },
+  const { puede } = useRole();
+  const puedeEditar = puede("configuracion.editar");
+
+  const NAV: { id: string; label: string; icon: ReactNode; permiso: string }[] = [
+    { id: "obra", label: "Obra", icon: <LayoutHeaderCellsLarge width={14} height={14} />, permiso: "configuracion.ver" },
+    { id: "roles", label: "Roles y permisos", icon: <Persons width={14} height={14} />, permiso: "roles.administrar" },
+    { id: "taxonomia", label: "Rubros y categorías", icon: <Layers width={14} height={14} />, permiso: "configuracion.ver" },
+    { id: "integraciones", label: "Integraciones", icon: <Database width={14} height={14} />, permiso: "configuracion.ver" },
+    { id: "notificaciones", label: "Notificaciones", icon: <Bell width={14} height={14} />, permiso: "configuracion.ver" },
+    { id: "plan", label: "Plan y facturación", icon: <CircleDollar width={14} height={14} />, permiso: "configuracion.ver" },
+    { id: "seguridad", label: "Seguridad", icon: <Shield width={14} height={14} />, permiso: "configuracion.ver" },
   ];
+
+  // Cada pestaña se muestra solo con su permiso; si la activa dejó de estar
+  // permitida (p. ej. un rol con roles.administrar pero sin configuracion.ver),
+  // cae en la primera visible.
+  const navVisible = NAV.filter((x) => puede(x.permiso));
+  const tabActiva = navVisible.some((x) => x.id === tab) ? tab : navVisible[0]?.id;
 
   if (loading) {
     return (
@@ -113,8 +93,8 @@ export function ScreenConfiguracion() {
 
       <div className="grid grid-cols-[220px_1fr] gap-6 items-start">
         <nav className="bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-[2px] sticky top-2">
-          {NAV.map((x) => {
-            const on = tab === x.id;
+          {navVisible.map((x) => {
+            const on = tabActiva === x.id;
             return (
               <button key={x.id} onClick={() => setTab(x.id)}
                 className={`flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left transition-colors ${on ? "bg-primary-50 text-primary" : "text-slate-600 hover:bg-slate-50"}`}>
@@ -126,13 +106,13 @@ export function ScreenConfiguracion() {
         </nav>
 
         <div className="min-w-0 space-y-4">
-          {tab === "obra" && <SecObra />}
-          {tab === "roles" && <SecRoles />}
-          {tab === "taxonomia" && <SecTaxonomia />}
-          {tab === "integraciones" && <SecIntegraciones />}
-          {tab === "notificaciones" && <SecNotifs />}
-          {tab === "plan" && <SecPlan />}
-          {tab === "seguridad" && <SecSeguridad />}
+          {tabActiva === "obra" && <SecObra />}
+          {tabActiva === "roles" && <RolesPermisosSection />}
+          {tabActiva === "taxonomia" && <SecTaxonomia />}
+          {tabActiva === "integraciones" && <SecIntegraciones />}
+          {tabActiva === "notificaciones" && <SecNotifs />}
+          {tabActiva === "plan" && <SecPlan />}
+          {tabActiva === "seguridad" && <SecSeguridad />}
         </div>
       </div>
 
@@ -173,8 +153,16 @@ export function ScreenConfiguracion() {
           <textarea className={`${inputCls} min-h-[70px] resize-y`} value={s.descripcion} onChange={(e) => set({ descripcion: e.target.value })} />
         </Field>
         <div className="mt-4 flex justify-end gap-2">
-          <DButton variant="outline" onClick={() => flash("Cambios descartados")}>Cancelar</DButton>
-          <DButton onClick={() => flash("Obra actualizada")}>Guardar cambios</DButton>
+          {puedeEditar ? (
+            <>
+              <DButton variant="outline" onClick={() => flash("Cambios descartados")}>Cancelar</DButton>
+              <DButton onClick={() => flash("Obra actualizada")}>Guardar cambios</DButton>
+            </>
+          ) : (
+            <span className="text-[11px] text-slate-500">
+              Necesitás el permiso “editar la configuración” para cambiar estos datos.
+            </span>
+          )}
         </div>
       </SettingsCard>
     );
@@ -182,39 +170,6 @@ export function ScreenConfiguracion() {
 
   function set(patch: Partial<ObraSettings>) {
     setS((prev) => (prev ? { ...prev, ...patch } : prev));
-  }
-
-  function SecRoles() {
-    const perms = [
-      { area: "Cronograma", list: ["Ver cronograma", "Crear y editar tareas"] },
-      { area: "Pedidos", list: ["Ver pedidos", "Crear pedidos", "Aprobar / cancelar pedidos"] },
-      { area: "Stock", list: ["Ver stock", "Ajustar y editar stock"] },
-      { area: "Recibos", list: ["Ver recibos", "Cargar y editar recibos"] },
-      { area: "Presupuesto", list: ["Ver presupuesto y costos", "Editar presupuesto"] },
-      { area: "Equipo", list: ["Ver equipo", "Invitar y administrar personas"] },
-    ];
-    return (
-      <SettingsCard title="Roles y permisos" hint="Qué puede hacer cada área de la obra según el rol.">
-        <div className="divide-y divide-slate-100">
-          {perms.map((p) => (
-            <div key={p.area} className="py-3 flex items-start justify-between gap-4">
-              <div className="text-[13px] font-bold text-slate-950 w-[120px] flex-none pt-1">{p.area}</div>
-              <div className="flex-1 space-y-2">
-                {p.list.map((perm) => (
-                  <div key={perm} className="flex items-center justify-between gap-3">
-                    <span className="text-[12px] text-slate-600">{perm}</span>
-                    <Toggle on onChange={(v) => flash(`${perm}: ${v ? "activado" : "bloqueado"}`)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 flex justify-end">
-          <DButton variant="outline" onClick={() => flash("Cambios guardados (demo)")}>Guardar</DButton>
-        </div>
-      </SettingsCard>
-    );
   }
 
   function SecTaxonomia() {
@@ -227,9 +182,11 @@ export function ScreenConfiguracion() {
               <span className="w-2 h-2 rounded-full" style={{ background: r.color }} /> {r.name}
             </span>
           ))}
-          <button onClick={() => flash("Alta de rubro (demo)")} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary border border-dashed border-primary-300 rounded-md px-3 py-[5px] hover:bg-primary-50">
-            + Agregar
-          </button>
+          {puedeEditar && (
+            <button onClick={() => flash("Alta de rubro (demo)")} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary border border-dashed border-primary-300 rounded-md px-3 py-[5px] hover:bg-primary-50">
+              + Agregar
+            </button>
+          )}
         </div>
         <div className="text-[10px] tracking-wide uppercase font-bold text-slate-400 mb-2">Categorías</div>
         <div className="grid grid-cols-2 gap-2">

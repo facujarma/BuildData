@@ -79,7 +79,9 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 async function parseError(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({}));
-  return new Error(err.error || `Request failed: ${res.status}`);
+  // Los errores de permisos del backend vienen como { code, message } (403
+  // SIN_PERMISO); los de validación, como { error }. Se acepta cualquiera.
+  return new Error(err.error || err.message || `Request failed: ${res.status}`);
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
@@ -98,42 +100,47 @@ export async function getProveedores(obraId: string): Promise<Proveedor[]> {
   return [...globales, ...propios].map(mapRawToProveedor);
 }
 
+// `obra_id` viaja siempre como contexto de permiso, también para el catálogo
+// global (el backend autoriza por el rol que la persona tiene en esa obra).
 export async function createProveedor(obraId: string, scope: "global" | "obra", data: SupplierData): Promise<Proveedor> {
   const row = await request<RawProveedor>(`/proveedores`, {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ scope, obra_id: scope === "obra" ? obraId : undefined, ...toBody(data) }),
+    body: JSON.stringify({ scope, obra_id: obraId, ...toBody(data) }),
   });
   return mapRawToProveedor(row);
 }
 
-export async function updateProveedor(id: string, data: SupplierData): Promise<Proveedor> {
+export async function updateProveedor(obraId: string, id: string, data: SupplierData): Promise<Proveedor> {
   const row = await request<RawProveedor>(`/proveedores/${id}`, {
     method: "PATCH",
     headers: await authHeaders(),
-    body: JSON.stringify(toBody(data)),
+    body: JSON.stringify({ obra_id: obraId, ...toBody(data) }),
   });
   return mapRawToProveedor(row);
 }
 
-export async function setFavorito(id: string, fav: boolean): Promise<void> {
+export async function setFavorito(obraId: string, id: string, fav: boolean): Promise<void> {
   await request(`/proveedores/${id}/favorito`, {
     method: "PATCH",
     headers: await authHeaders(),
-    body: JSON.stringify({ fav }),
+    body: JSON.stringify({ obra_id: obraId, fav }),
   });
 }
 
 // Pasa un proveedor de "solo esta obra" al catálogo de la empresa.
 // La respuesta no trae fav/pedidos_count/spent (no es la misma query que el
 // listado): el caller actualiza esos campos localmente, solo cambia el scope.
-export async function promoverProveedor(id: string): Promise<void> {
-  await request(`/proveedores/${id}/promover`, {
+export async function promoverProveedor(obraId: string, id: string): Promise<void> {
+  await request(`/proveedores/${id}/promover?obra_id=${obraId}`, {
     method: "POST",
     headers: await authHeaders(),
   });
 }
 
-export async function deleteProveedor(id: string): Promise<void> {
-  await request(`/proveedores/${id}`, { method: "DELETE", headers: await authHeaders() });
+export async function deleteProveedor(obraId: string, id: string): Promise<void> {
+  await request(`/proveedores/${id}?obra_id=${obraId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
 }

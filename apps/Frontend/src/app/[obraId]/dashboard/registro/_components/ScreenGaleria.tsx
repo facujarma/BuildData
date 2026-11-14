@@ -19,6 +19,7 @@ import {
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import DButton from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { DAvatar } from "@/components/ui/DAvatar";
 import { getGaleria, deleteFoto } from "@/services/galeriaService";
 import type { GalleryPhoto } from "@/types/gallery";
@@ -54,6 +55,9 @@ function PhotoThumb({ p, h = 128, contain = false }: { p: GalleryPhoto; h?: numb
 
 export function ScreenGaleria() {
   const { obraId } = useDashboardData();
+  const { puede } = useRole();
+  const puedeGestionar = puede("galeria.gestionar");
+  const puedeExportar = puede("reportes.exportar");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
@@ -132,8 +136,12 @@ export function ScreenGaleria() {
         subtitle={`${photos.length} fotos · asociadas a su tarea, rubro, fecha y autor`}
         right={
           <>
-            <DButton variant="secondary" size="sm" icon={<FileArrowDown width={13} height={13} />} onClick={() => flash("Exportando galería…")}>Exportar</DButton>
-            <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => setShowUpload(true)}>Subir fotos</DButton>
+            {puedeExportar && (
+              <DButton variant="secondary" size="sm" icon={<FileArrowDown width={13} height={13} />} onClick={() => flash("Exportando galería…")}>Exportar</DButton>
+            )}
+            {puedeGestionar && (
+              <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => setShowUpload(true)}>Subir fotos</DButton>
+            )}
           </>
         }
       />
@@ -260,7 +268,9 @@ export function ScreenGaleria() {
                     <DButton variant="secondary" size="sm" icon={<Calendar width={12} height={12} />} onClick={() => router.push(`/${obraId}/dashboard/cronograma`)}>Ver tarea</DButton>
                   )}
                   <DButton variant="secondary" size="sm" icon={<FileArrowDown width={12} height={12} />} onClick={() => window.open(pick.url, "_blank", "noopener")}>Descargar</DButton>
-                  <DButton variant="secondary" size="sm" className="text-[#B91C1C]" icon={<TrashBin width={12} height={12} />} onClick={() => remove(pick)}>Eliminar</DButton>
+                  {puedeGestionar && (
+                    <DButton variant="secondary" size="sm" className="text-[#B91C1C]" icon={<TrashBin width={12} height={12} />} onClick={() => remove(pick)}>Eliminar</DButton>
+                  )}
                 </div>
               </div>
             </div>

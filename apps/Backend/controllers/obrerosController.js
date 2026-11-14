@@ -1,10 +1,12 @@
 import { pool } from "../db.js";
-import { esMiembroDeObra, rolEnObra } from "../services/obraAccess.service.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import { normalizarRol } from "../services/permisos.service.js";
 import {
-  normalizarRol,
-  puedeAdministrarEquipo,
-  puedeAsignarRol,
-} from "../services/permisos.service.js";
+  perfilEnObra,
+  permisosEfectivos,
+  puedePorNivel,
+  resolverRol,
+} from "../services/roles.service.js";
 import {
   crearInvitacion,
   consumirInvitacion,
@@ -75,14 +77,17 @@ export async function asignarObraObrero(req, res) {
   const { obrero_id, obra_id, rol } = req.body;
   if (!obrero_id || !obra_id) return res.status(400).json({ error: "obrero_id y obra_id son requeridos" });
   try {
-    // Solo Director de esa obra puede tocar el equipo (y nadie puede otorgar
-    // un rol superior al propio: evita la escalada vía self-asignación).
-    const rolLlamante = await rolEnObra(req.personaId, obra_id);
-    if (!puedeAdministrarEquipo(rolLlamante)) {
+    // El permiso sale de roles_obra (equipo.administrar) y la jerarquía de `nivel`:
+    // nadie puede otorgar un rol superior al propio (evita la escalada).
+    const perfil = await perfilEnObra(req.personaId, obra_id);
+    if (perfil?.permisos.web["equipo.administrar"] !== true) {
       return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
     }
-    const rolNormalizado = normalizarRol(rol);
-    if (!puedeAsignarRol(rolLlamante, rolNormalizado)) {
+    const rolDestino = await resolverRol(obra_id, rol);
+    if (!rolDestino) {
+      return res.status(400).json({ error: "El rol indicado no existe en esta obra" });
+    }
+    if (!puedePorNivel(perfil.rol, rolDestino)) {
       return res.status(403).json({ error: "No podés asignar un rol superior al tuyo" });
     }
 
@@ -90,7 +95,7 @@ export async function asignarObraObrero(req, res) {
       `INSERT INTO miembros_obra (persona_id, obra_id, rol)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [obrero_id, obra_id, rolNormalizado]
+      [obrero_id, obra_id, rolDestino.nombre]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -103,8 +108,8 @@ export async function asignarObraObrero(req, res) {
 export async function quitarObreroDeObra(req, res) {
   const { obrero_id, obra_id } = req.params;
   try {
-    const rolLlamante = await rolEnObra(req.personaId, obra_id);
-    if (!puedeAdministrarEquipo(rolLlamante)) {
+    const perfil = await perfilEnObra(req.personaId, obra_id);
+    if (perfil?.permisos.web["equipo.administrar"] !== true) {
       return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
     }
 
@@ -127,12 +132,15 @@ export async function crearInvitacionWeb(req, res) {
   }
 
   try {
-    const rolLlamante = await rolEnObra(req.personaId, obra_id);
-    if (!puedeAdministrarEquipo(rolLlamante)) {
+    const perfil = await perfilEnObra(req.personaId, obra_id);
+    if (perfil?.permisos.web["equipo.administrar"] !== true) {
       return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
     }
-    const rolObjetivo = normalizarRol(rol);
-    if (!puedeAsignarRol(rolLlamante, rolObjetivo)) {
+    const rolDestino = await resolverRol(obra_id, rol);
+    if (!rolDestino) {
+      return res.status(400).json({ error: "El rol indicado no existe en esta obra" });
+    }
+    if (!puedePorNivel(perfil.rol, rolDestino)) {
       return res.status(403).json({ error: "No podés invitar con un rol superior al tuyo" });
     }
 
@@ -140,7 +148,7 @@ export async function crearInvitacionWeb(req, res) {
       obraId: obra_id,
       nombre,
       telefono,
-      rol: rolObjetivo,
+      rol: rolDestino.nombre,
       creadaPor: req.personaId || null,
     });
     res.status(201).json(invitacion);
@@ -192,11 +200,24 @@ export async function getUserByPhone(req, res) {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "Obrero no encontrado" });
 
+    // Por obra: rol canónico y permisos bot efectivos (roles_obra). El bot usa esta
+    // lista para avisar antes de pedir datos; la barrera dura sigue en el Backend.
+    const obras = await Promise.all(result.rows.map(async (row) => {
+      const efectivos = await permisosEfectivos(row.obra_id, row.rol);
+      return {
+        obra_id: row.obra_id,
+        obra_nombre: row.obra_nombre,
+        direccion: row.direccion,
+        rol: efectivos.rol.nombre,
+        permisos: Object.keys(efectivos.bot).filter((permiso) => efectivos.bot[permiso] === true),
+      };
+    }));
+
     const obreroData = {
       id: result.rows[0].id,
       nombre: result.rows[0].nombre,
       telefono: result.rows[0].telefono,
-      obras: result.rows.map(row => ({ obra_id: row.obra_id, obra_nombre: row.obra_nombre, direccion: row.direccion, rol: row.rol }))
+      obras,
     };
     res.json(obreroData);
   } catch (error) {

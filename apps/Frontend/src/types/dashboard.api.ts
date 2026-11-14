@@ -2,13 +2,15 @@
 export interface ApiDashboardResponse {
   obra: ApiObraInfo;
   stats: ApiDashboardStats;
-  budget: ApiBudgetOverview;
-  budgetBreakdown: ApiBudgetItem[];
+  // Los bloques de costos y pedidos llegan solo si el rol tiene
+  // `presupuesto.ver` / `pedidos.ver` (el Backend los omite).
+  budget?: ApiBudgetOverview;
+  budgetBreakdown?: ApiBudgetItem[];
   tradeProgress: ApiTradeProgress[];
   activityFeed: ApiActivityFeedItem[];
   alerts: ApiAlertItem[];
   tasks: ApiTaskItem[];
-  orders: ApiOrderItem[];
+  orders?: ApiOrderItem[];
 }
 
 interface ApiTaskItem {

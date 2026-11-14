@@ -1,10 +1,6 @@
 import { pool } from "../db.js";
-import { esMiembroDeObra, rolEnObra } from "../services/obraAccess.service.js";
-import {
-  normalizarRol,
-  puedeAdministrarEquipo,
-  puedeAsignarRol,
-} from "../services/permisos.service.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import { perfilEnObra, puedePorNivel, resolverRol } from "../services/roles.service.js";
 
 const SIN_PERMISO_EQUIPO = "No tenés permisos para administrar el equipo de esta obra";
 
@@ -68,14 +64,17 @@ export async function asignarObra(req, res) {
     return res.status(400).json({ error: "usuario_id y obra_id son requeridos" });
   }
   try {
-    // Mismo criterio que /obreros/asignar-obra: solo Director de la obra y
-    // nunca un rol superior al propio.
-    const rolLlamante = await rolEnObra(req.personaId, obra_id);
-    if (!puedeAdministrarEquipo(rolLlamante)) {
+    // Mismo criterio que /obreros/asignar-obra: permiso equipo.administrar de
+    // roles_obra y nunca un rol de nivel superior al propio.
+    const perfil = await perfilEnObra(req.personaId, obra_id);
+    if (perfil?.permisos.web["equipo.administrar"] !== true) {
       return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
     }
-    const rolNormalizado = normalizarRol(cargo);
-    if (!puedeAsignarRol(rolLlamante, rolNormalizado)) {
+    const rolDestino = await resolverRol(obra_id, cargo);
+    if (!rolDestino) {
+      return res.status(400).json({ error: "El rol indicado no existe en esta obra" });
+    }
+    if (!puedePorNivel(perfil.rol, rolDestino)) {
       return res.status(403).json({ error: "No podés asignar un rol superior al tuyo" });
     }
 
@@ -84,7 +83,7 @@ export async function asignarObra(req, res) {
        VALUES ($1, $2, $3)
        ON CONFLICT (persona_id, obra_id) DO NOTHING
        RETURNING *`,
-      [usuario_id, obra_id, rolNormalizado]
+      [usuario_id, obra_id, rolDestino.nombre]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {

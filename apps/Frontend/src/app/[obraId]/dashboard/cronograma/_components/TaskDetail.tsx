@@ -5,6 +5,8 @@ import { Check, Pencil, TriangleExclamation, Xmark } from "@gravity-ui/icons";
 import { DPill, type PillTone } from "@/components/ui/DPill";
 import { DAvatar } from "@/components/ui/DAvatar";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
+import { ActionBlocked } from "../../_components/SectionBlocked";
 import type { TaskItem, TaskGroup } from "../data";
 import {
   TASK_STATE_MAP,
@@ -34,6 +36,8 @@ function initials(name: string): string {
 }
 
 export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen, onEdit }: Props) {
+  const { puede } = useRole();
+  const puedeEditar = puede("cronograma.editar");
   const task = useMemo<TaskItem | null>(() => {
     if (!taskId) return null;
     for (const g of groups) {
@@ -202,7 +206,8 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen, onEd
         </div>
 
         <div className="border-t border-slate-200 p-3 flex items-center gap-2 flex-none">
-          {isDone ? (
+          {puedeEditar ? (
+            isDone ? (
             <>
               <div className="flex-1 flex items-center gap-2 text-[12px] font-bold text-[#15803D]">
                 <span className="w-6 h-6 rounded-full bg-success-50 flex items-center justify-center flex-none">
@@ -250,6 +255,9 @@ export function TaskDetail({ taskId, groups, onClose, onComplete, onReopen, onEd
                 Marcar completada
               </Button>
             </>
+            )
+          ) : (
+            <ActionBlocked permiso="cronograma.editar" />
           )}
         </div>
       </aside>

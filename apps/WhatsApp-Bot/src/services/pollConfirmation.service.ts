@@ -50,12 +50,11 @@ import {
 } from "./entityResolution.service";
 import { getUserPhoneFields } from "./endpointSchema";
 import {
-  normalizarRol,
-  puede,
-  puedeOperar,
+  nombreRolVisible,
+  puedeConPermisos,
+  puedeOperarConPermisos,
   permisoDeEndpoint,
   PERMISO_LABELS,
-  type RolBot,
 } from "./permissions.service";
 import { filtrarPedidos, pedidoLabel } from "./pedidoMatch.service";
 
@@ -221,18 +220,25 @@ async function sendEntityQuestion(chatId: string, question: EntityQuestion): Pro
 // Permisos por rol
 // ──────────────────────────────────────────
 
-// Devuelve la etiqueta de la acción bloqueada, o null si el rol puede hacer todo
-// lo que pide el pending. Un lote con una sola operación prohibida se rechaza
-// entero (no se ejecuta la mitad).
-function permisoBloqueado(pending: PendingQuery, rol: RolBot): string | null {
+// Devuelve la etiqueta de la acción bloqueada, o null si los permisos de la obra
+// pueden hacer todo lo que pide el pending. Usa la lista efectiva que manda el
+// Backend (`obra.permisos`) y cae a la matriz estática del rol si no viene. Un
+// lote con una sola operación prohibida se rechaza entero (no se ejecuta la mitad).
+export function permisoBloqueado(pending: PendingQuery, obra: Obra): string | null {
+  const { permisos, rol } = obra;
+
   if (pending.type === "foto") {
-    return puede(rol, "foto.subir") ? null : PERMISO_LABELS["foto.subir"];
+    return puedeConPermisos(permisos, "foto.subir", rol)
+      ? null
+      : PERMISO_LABELS["foto.subir"];
   }
   if (pending.type === "comprobante" || pending.type === "factura") {
-    return puede(rol, "gasto.crear") ? null : PERMISO_LABELS["gasto.crear"];
+    return puedeConPermisos(permisos, "gasto.crear", rol)
+      ? null
+      : PERMISO_LABELS["gasto.crear"];
   }
   for (const op of pending.operation) {
-    if (!puedeOperar(rol, op.endpoint)) {
+    if (!puedeOperarConPermisos(permisos, op.endpoint, rol)) {
       return permisoDeEndpoint(op.endpoint)?.label ?? "hacer esa operación";
     }
   }
@@ -336,11 +342,14 @@ export async function handlePedidoTextReply(
 async function prepareAndExecute(pending: PendingQuery, obra: Obra, phone: string, chatId: string): Promise<void> {
   pending.obra_id = obra.obra_id;
   const client = getClient();
-  const rol = normalizarRol(obra.rol);
+  // El Backend manda el rol canónico y los permisos efectivos de esa obra; el
+  // nombre se muestra tal cual (puede ser un rol personalizado) y solo se
+  // normaliza si viene de un backend viejo, sin `permisos`.
+  const rol = nombreRolVisible(obra.rol, obra.permisos);
 
   // Gate de permisos del bot. El Backend repite el chequeo al registrar las
   // operaciones (barrera dura); acá se avisa antes de pedir datos o confirmar.
-  const bloqueo = permisoBloqueado(pending, rol);
+  const bloqueo = permisoBloqueado(pending, obra);
   if (bloqueo) {
     clearPending(phone);
     clearEntityPending(phone);

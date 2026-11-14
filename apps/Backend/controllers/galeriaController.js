@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { supabaseAdmin } from "../supabaseClient.js";
-import { esMiembroDeObra, rolEnObra } from "../services/obraAccess.service.js";
-import { puedeOperar } from "../services/permisos.service.js";
+import { esMiembroDeObra } from "../services/obraAccess.service.js";
+import { perfilEnObra } from "../services/roles.service.js";
 import { registrarActividad } from "../services/actividad.service.js";
 import { resolvePersonaIdByTelefono } from "../services/personaService.js";
 
@@ -244,16 +244,14 @@ export async function subirFotoDesdeBot(req, res) {
     if (obra.rows.length === 0) {
       return res.status(404).json({ error: "obra no encontrada" });
     }
-    // Membresía y rol salen del mismo SELECT: rolEnObra devuelve null cuando la
-    // persona no es miembro, así no se duplica la consulta a miembros_obra.
-    const rol = await rolEnObra(personaId, obraId);
-    if (!rol) return sinAcceso(res);
-    // Gate de rol del endpoint directo: este camino no pasa por /bot/operaciones
-    // (que es donde el lote se valida), así que se chequea acá contra el mapa de
-    // endpoints (`ENDPOINT_PERMISOS`). Fail closed.
-    if (!puedeOperar(rol, "/bot/galeria")) {
+    // Membresía y permisos efectivos salen de roles_obra: el endpoint directo no
+    // pasa por /bot/operaciones (que es donde el lote se valida), así que se
+    // chequea acá la matriz dinámica del rol. Fail closed.
+    const perfil = await perfilEnObra(personaId, obraId);
+    if (!perfil) return sinAcceso(res);
+    if (perfil.permisos.bot["foto.subir"] !== true) {
       return res.status(403).json({
-        error: `tu rol ${rol} no puede subir fotos a la galería`,
+        error: `tu rol ${perfil.rol.nombre} no puede subir fotos a la galería`,
       });
     }
 

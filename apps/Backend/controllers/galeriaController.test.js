@@ -1,14 +1,13 @@
-// Tests del gate de rol de POST /bot/galeria (subirFotoDesdeBot).
+// Tests del gate de permisos de POST /bot/galeria (subirFotoDesdeBot).
+//
+// Después del bug de QA, el endpoint directo tiene que autorizar con los permisos
+// dinámicos de la obra (`perfilEnObra` → `roles_obra`), no con la matriz estática
+// derivada del nombre del rol. Acá se usa el `roles.service` REAL contra un `pool`
+// falso, así el test cubre la cadena completa: miembros_obra → roles_obra → permiso.
 //
 // Todo el acceso a datos y servicios externos está mockeado: no se importan db.js ni
-// supabaseClient.js (los que hacen dotenv.config()), no se abre conexión a Postgres y no
-// se habla con Supabase. Los mocks se declaran con `mock.module` antes del import dinámico
-// del controller para que intercepten sus imports.
-//
-// Caso 403 "rol sin foto.subir": hoy PERMISOS["foto.subir"] habilita a los tres roles, así
-// que la rama de permiso del controller es defensa a futuro. Para ejercitarla se angosta
-// la matriz temporalmente (se restaura en `finally`) y se usa el `puede()` real: el test
-// falla si el controller deja de consultar la matriz o de cortar antes de subir.
+// supabaseClient.js reales (los que hacen dotenv.config()), no se abre conexión a
+// Postgres y no se habla con Supabase.
 
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
@@ -23,7 +22,10 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 
 const estado = {
   personaId: PERSONA_ID,
   obraExiste: true,
-  rol: "Obrero",
+  esMiembro: true,
+  miembroRol: "Obrero",
+  tablaRoles: true, // false simula la migración de roles_obra pendiente (42P01)
+  rolesObra: [],
   consultas: [],
   uploads: [],
   actividad: [],
@@ -45,14 +47,43 @@ const fotoFila = {
   created_at: "2026-11-10T12:00:00.000Z",
 };
 
+// Fila de roles_obra; `bot` parcial porque normalizarPermisos completa en false.
+function filaRol(nombre, bot = {}) {
+  return {
+    id: `rol-${nombre.toLowerCase().replace(/\s+/g, "-")}`,
+    obra_id: OBRA_ID,
+    nombre,
+    nivel: 20,
+    es_sistema: false,
+    permisos: { bot, web: {} },
+  };
+}
+
+function normalizar(sql) {
+  return String(sql).replace(/\s+/g, " ").trim();
+}
+
 // Respuestas SQL por forma de query. Cualquier consulta no prevista explota para que el
 // test no pase "de casualidad" si el controller cambia de flujo.
-function responder(sql, params) {
-  const texto = String(sql).replace(/\s+/g, " ").trim();
+function responder(sqlOriginal, params) {
+  const texto = normalizar(sqlOriginal);
   estado.consultas.push({ sql: texto, params });
 
   if (texto.startsWith("SELECT 1 FROM obras")) {
     return { rows: estado.obraExiste ? [{ "?column?": 1 }] : [], rowCount: estado.obraExiste ? 1 : 0 };
+  }
+  if (texto.startsWith("SELECT rol FROM miembros_obra")) {
+    return { rows: estado.esMiembro ? [{ rol: estado.miembroRol }] : [], rowCount: estado.esMiembro ? 1 : 0 };
+  }
+  if (texto.includes("FROM roles_obra")) {
+    if (!estado.tablaRoles) {
+      const error = new Error('relation "roles_obra" does not exist');
+      error.code = "42P01";
+      throw error;
+    }
+    const buscado = String(params[1] ?? "").toLowerCase();
+    const fila = estado.rolesObra.find((rol) => rol.nombre.toLowerCase() === buscado);
+    return { rows: fila ? [fila] : [], rowCount: fila ? 1 : 0 };
   }
   if (texto.startsWith("INSERT INTO fotos_obra")) {
     return { rows: [{ id: fotoFila.id }], rowCount: 1 };
@@ -70,8 +101,8 @@ function responder(sql, params) {
   throw new Error(`consulta SQL no prevista en el test: ${texto}`);
 }
 
-const rolEnObraMock = mock(async () => estado.rol);
-const esMiembroDeObraMock = mock(async () => true);
+const rolEnObraMock = mock(async () => estado.miembroRol);
+const esMiembroDeObraMock = mock(async () => estado.esMiembro);
 const resolvePersonaMock = mock(async () => estado.personaId);
 const registrarActividadMock = mock(async (_db, datos) => {
   estado.actividad.push(datos);
@@ -111,7 +142,6 @@ mock.module("../services/actividad.service.js", () => ({
 }));
 
 const { subirFotoDesdeBot } = await import("./galeriaController.js");
-const { PERMISOS } = await import("../services/permisos.service.js");
 
 function reqFoto({ query = {}, headers = {}, body = JPEG } = {}) {
   return {
@@ -141,7 +171,10 @@ const consultasInsert = () => estado.consultas.filter((c) => c.sql.startsWith("I
 beforeEach(() => {
   estado.personaId = PERSONA_ID;
   estado.obraExiste = true;
-  estado.rol = "Obrero";
+  estado.esMiembro = true;
+  estado.miembroRol = "Obrero";
+  estado.tablaRoles = true;
+  estado.rolesObra = [];
   estado.consultas.length = 0;
   estado.uploads.length = 0;
   estado.actividad.length = 0;
@@ -151,29 +184,24 @@ beforeEach(() => {
   registrarActividadMock.mockClear();
 });
 
-describe("subirFotoDesdeBot — gate de rol", () => {
-  test("403: rol sin 'foto.subir' no sube ni registra nada", async () => {
-    const matrizOriginal = PERMISOS["foto.subir"];
-    PERMISOS["foto.subir"] = ["Director"]; // simula una matriz futura que excluye a Obrero
-    try {
-      estado.rol = "Obrero";
-      // Se retiene la respuesta para inspeccionarla sin depender del valor de retorno.
-      const res = resFalso();
-      await subirFotoDesdeBot(reqFoto(), res);
+describe("subirFotoDesdeBot — permiso bot dinámico foto.subir", () => {
+  test("403: un rol personalizado sin foto.subir no sube ni registra nada", async () => {
+    estado.miembroRol = "Supervisor QA Cero";
+    estado.rolesObra = [filaRol("Supervisor QA Cero")];
 
-      expect(res.statusCode).toBe(403);
-      expect(res.body.error).toContain("Obrero");
-      expect(rolEnObraMock).toHaveBeenCalledWith(PERSONA_ID, OBRA_ID); // sí resolvió el rol
-      expect(estado.uploads).toHaveLength(0);
-      expect(consultasInsert()).toHaveLength(0);
-      expect(registrarActividadMock).not.toHaveBeenCalled();
-    } finally {
-      PERMISOS["foto.subir"] = matrizOriginal;
-    }
+    const res = resFalso();
+    await subirFotoDesdeBot(reqFoto(), res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toContain("Supervisor QA Cero");
+    expect(estado.uploads).toHaveLength(0);
+    expect(consultasInsert()).toHaveLength(0);
+    expect(registrarActividadMock).not.toHaveBeenCalled();
   });
 
   test("403: persona que no es miembro de la obra no sube ni registra nada", async () => {
-    estado.rol = null; // rolEnObra devuelve null cuando no hay fila en miembros_obra
+    estado.esMiembro = false;
+
     const res = resFalso();
     await subirFotoDesdeBot(reqFoto(), res);
 
@@ -181,37 +209,51 @@ describe("subirFotoDesdeBot — gate de rol", () => {
     expect(res.body.error).toBe("No pertenecés a esta obra");
     expect(estado.uploads).toHaveLength(0);
     expect(consultasInsert()).toHaveLength(0);
-    expect(registrarActividadMock).not.toHaveBeenCalled();
+    expect(estado.consultas.some((c) => c.sql.includes("FROM roles_obra"))).toBe(false);
   });
 
-  test("201: rol permitido sube la foto y la registra como antes", async () => {
-    estado.rol = "Obrero"; // hoy la matriz habilita foto.subir a los tres roles
-    // El controller no devuelve la response en el camino feliz: se retiene la referencia.
+  test("201: un rol personalizado con foto.subir sube la foto", async () => {
+    estado.miembroRol = "Fotógrafo QA";
+    estado.rolesObra = [filaRol("Fotógrafo QA", { "foto.subir": true })];
+
     const res = resFalso();
     await subirFotoDesdeBot(reqFoto(), res);
 
     expect(res.statusCode).toBe(201);
     expect(res.body).toEqual(fotoFila);
-
-    // Subida al bucket: una sola, con el MIME recibido.
     expect(estado.uploads).toHaveLength(1);
     expect(estado.uploads[0].bucket).toBe("galeria");
     expect(estado.uploads[0].contentType).toBe("image/jpeg");
 
-    // Registro en fotos_obra: una fila, con la persona y el origen del bot.
     const inserts = consultasInsert();
     expect(inserts).toHaveLength(1);
-    const params = inserts[0].params;
-    expect(params[0]).toBe(OBRA_ID);
-    expect(params[3]).toBe(PERSONA_ID);
-    expect(params[6]).toBe("whatsapp.jpg");
-    expect(params[9]).toBe("whatsapp");
-    expect(params[10]).toMatch(UUID_RE); // lote_id generado en el backend
+    expect(inserts[0].params[0]).toBe(OBRA_ID);
+    expect(inserts[0].params[3]).toBe(PERSONA_ID);
+    expect(inserts[0].params[9]).toBe("whatsapp");
+    expect(inserts[0].params[10]).toMatch(UUID_RE);
+  });
 
-    // Membresía y rol salen de un único SELECT (rolEnObra), sin duplicar con esMiembroDeObra.
-    expect(resolvePersonaMock).toHaveBeenCalledWith(TELEFONO);
-    expect(rolEnObraMock).toHaveBeenCalledTimes(1);
-    expect(rolEnObraMock).toHaveBeenCalledWith(PERSONA_ID, OBRA_ID);
-    expect(esMiembroDeObraMock).not.toHaveBeenCalled();
+  test("201: fallback estático cuando la obra no tiene roles_obra (Obrero conserva foto.subir)", async () => {
+    estado.tablaRoles = false;
+    estado.miembroRol = "Obrero";
+
+    const res = resFalso();
+    await subirFotoDesdeBot(reqFoto(), res);
+
+    expect(res.statusCode).toBe(201);
+    expect(estado.uploads).toHaveLength(1);
+    expect(consultasInsert()).toHaveLength(1);
+  });
+
+  test("403: fallback estático fail-closed (Cliente no tiene foto.subir)", async () => {
+    estado.tablaRoles = false;
+    estado.miembroRol = "Cliente";
+
+    const res = resFalso();
+    await subirFotoDesdeBot(reqFoto(), res);
+
+    expect(res.statusCode).toBe(403);
+    expect(estado.uploads).toHaveLength(0);
+    expect(consultasInsert()).toHaveLength(0);
   });
 });

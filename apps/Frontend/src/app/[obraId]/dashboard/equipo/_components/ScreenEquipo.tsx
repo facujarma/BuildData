@@ -8,6 +8,7 @@ import { DCard } from "@/components/ui/DCard";
 import { DAvatar } from "@/components/ui/DAvatar";
 import { DPill } from "@/components/ui/DPill";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { getEquipo, type EquipoData } from "@/services/equipoService";
 import type { Obrero } from "../data";
 import { esMismoTelefono } from "../data/telefono";
@@ -26,6 +27,8 @@ export function ScreenEquipo() {
   // entre obras si Next reutiliza la instancia al navegar.
   const [pendientes, setPendientes] = useState<(Obrero & { obraId: string })[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const { puede } = useRole();
+  const puedeAdministrar = puede("equipo.administrar");
   const [toast, flash] = useToast();
 
   const aplicarEquipo = useCallback((equipo: EquipoData) => {
@@ -128,14 +131,16 @@ export function ScreenEquipo() {
               <div className="text-[11px] text-slate-500">Reportan novedades desde el chat</div>
             </div>
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus width={13} height={13} />}
-            onClick={() => setInviteOpen(true)}
-          >
-            Invitar obrero
-          </Button>
+          {puedeAdministrar && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus width={13} height={13} />}
+              onClick={() => setInviteOpen(true)}
+            >
+              Invitar obrero
+            </Button>
+          )}
         </div>
         {filas.length === 0 ? (
           <div className="p-8 text-center text-[13px] text-slate-500">
@@ -165,8 +170,9 @@ export function ScreenEquipo() {
         )}
       </DCard>
 
-      <InviteTeamModal
-        open={inviteOpen}
+      {puedeAdministrar && (
+        <InviteTeamModal
+          open={inviteOpen}
         obraId={obraId}
         onClose={() => setInviteOpen(false)}
         onSave={(creada) => {
@@ -186,7 +192,8 @@ export function ScreenEquipo() {
           flash(`Invitación creada para ${creada.nombre}`);
           void recargar();
         }}
-      />
+        />
+      )}
 
       <DashToast msg={toast} />
     </>

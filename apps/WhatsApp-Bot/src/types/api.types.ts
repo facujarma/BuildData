@@ -3,6 +3,9 @@ export interface Obra {
   obra_nombre: string;
   direccion?: string;
   rol?: string;
+  // Keys bot en true para esta persona en esta obra (GET /bot/obreros/telefono).
+  // Puede faltar si el Backend es viejo: ahí se usa la matriz estática del rol.
+  permisos?: string[];
   joined_at?: string;
 }
 

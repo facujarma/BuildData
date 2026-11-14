@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { pool } from "../db.js";
-import { normalizarRol } from "./permisos.service.js";
+import { resolverRol } from "./roles.service.js";
 
 const TTL_DIAS = 7;
 const PREFIJO_TOKEN = "v1.";
@@ -56,13 +56,16 @@ export function normalizarTelefono(telefono) {
 }
 
 // Crea la invitación en DB y devuelve el token cifrado que viaja en el link.
+// `rol` llega ya validado/canónico desde el controller (resolverRol); se guarda tal
+// cual para que un rol personalizado de la obra sobreviva al link.
 export async function crearInvitacion({ obraId, nombre, telefono, rol, creadaPor }) {
   const expira = new Date(Date.now() + TTL_DIAS * 24 * 60 * 60 * 1000);
+  const rolInvitacion = String(rol ?? "").trim() || "Obrero";
   const { rows } = await pool.query(
     `INSERT INTO invitaciones (obra_id, nombre, telefono, rol, creada_por, expira_at)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id, expira_at`,
-    [obraId, nombre, telefono || null, normalizarRol(rol), creadaPor || null, expira]
+    [obraId, nombre, telefono || null, rolInvitacion, creadaPor || null, expira]
   );
 
   const invitacion = rows[0];
@@ -124,13 +127,17 @@ export async function consumirInvitacion({ token, telefono }) {
       [invitacion.nombre, telefono]
     );
 
+    // El rol se resuelve contra los roles de la obra: si el nombre guardado en la
+    // invitación ya no existe (o es un rol viejo), cae en el sistema equivalente.
+    const rolResuelto = await resolverRol(invitacion.obra_id, invitacion.rol);
+
     await client.query(
       `INSERT INTO miembros_obra (persona_id, obra_id, rol)
        SELECT $1, $2, $3
        WHERE NOT EXISTS (
          SELECT 1 FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2
        )`,
-      [persona.rows[0].id, invitacion.obra_id, normalizarRol(invitacion.rol)]
+      [persona.rows[0].id, invitacion.obra_id, rolResuelto?.nombre ?? "Obrero"]
     );
 
     await client.query(`UPDATE invitaciones SET usada_por = $1 WHERE id = $2`, [

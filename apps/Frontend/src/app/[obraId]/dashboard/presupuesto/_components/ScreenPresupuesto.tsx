@@ -17,6 +17,7 @@ import { DashToast, useToast } from "../../_components/useToast";
 import { Donut } from "./Donut";
 import { BudgetEditModal, type BudgetAuditEntry } from "./BudgetEditModal";
 import { useDashboardData } from "../../_components/DashboardDataContext";
+import { useRole } from "../../_components/RoleContext";
 import { getPresupuesto, ajustarPresupuesto, type PresupuestoData } from "@/services/presupuestoService";
 import {
   CURRENCIES,
@@ -77,6 +78,9 @@ export function ScreenPresupuesto() {
   const [editOpen, setEditOpen] = useState(false);
   const [toast, flash] = useToast();
   const [auditLog, setAuditLog] = useState<BudgetAuditEntry[]>([]);
+  const { puede } = useRole();
+  const puedeEditar = puede("presupuesto.editar");
+  const puedeExportar = puede("reportes.exportar");
 
   const apply = useCallback((d: PresupuestoData) => {
     setLines(d.lines);
@@ -156,22 +160,26 @@ export function ScreenPresupuesto() {
                 </button>
               ))}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Pencil width={13} height={13} />}
-              onClick={() => setEditOpen(true)}
-            >
-              Editar montos
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<FileArrowDown width={13} height={13} />}
-              onClick={() => flash("Exportando presupuesto a XLSX…")}
-            >
-              Exportar
-            </Button>
+            {puedeEditar && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil width={13} height={13} />}
+                onClick={() => setEditOpen(true)}
+              >
+                Editar montos
+              </Button>
+            )}
+            {puedeExportar && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<FileArrowDown width={13} height={13} />}
+                onClick={() => flash("Exportando presupuesto a XLSX…")}
+              >
+                Exportar
+              </Button>
+            )}
           </>
         }
       />

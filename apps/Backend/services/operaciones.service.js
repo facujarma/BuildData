@@ -1,11 +1,7 @@
 import { pool } from "../db.js";
 import { resolvePersonaIdByTelefono } from "./personaService.js";
-import {
-  normalizarRol,
-  puedeOperar,
-  puedeAprobar,
-  permisoDeEndpoint,
-} from "./permisos.service.js";
+import { ENDPOINT_PERMISOS, puedeOperar, permisoDeEndpoint } from "./permisos.service.js";
+import { normalizarPermisos, perfilEnObra, resolverRol } from "./roles.service.js";
 
 // Allowlist de operaciones que el executor puede disparar por loopback.
 // `auto: true` = no requiere aprobación (se ejecuta al registrarse).
@@ -253,8 +249,11 @@ export async function registrarOperaciones({ obra_id, mensaje_id, telefono, oper
   }
   const autoObra = obra.rows[0].aprobacion_automatica === true;
 
-  // Autorización por rol: el rol vale por obra (miembros_obra.rol). El bot hace
-  // el mismo chequeo para dar un mensaje claro, pero esta es la barrera dura.
+  // Autorización por rol: el rol vale por obra (miembros_obra.rol) y los permisos
+  // salen de `roles_obra` (dinámicos, editables desde Configuración). El bot hace el
+  // mismo chequeo para dar un mensaje claro, pero esta es la barrera dura. Si la obra
+  // no tiene roles (migración pendiente), `resolverRol` devuelve la fila sintética del
+  // rol de sistema y se cae a la matriz estática, igual que GET /obras/:id/mi-rol.
   const miembro = await pool.query(
     `SELECT rol FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2`,
     [usuario_id, obra_id]
@@ -264,13 +263,23 @@ export async function registrarOperaciones({ obra_id, mensaje_id, telefono, oper
     error.status = 403;
     throw error;
   }
-  const rol = normalizarRol(miembro.rows[0].rol);
-  const rechazadas = operaciones.filter((op) => !puedeOperar(rol, op.endpoint));
+  const rol = await resolverRol(obra_id, miembro.rows[0].rol);
+  // `resolverRol` devuelve id null cuando resolvió con la matriz estática (tabla sin
+  // migrar u obra sin roles); con id, el permiso efectivo lo dicta roles_obra.
+  const permisosDinamicos = Boolean(rol.id);
+  const permisosBot = normalizarPermisos(rol.permisos).bot;
+  const rechazadas = operaciones.filter((op) => {
+    const permiso = ENDPOINT_PERMISOS[op.endpoint];
+    // Fail closed: un endpoint sin permiso mapeado no se puede registrar.
+    if (!permiso) return true;
+    if (permisosDinamicos) return permisosBot[permiso] !== true;
+    return !puedeOperar(rol.nombre, op.endpoint);
+  });
   if (rechazadas.length > 0) {
     const detalle = rechazadas
       .map((op) => permisoDeEndpoint(op.endpoint)?.label ?? op.endpoint)
       .join(", ");
-    const error = new Error(`tu rol ${rol} no puede: ${detalle}`);
+    const error = new Error(`tu rol ${rol.nombre} no puede: ${detalle}`);
     error.status = 403;
     throw error;
   }
@@ -339,20 +348,18 @@ export async function aprobarOperacion(id, personaId) {
     return { conflict: true, estado: op.estado };
   }
 
-  // Quien aprueba desde la web también necesita el permiso de la operación.
-  // (La membresía a la obra ya la validó el controller.)
-  const miembro = personaId
-    ? await pool.query(
-        `SELECT rol FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2`,
-        [personaId, op.obra_id]
-      )
-    : { rows: [] };
-  if (!miembro.rows[0]) {
+  // Quien aprueba desde la web necesita el permiso de la bandeja (`bandeja.aprobar`,
+  // dinámico por roles_obra) y, además, el permiso del bot del endpoint que se va a
+  // ejecutar: nadie aprueba algo que su rol no podría hacer. Fail closed.
+  const perfil = personaId ? await perfilEnObra(personaId, op.obra_id) : null;
+  if (!perfil) {
     return { forbidden: true, rol: null };
   }
-  const rol = normalizarRol(miembro.rows[0].rol);
-  if (!puedeAprobar(rol) || !puedeOperar(rol, op.endpoint)) {
-    return { forbidden: true, rol };
+  const permisoOperacion = ENDPOINT_PERMISOS[op.endpoint];
+  const puedeAprobarBandeja = perfil.permisos.web["bandeja.aprobar"] === true;
+  const puedeEjecutar = Boolean(permisoOperacion) && perfil.permisos.bot[permisoOperacion] === true;
+  if (!puedeAprobarBandeja || !puedeEjecutar) {
+    return { forbidden: true, rol: perfil.rol.nombre };
   }
 
   await resolverAlertaOperacion(id);

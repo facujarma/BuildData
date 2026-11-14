@@ -28,6 +28,7 @@ import { getPedidos } from "@/services/pedidosService";
 import { useToast, DashToast } from "./useToast";
 import { CategoryModal, type CategoryFormData } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
+import { useRole } from "./RoleContext";
 import type { DashboardData, TaskItem } from "@/types/dashboard";
 import type { AlertaItem } from "../alertas/data";
 import { formatARSCompact } from "@/lib/format";
@@ -75,6 +76,9 @@ export function DashboardContent({ data, onNavigate }: Props) {
   } = data;
 
   const { setLookupData, obraId, refreshDashboard } = useDashboardData();
+  const { puede } = useRole();
+  // Sin `presupuesto.ver` el Backend no manda `budget` y la tarjeta no se pinta.
+  const puedeVerPresupuesto = puede("presupuesto.ver") && budget != null;
 
   const NAV_MAP: Record<string, string> = {
     cronograma: `/cronograma`,
@@ -326,14 +330,16 @@ export function DashboardContent({ data, onNavigate }: Props) {
         />
       </div>
 
-      {/* Budget banner + Activity feed */}
-      <div className="grid grid-cols-2 gap-3">
-        <BudgetCard
-          budget={budget}
-          budgetBreakdown={budgetBreakdown}
-          onViewBreakdown={() => setDrawer({ kind: "budget" })}
-          onExport={() => flash("Exportando presupuesto a XLSX…")}
-        />
+      {/* Budget banner + Activity feed — la tarjeta de costos solo con permiso */}
+      <div className={puedeVerPresupuesto ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
+        {puedeVerPresupuesto && budget && (
+          <BudgetCard
+            budget={budget}
+            budgetBreakdown={budgetBreakdown}
+            onViewBreakdown={() => setDrawer({ kind: "budget" })}
+            onExport={() => flash("Exportando presupuesto a XLSX…")}
+          />
+        )}
         <ActivityFeed
           items={activityFeed}
           onItemClick={() => handleNav("Actividad")}
@@ -486,7 +492,8 @@ export function DashboardContent({ data, onNavigate }: Props) {
         <TasksInProgressBody tasks={tasks} onComplete={handleTaskComplete} />
       </SideDrawer>
 
-      {/* Budget breakdown */}
+      {/* Budget breakdown — mismo gate que la tarjeta */}
+      {puedeVerPresupuesto && budget && (
       <SideDrawer
         open={drawer?.kind === "budget"}
         title="Desglose de presupuesto"
@@ -537,6 +544,7 @@ export function DashboardContent({ data, onNavigate }: Props) {
           })}
         </div>
       </SideDrawer>
+      )}
 
       {/* Category detail */}
       <SideDrawer

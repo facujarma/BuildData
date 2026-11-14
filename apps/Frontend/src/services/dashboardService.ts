@@ -34,17 +34,21 @@ function transformDashboard(api: ApiDashboardResponse): DashboardData {
       tareasTotal:       api.stats.tareasTotal,
     },
 
-    budget: {
-      total:           api.budget.total,
-      ejecutado:       api.budget.ejecutado,
-      disponible:      api.budget.disponible,
-      ejecutadoPct:    api.budget.ejecutadoPct,
-      comprometidoPct: api.budget.comprometidoPct,
-      librePct:        api.budget.librePct,
-      updatedAt:       formatRelativeDay(api.budget.updatedAt),
-    },
+    // Sin `presupuesto.ver` el Backend no manda `budget`/`budgetBreakdown`:
+    // el dashboard se sigue armando (BudgetCard se gatea en el componente).
+    budget: api.budget
+      ? {
+          total:           api.budget.total,
+          ejecutado:       api.budget.ejecutado,
+          disponible:      api.budget.disponible,
+          ejecutadoPct:    api.budget.ejecutadoPct,
+          comprometidoPct: api.budget.comprometidoPct,
+          librePct:        api.budget.librePct,
+          updatedAt:       formatRelativeDay(api.budget.updatedAt),
+        }
+      : undefined,
 
-    budgetBreakdown: api.budgetBreakdown.map((item) => {
+    budgetBreakdown: (api.budgetBreakdown ?? []).map((item) => {
       const over = item.spent > item.cap;
       return {
         name:    item.name,
@@ -91,7 +95,7 @@ function transformDashboard(api: ApiDashboardResponse): DashboardData {
       dueDate:        task.fecha_limite ? formatRelativeDay(task.fecha_limite) : "",
     })),
 
-    orders: api.orders.map((order): OrderItem => ({
+    orders: (api.orders ?? []).map((order): OrderItem => ({
       id:         order.id,
       status:     order.estado,
       approved:   order.aprobado,

@@ -7,6 +7,7 @@ import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import { DAvatar } from "@/components/ui/DAvatar";
 import Button from "@/components/ui/Button";
+import { useRole } from "../../_components/RoleContext";
 import { DashToast, useToast } from "../../_components/useToast";
 import { SupplierModal, type SupplierData } from "../../_components/SupplierModal";
 import { getProveedores, createProveedor, updateProveedor, setFavorito, promoverProveedor, deleteProveedor } from "@/services/proveedoresService";
@@ -38,6 +39,9 @@ export function ScreenProveedores() {
   const [sel, setSel] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ initial: SupplierData | null } | null>(null);
   const [toast, flash] = useToast();
+  const { puede } = useRole();
+  const puedeGestionar = puede("proveedores.gestionar");
+  const puedePedidos = puede("pedidos.crear");
 
 const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
 
@@ -72,7 +76,7 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
   const toggleFav = async (id: string, cur: boolean) => {
     setAll((prev) => prev.map((p) => (p.id === id ? { ...p, fav: !cur } : p)));
     try {
-      await setFavorito(id, !cur);
+      await setFavorito(obraId, id, !cur);
       flash(cur ? "Quitado de frecuentes" : "Agregado a frecuentes");
     } catch (e) {
       setAll((prev) => prev.map((p) => (p.id === id ? { ...p, fav: cur } : p)));
@@ -83,7 +87,7 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
   // El modal muestra el error y sigue abierto si esto lanza
   const save = async (d: SupplierData) => {
     if (d.id) {
-      const actualizado = await updateProveedor(d.id, d);
+      const actualizado = await updateProveedor(obraId, d.id, d);
       setAll((prev) => prev.map((p) => (p.id === d.id ? actualizado : p)));
       flash("Proveedor actualizado");
     } else {
@@ -97,7 +101,7 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
 
   const promote = async (p: Proveedor) => {
     try {
-      await promoverProveedor(p.id);
+      await promoverProveedor(obraId, p.id);
       setAll((prev) => prev.map((x) => (x.id === p.id ? { ...x, scope: "global" } : x)));
       setScope("global");
       flash("Agregado al catálogo de la empresa");
@@ -108,7 +112,7 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
 
   const remove = async (p: Proveedor) => {
     try {
-      await deleteProveedor(p.id);
+      await deleteProveedor(obraId, p.id);
       setAll((prev) => prev.filter((x) => x.id !== p.id));
       setSel(null);
       flash("Proveedor eliminado");
@@ -126,7 +130,9 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
         className={"group flex items-center gap-2 pl-3 pr-2 py-[9px] border-l-[3px] cursor-pointer transition-colors " + (on ? "bg-primary-50/60 border-primary" : "border-transparent hover:bg-slate-50")}
         onClick={() => setSel(p.id)}
       >
-        <Star on={p.fav} onClick={(e) => { e.stopPropagation(); toggleFav(p.id, p.fav); }} />
+        {puedeGestionar && (
+          <Star on={p.fav} onClick={(e) => { e.stopPropagation(); toggleFav(p.id, p.fav); }} />
+        )}
         <span className="w-8 h-8 rounded-md flex items-center justify-center flex-none font-extrabold text-[11px]"
           style={{ background: color + "22", color: color }}>
           {supInitials(p.name)}
@@ -150,7 +156,9 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
       <DPageHeader
         title="Proveedores"
         subtitle={`${globals.length} de la obra · ${privates.length} en tu agenda privada`}
-        right={<Button variant="primary" size="sm" icon={<Plus width={13} height={13} />} onClick={() => setEdit({ initial: null })}>Nuevo proveedor</Button>}
+        right={puedeGestionar ? (
+          <Button variant="primary" size="sm" icon={<Plus width={13} height={13} />} onClick={() => setEdit({ initial: null })}>Nuevo proveedor</Button>
+        ) : undefined}
       />
 
       {/* Selector de ámbito — dos listas separadas, no un filtro más */}
@@ -250,10 +258,14 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
           </div>
 
           <div className="p-2 border-t border-slate-200 bg-slate-50">
-            <button onClick={() => setEdit({ initial: null })}
-              className="w-full flex items-center justify-center gap-2 text-[12px] font-bold text-primary py-[7px] rounded-md hover:bg-primary-50 transition-colors">
-              <Plus width={12} height={12} /> Agregar {scope === "global" ? "al catálogo" : "a esta obra"}
-            </button>
+            {puedeGestionar ? (
+              <button onClick={() => setEdit({ initial: null })}
+                className="w-full flex items-center justify-center gap-2 text-[12px] font-bold text-primary py-[7px] rounded-md hover:bg-primary-50 transition-colors">
+                <Plus width={12} height={12} /> Agregar {scope === "global" ? "al catálogo" : "a esta obra"}
+              </button>
+            ) : (
+              <div className="text-center text-[11px] text-slate-500 py-[7px]">Solo lectura</div>
+            )}
           </div>
         </DCard>
 
@@ -280,7 +292,9 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-[20px] font-extrabold display-tight text-slate-950 leading-tight">{current.name}</h3>
+                      {puedeGestionar && (
                       <Star on={current.fav} onClick={() => toggleFav(current.id, current.fav)} size={16} />
+                    )}
                       {current.scope === "obra"
                         ? <span className="text-[9px] font-bold text-[#A16207] bg-attention-50 border border-[#FDE68A] rounded px-[6px] py-[2px]">SOLO ESTA OBRA</span>
                         : <span className="text-[9px] font-bold text-primary bg-primary-50 rounded px-[6px] py-[2px]">TODAS LAS OBRAS</span>}
@@ -291,9 +305,13 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-none">
-                    <button onClick={() => setEdit({ initial: current })} className="text-slate-400 hover:text-primary p-2" title="Editar"><Pencil width={14} height={14} /></button>
-                    <button onClick={() => { if (window.confirm(`¿Eliminar ${current.name}? No vas a poder deshacerlo desde acá.`)) remove(current); }}
-                      className="text-slate-400 hover:text-critical p-2" title="Eliminar"><TrashBin width={14} height={14} /></button>
+                    {puedeGestionar && (
+                      <>
+                        <button onClick={() => setEdit({ initial: current })} className="text-slate-400 hover:text-primary p-2" title="Editar"><Pencil width={14} height={14} /></button>
+                        <button onClick={() => { if (window.confirm(`¿Eliminar ${current.name}? No vas a poder deshacerlo desde acá.`)) remove(current); }}
+                          className="text-slate-400 hover:text-critical p-2" title="Eliminar"><TrashBin width={14} height={14} /></button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -315,7 +333,7 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
                       <Microphone width={13} height={13} /> Llamar</a>
                   )}
                   <div className="flex-1" />
-                  {current.scope === "obra" && (
+                  {current.scope === "obra" && puedeGestionar && (
                     <Button variant="secondary" size="sm" icon={<Database width={12} height={12} />} onClick={() => promote(current)}>Sumar al catálogo</Button>
                   )}
                 </div>
@@ -371,7 +389,9 @@ const load = useCallback(() => getProveedores(obraId).then(setAll), [obraId]);
               {ordersOf(current.id).length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <div className="text-[12px] text-slate-500 mb-3">Todavía no le hiciste pedidos a este proveedor.</div>
-                  <Button variant="secondary" size="sm" icon={<Plus width={12} height={12} />} onClick={() => router.replace(`/${obraId}/dashboard/materiales?v=pedidos`)}>Crear un pedido</Button>
+                  {puedePedidos && (
+                    <Button variant="secondary" size="sm" icon={<Plus width={12} height={12} />} onClick={() => router.replace(`/${obraId}/dashboard/materiales?v=pedidos`)}>Crear un pedido</Button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
