@@ -1,7 +1,0 @@
-export const LOGOS = [
-  "ESTUDIO MARCÁ",
-  "CONSTRUCTORA LARIO",
-  "GRUPO PARANÁ",
-  "EDIFICA AR",
-  "OBRAS DEL SUR",
-];
