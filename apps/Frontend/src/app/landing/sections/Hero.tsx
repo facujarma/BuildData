@@ -1,41 +1,11 @@
 import Icon from "../_components/Icon";
 import PhoneMockup from "../_components/PhoneMockup";
-import { LOGOS } from "../data/landing";
-
-const FACES = [
-  ["JM", "from-primary to-info"],
-  ["AG", "from-info to-primary"],
-  ["CR", "from-[#F59E0B] to-[#EF4444]"],
-  ["LB", "from-primary to-[#22C55E]"],
-  ["PS", "from-[#EF4444] to-[#F59E0B]"],
-  ["MO", "from-[#22C55E] to-info"],
-];
 
 export default function Hero() {
   return (
     <section className="relative bg-white overflow-hidden">
       <div className="bd-dots bd-dots-hero" aria-hidden="true" />
       <div className="relative max-w-[1180px] mx-auto px-6 pt-[92px] pb-14 text-center">
-        {/* Prueba social */}
-        <div className="flex flex-col items-center gap-2 mb-7 animate-fadein">
-          <div className="flex -space-x-2">
-            {FACES.map(([initials, gradient]) => (
-              <span
-                key={initials}
-                className={
-                  "w-7 h-7 rounded-full ring-2 ring-white bg-gradient-to-br text-white text-[9px] font-extrabold flex items-center justify-center " +
-                  gradient
-                }
-              >
-                {initials}
-              </span>
-            ))}
-          </div>
-          <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-slate500">
-            +120 constructoras y estudios
-          </span>
-        </div>
-
         <h1 className="text-[clamp(38px,5.6vw,72px)] leading-[1.05] font-bold display-tight text-slate950 max-w-[980px] mx-auto mb-6 animate-fadein-1">
           Tu equipo ya lo cuenta por WhatsApp. Nosotros lo ordenamos.
         </h1>
@@ -113,23 +83,6 @@ export default function Hero() {
           <div className="hidden lg:block absolute -right-2 bottom-[-40px] z-10">
             <PhoneMockup width={230} mode="confirm" />
           </div>
-        </div>
-      </div>
-
-      {/* Logos */}
-      <div className="max-w-[1180px] mx-auto px-6 pt-20 pb-6">
-        <div className="text-center text-[12px] font-semibold text-slate500 mb-6">
-          Equipos de obra que ya trabajan así
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-4 items-center justify-items-center opacity-60">
-          {LOGOS.map((logo) => (
-            <div
-              key={logo}
-              className="text-[13px] font-extrabold tracking-[0.08em] text-slate600 whitespace-nowrap"
-            >
-              {logo}
-            </div>
-          ))}
         </div>
       </div>
     </section>
