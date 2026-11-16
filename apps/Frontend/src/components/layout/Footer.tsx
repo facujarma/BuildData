@@ -25,7 +25,7 @@ export default function Footer() {
         <div className="flex gap-6 text-[12px] font-semibold text-white/70">
           <Link href="/" className="hover:text-accent">Producto</Link>
           <Link href="/payments" className="hover:text-accent">Planes</Link>
-          <a href="mailto:hola@buildata.app" className="hover:text-accent">Contacto</a>
+          <a href="mailto:info@builddata.com.ar" className="hover:text-accent">Contacto</a>
         </div>
       </div>
     </footer>

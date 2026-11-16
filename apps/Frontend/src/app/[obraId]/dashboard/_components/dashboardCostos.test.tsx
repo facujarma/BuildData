@@ -27,8 +27,13 @@ mock.module("@/services/pedidosService", () => ({
   getPedidos: async () => [],
 }));
 
+// Este mock es por proceso, no por archivo: si le falta un export, cualquier
+// test posterior que importe un módulo que lo use (ej. NewOrderModal con
+// `createRubro`) rompe al cargar. Mantener todos los exports que usan las
+// pantallas del dashboard.
 mock.module("@/services/cronogramaService", () => ({
   completeCronogramaTask: async () => {},
+  createRubro: async () => ({ id: "rubro-nuevo", name: "Rubro" }),
 }));
 
 mock.module("./DashboardDataContext", () => ({

@@ -1,3 +1,5 @@
+import { DEMO_ACTIVO } from "./demo";
+
 export const pricingCardsYearly = [
   {
     planLabel: "Inicio",
@@ -203,7 +205,7 @@ export const comparisonCategories = [
   },
 ];
 
-export const faqItems = [
+export const faqItemsPagos = [
   {
     question: "¿Puedo cambiar de plan en cualquier momento?",
     answer:
@@ -232,6 +234,38 @@ export const faqItems = [
   // {
   //   question: "¿Tienen descuentos para estudios chicos o cooperativas?",
   //   answer:
-  //     "Sí. Tenemos planes especiales para cooperativas de trabajo, estudios pequeños y organizaciones sin fines de lucro. Escribinos a hola@buildata.app y te armamos una propuesta.",
+  //     "Sí. Tenemos planes especiales para cooperativas de trabajo, estudios pequeños y organizaciones sin fines de lucro. Escribinos a info@builddata.com.ar y te armamos una propuesta.",
   // },
 ];
+
+// Preguntas de la demo: no hay precios publicados, así que la FAQ habla de la
+// prueba sin costo, sus límites y cómo pedir acceso/asistencia.
+export const faqItemsDemo = [
+  {
+    question: "¿Cuánto cuesta BuildData?",
+    answer:
+      "Todavía no publicamos precios. Estamos sumando obras piloto sin costo: probás la app con algunos límites de uso y nos contás cómo te fue. Cuando salgan los planes te pasamos las opciones y qué incluye cada una.",
+  },
+  {
+    question: "¿Qué límites tiene la demo?",
+    answer:
+      "1 obra activa, hasta 5 personas en el equipo y 100 mensajes del bot por mes. Son los mismos límites para todos para que la prueba sea pareja; si necesitás más para probarla en serio, escribinos y lo vemos.",
+  },
+  {
+    question: "¿Necesito tarjeta de crédito?",
+    answer:
+      "No. La demo no pide tarjeta ni contrato: nos escribís, te damos acceso y empezás a usarla en tu obra.",
+  },
+  {
+    question: "¿Cómo pido acceso o asistencia?",
+    answer:
+      "Escribinos a info@builddata.com.ar o a facundojarma@gmail.com. Te ayudamos a cargar la obra, materiales, rubros y tareas, y a invitar al equipo por WhatsApp.",
+  },
+  {
+    question: "¿Puedo invitar a mi equipo a probar?",
+    answer:
+      "Sí. Desde Configuración → Equipo generás un link de invitación de WhatsApp con el rol de cada persona (Obrero, Capataz o Director). La demo permite hasta 5 personas por obra.",
+  },
+];
+
+export const faqItems = DEMO_ACTIVO ? faqItemsDemo : faqItemsPagos;

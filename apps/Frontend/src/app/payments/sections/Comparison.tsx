@@ -1,5 +1,6 @@
 import CompareTable from "../_components/CompareTable";
 import { comparisonCategories } from "../data/plans";
+import { mailtoDemo } from "../data/demo";
 
 export default function Comparison() {
   return (
@@ -16,7 +17,7 @@ export default function Comparison() {
       <div className="text-center mt-6 text-[12px] text-slate500">
         ¿No estás seguro cuál te conviene?{" "}
         <a
-          href="mailto:hola@buildata.app"
+          href={mailtoDemo("Quiero probar BuildData — ¿qué plan me conviene?")}
           className="text-primary font-bold hover:underline"
         >
           Hablá con nosotros

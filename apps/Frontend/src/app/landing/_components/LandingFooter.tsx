@@ -14,7 +14,7 @@ export default function LandingFooter() {
         <div className="flex gap-6 text-[12px] font-semibold text-white/70">
           <a href="#funcionalidades" className="hover:text-accent">Producto</a>
           <a href="/payments" className="hover:text-accent">Planes</a>
-          <a href="mailto:hola@buildata.app" className="hover:text-accent">Contacto</a>
+          <a href="mailto:info@builddata.com.ar" className="hover:text-accent">Contacto</a>
         </div>
       </div>
     </footer>
