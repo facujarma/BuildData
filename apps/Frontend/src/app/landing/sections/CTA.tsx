@@ -20,7 +20,7 @@ export default function CTA() {
             Empezar 14 días gratis <Icon name="arrow-right" size={15} />
           </a>
           <a
-            href="mailto:hola@buildata.app"
+            href="mailto:info@builddata.com.ar?subject=Quiero%20probar%20BuildData%20(demo)"
             className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-md px-6 py-[13px] text-[15px] transition-colors"
           >
             Agendar una demo

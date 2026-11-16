@@ -1,7 +1,9 @@
 import FAQ from "../../landing/_components/FAQ";
 import { faqItems } from "../data/plans";
+import { DEMO_EMAILS } from "../data/demo";
 
 export default function FAQSection() {
+  const email = DEMO_EMAILS[0];
   return (
     <section className="max-w-[860px] mx-auto px-6 py-20">
       <div className="text-center mb-10">
@@ -16,10 +18,17 @@ export default function FAQSection() {
       <div className="text-center mt-6 text-[13px] text-slate500">
         ¿Otra duda? Escribinos a{" "}
         <a
-          href="mailto:hola@buildata.app"
+          href={`mailto:${email}`}
           className="text-primary font-bold hover:underline"
         >
-          hola@buildata.app
+          {email}
+        </a>{" "}
+        o a{" "}
+        <a
+          href={`mailto:${DEMO_EMAILS[1]}`}
+          className="text-primary font-bold hover:underline"
+        >
+          {DEMO_EMAILS[1]}
         </a>
         .
       </div>

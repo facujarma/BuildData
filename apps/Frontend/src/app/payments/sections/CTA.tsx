@@ -1,4 +1,5 @@
-import { ArrowRight } from "@gravity-ui/icons";
+import { ArrowRight, Envelope } from "@gravity-ui/icons";
+import { DEMO_EMAILS, mailtoDemo } from "../data/demo";
 
 export default function CTA() {
   return (
@@ -13,22 +14,22 @@ export default function CTA() {
             En 24 horas tu información va a estar ordenada.
           </span>
         </h2>
-        <p className="text-[15px] text-white/70 max-w-[540px] mx-auto leading-relaxed mb-8">
-          Sin tarjeta de crédito. Sin contratos largos. Sin instalaciones
-          complicadas.
+        <p className="text-[15px] text-white/70 max-w-[560px] mx-auto leading-relaxed mb-8">
+          Sin costo durante la demo. Sin tarjeta, sin contrato y con límites de
+          uso claros. Escribinos y te damos acceso.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <a
-            href="/login"
+            href={mailtoDemo()}
             className="inline-flex items-center gap-2 bg-accent hover:bg-accent-700 text-slate950 font-bold rounded-md px-6 py-[12px] text-[14px] transition-colors"
           >
-            Empezar 14 días gratis <ArrowRight />
+            Pedir acceso a la demo <ArrowRight />
           </a>
           <a
-            href="mailto:hola@buildata.app"
+            href={`mailto:${DEMO_EMAILS[0]}?subject=${encodeURIComponent("Asistencia BuildData")}`}
             className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-md px-6 py-[12px] text-[14px] transition-colors"
           >
-            Agendar una demo
+            <Envelope width={14} height={14} /> {DEMO_EMAILS[0]}
           </a>
         </div>
       </div>
