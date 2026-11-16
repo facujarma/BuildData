@@ -12,7 +12,7 @@ export type PermisoRuta = string | string[] | null;
 export const LABEL_PERMISO: Record<string, string> = {
   "dashboard.ver": "ver el dashboard",
   "bandeja.ver": "ver la bandeja",
-  "bandeja.aprobar": "aprobar operaciones",
+  "bandeja.aprobar": "aprobar o rechazar operaciones",
   "equipo.ver": "ver el equipo",
   "equipo.administrar": "administrar el equipo",
   "configuracion.ver": "ver configuración",

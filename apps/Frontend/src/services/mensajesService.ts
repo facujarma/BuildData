@@ -163,7 +163,10 @@ async function accionOperacion(id: string, accion: string): Promise<void> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `No se pudo ${accion} la operación (${res.status})`);
+    // El middleware de permisos responde `message`/`mensaje` (contrato
+    // docs/roles-permisos.md); los controllers responden `error`.
+    const detalle = body?.error || body?.message || body?.mensaje;
+    throw new Error(detalle || `No se pudo ${accion} la operación (${res.status})`);
   }
 }
 

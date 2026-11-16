@@ -369,6 +369,24 @@ export async function aprobarOperacion(id, personaId) {
 }
 
 export async function rechazarOperacion(id, personaId) {
+  const { rows: filas } = await pool.query(
+    `SELECT * FROM operaciones_bot WHERE id = $1`,
+    [id]
+  );
+  const op = filas[0];
+  if (!op) return { notFound: true };
+  if (op.estado !== "pendiente" && op.estado !== "error") {
+    return { conflict: true, estado: op.estado };
+  }
+
+  // Rechazar no ejecuta nada: la única barrera es la de la bandeja
+  // (`bandeja.aprobar`, dinámica por roles_obra). A diferencia de aprobar, no se
+  // exige el permiso bot del endpoint. Fail closed.
+  const perfil = personaId ? await perfilEnObra(personaId, op.obra_id) : null;
+  if (!perfil || perfil.permisos?.web?.["bandeja.aprobar"] !== true) {
+    return { forbidden: true, rol: perfil?.rol?.nombre ?? null };
+  }
+
   const { rows } = await pool.query(
     `UPDATE operaciones_bot
      SET estado = 'rechazada', aprobada_por = $1, aprobada_at = now()
@@ -377,6 +395,7 @@ export async function rechazarOperacion(id, personaId) {
     [personaId, id]
   );
   if (!rows[0]) {
+    // Carrera con otra aprobación/rechazo entre el SELECT y el UPDATE.
     const existe = await pool.query(
       `SELECT estado FROM operaciones_bot WHERE id = $1`,
       [id]
