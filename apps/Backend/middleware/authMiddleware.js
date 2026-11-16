@@ -4,6 +4,11 @@
 
 import { supabase } from "../supabaseClient.js"; // cliente público de Supabase, para validar el token
 import { pool } from "../db.js"; // conexión a la base, para buscar la persona
+import {
+  datosPersonaDesdeAuthUser,
+  esPersonaError,
+  vincularPersonaAuth,
+} from "../services/personas.service.js";
 
 // Usar en cualquier route que requiera estar logueado:
 // router.get("/algo", authMiddleware, elController)
@@ -40,7 +45,16 @@ export async function authMiddleware(req, res, next) {
   // Resolver auth_user_id → personas.id para que los controllers
   // puedan usar req.personaId al insertar en tablas que referencian personas
   // (el usuario de Supabase Auth y la fila de la tabla `personas` son cosas distintas;
-  // personas.auth_user_id las une)
+  // personas.auth_user_id las une).
+  //
+  // Si todavía no hay fila (cuenta web creada antes del deploy, o flujo que no
+  // pasó por /auth/register) se crea la persona con `auth_user_id` y el nombre.
+  //
+  // NUNCA se vincula por teléfono acá: `user_metadata` lo puede editar el propio
+  // usuario y `data.user.phone` no es la identidad del bot. Aceptar ese teléfono
+  // permitiría reclamar el WhatsApp de un Director y heredar sus obras. El
+  // vínculo por teléfono lo hace un Director desde Equipo, con el endpoint que
+  // valida permisos y membresías.
   try {
     const { rows } = await pool.query(
       `SELECT id FROM personas WHERE auth_user_id = $1`, // $1 se reemplaza de forma segura por el valor del array
@@ -50,9 +64,27 @@ export async function authMiddleware(req, res, next) {
       // De acá en adelante, cualquier controller sabe quién hizo el pedido:
       // ej. esMiembroDeObra(req.personaId, ...) o usuario_id en la bitácora
       req.personaId = rows[0].id;
+    } else {
+      const { nombre } = datosPersonaDesdeAuthUser(data.user);
+      const persona = await vincularPersonaAuth({
+        authUserId: data.user.id,
+        nombre,
+        telefono: null,
+        permitirVinculoPorTelefono: false,
+      });
+      if (persona?.id) req.personaId = persona.id;
     }
   } catch (dbError) {
-    console.error("Error resolviendo persona_id:", dbError);
+    // Un problema de identidad no puede tumbar la request (el 401 ya pasó): se
+    // loguea y el controller decide con req.personaId undefined.
+    if (esPersonaError(dbError)) {
+      console.warn(
+        `[auth] no se pudo vincular la persona (${dbError.code}):`,
+        dbError.message
+      );
+    } else {
+      console.error("[auth] error resolviendo persona_id:", dbError);
+    }
   }
 
   next(); // todo bien: pasa al router que corresponda (ej. routes/pedidos.js)

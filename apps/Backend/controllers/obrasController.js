@@ -7,6 +7,11 @@ import {
   sembrarRoles,
   serializarMiRol,
 } from "../services/roles.service.js";
+import {
+  datosPersonaDesdeAuthUser,
+  esPersonaError,
+  vincularPersonaAuth,
+} from "../services/personas.service.js";
 
 // Catálogo de categorías de MATERIALES con el que nace toda obra nueva
 // (tabla categorias_materiales, no son rubros). Después se edita desde Stock.
@@ -195,22 +200,20 @@ export async function crearObra(req, res) {
     // su rol (Director) tiene que existir en roles_obra.
     await sembrarRoles(client, obra_id);
 
-    // Vincular creador (persona existente o creada con su nombre)
-    const personaExistente = await client.query(
-      `SELECT id FROM personas WHERE auth_user_id = $1`,
-      [req.user.id]
-    );
-    let personaId = personaExistente.rows[0]?.id;
-    if (!personaId) {
-      const metadata = req.user.user_metadata || {};
-      const nombrePersona = metadata.nombre || metadata.full_name || metadata.name
-        || (req.user.email ? req.user.email.split("@")[0] : "Usuario");
-      const nuevaPersona = await client.query(
-        `INSERT INTO personas (auth_user_id, nombre) VALUES ($1,$2) RETURNING id`,
-        [req.user.id, nombrePersona]
-      );
-      personaId = nuevaPersona.rows[0].id;
-    }
+    // Vincular creador: la persona se resuelve por auth_user_id. El teléfono de
+    // la metadata NO se usa para vincular (es editable por el usuario y
+    // permitiría reclamar el WhatsApp de otra persona); si hace falta unificar,
+    // lo hace un Director desde Equipo.
+    const datosCreador = datosPersonaDesdeAuthUser(req.user);
+    const personaCreador = await vincularPersonaAuth({
+      authUserId: req.user.id,
+      nombre: datosCreador.nombre,
+      telefono: null,
+      permitirVinculoPorTelefono: false,
+      client,
+    });
+    if (!personaCreador?.id) throw new Error("No se pudo resolver la persona del creador");
+    const personaId = personaCreador.id;
     await client.query(
       `INSERT INTO miembros_obra (persona_id, obra_id, rol) VALUES ($1,$2,$3)
        ON CONFLICT (persona_id, obra_id) DO NOTHING`,
@@ -283,7 +286,23 @@ export async function crearObra(req, res) {
     );
     res.status(201).json(await buildObra(full.rows[0]));
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Si la conexión ya está rota, el error original es el que importa.
+    }
+    if (esPersonaError(error) && error.code === "TELEFONO_EN_USO") {
+      return res.status(409).json({
+        code: "TELEFONO_EN_USO",
+        error: "Ese teléfono ya está vinculado a otra cuenta",
+      });
+    }
+    if (esPersonaError(error) && error.code === "MIGRACION_PENDIENTE") {
+      return res.status(503).json({
+        code: "MIGRACION_PENDIENTE",
+        message: error.message,
+      });
+    }
     console.error(error);
     res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   } finally {

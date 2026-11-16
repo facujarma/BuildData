@@ -1,8 +1,10 @@
 // Tests de contrato de equipoService:
 // - crearInvitacionObrero: el body que sale a POST /obreros/invitacion incluye el rol
 //   cuando el modal lo manda (y no lo inventa cuando no viene).
-// - getEquipo: el `rol` que devuelve GET /obreros/:obra_id llega a la UI, con
-//   fallback 'Obrero' cuando el backend lo trae null/ausente.
+// - getEquipo: el `rol`, el `id` y el `email` que devuelve GET /obreros/:obra_id
+//   llegan a la UI, con fallback 'Obrero' cuando el backend trae rol null/ausente.
+// - vincularCuentaWeb: URL/método/body del merge y propagación del texto de error
+//   (el backend nuevo responde `{ code, message }`; los controllers viejos, `{ error }`).
 //
 // Sin red ni Supabase real: se mockea `@/lib/supabaseClient` (el módulo real exige
 // NEXT_PUBLIC_SUPABASE_URL/ANON_KEY al importarse) y se reemplaza `fetch` global.
@@ -21,7 +23,7 @@ mock.module("@/lib/supabaseClient", () => ({
   },
 }));
 
-const { crearInvitacionObrero, getEquipo } = await import("./equipoService");
+const { crearInvitacionObrero, getEquipo, vincularCuentaWeb } = await import("./equipoService");
 
 type Llamada = { url: string; init: RequestInit & { headers: Record<string, string> } };
 
@@ -141,7 +143,9 @@ describe("getEquipo — mapeo del rol del backend a la UI", () => {
       status: 200,
       body: [
         // Con cuenta web: va a people y el rol llega como `role`.
-        fila({ id: "p-1", nombre: "Zoe Directora", auth_user_id: "auth-1", rol: "Director" }),
+        fila({ id: "p-1", nombre: "Zoe Directora", auth_user_id: "auth-1", rol: "Director", email: "zoe@ejemplo.com" }),
+        // Cuenta web sin email en la respuesta: la UI lo recibe como null.
+        fila({ id: "p-5", nombre: "Sin Email", auth_user_id: "auth-2" }),
         // Obrero con rol explícito.
         fila({ id: "p-2", nombre: "Beto Capataz", rol: "Capataz" }),
         // Rol null (fila vieja / migración): fallback Obrero.
@@ -161,8 +165,14 @@ describe("getEquipo — mapeo del rol del backend a la UI", () => {
 
     expect(llamadas[0].url).toBe(`http://localhost:3001/obreros/${OBRA_ID}`);
 
-    expect(people).toHaveLength(1);
-    expect(people[0]).toMatchObject({ name: "Zoe Directora", role: "Director" });
+    expect(people).toHaveLength(2);
+    expect(people[0]).toMatchObject({
+      id: "p-1",
+      name: "Zoe Directora",
+      email: "zoe@ejemplo.com",
+      role: "Director",
+    });
+    expect(people[1]).toMatchObject({ id: "p-5", email: null });
 
     expect(obreros).toHaveLength(3);
     expect(obreros.find((o) => o.id === "p-2")?.rol).toBe("Capataz");
@@ -178,5 +188,69 @@ describe("getEquipo — mapeo del rol del backend a la UI", () => {
     const { people, obreros } = await getEquipo(OBRA_ID);
     expect(people).toEqual([]);
     expect(obreros).toEqual([]);
+  });
+});
+
+describe("vincularCuentaWeb — POST del merge cuenta web ↔ persona de WhatsApp", () => {
+  const DESTINO = "2a3b4c5d-6e7f-4a8b-9c0d-123456789abc";
+  const ORIGEN = "3b4c5d6e-7f8a-4b9c-8d0e-23456789abcd";
+
+  test("pega en /obreros/:destino/obra/:obra/vincular con persona_origen_id y JWT", async () => {
+    respuesta = {
+      ok: true,
+      status: 200,
+      body: { mensaje: "Cuentas vinculadas", total_movido: 3, miembros: [] },
+    };
+
+    const resumen = await vincularCuentaWeb(OBRA_ID, {
+      personaDestinoId: DESTINO,
+      personaOrigenId: ORIGEN,
+    });
+
+    expect(llamadas[0].url).toBe(
+      `http://localhost:3001/obreros/${DESTINO}/obra/${OBRA_ID}/vincular`,
+    );
+    expect(llamadas[0].init.method).toBe("POST");
+    expect(llamadas[0].init.headers["Content-Type"]).toBe("application/json");
+    expect(llamadas[0].init.headers.Authorization).toContain("token-de-prueba");
+    // El origen viaja en el body (no en el path) y con el nombre que espera el
+    // controller; el destino va en la URL.
+    expect(bodyEnviado()).toEqual({ persona_origen_id: ORIGEN });
+    expect(resumen.total_movido).toBe(3);
+  });
+
+  test("403 { code, message }: el texto del backend llega tal cual al modal", async () => {
+    respuesta = {
+      ok: false,
+      status: 403,
+      body: {
+        code: "SIN_PERMISO",
+        message: 'No tenés permisos para administrar el equipo de la obra "Obra A"',
+      },
+    };
+
+    await expect(
+      vincularCuentaWeb(OBRA_ID, { personaDestinoId: DESTINO, personaOrigenId: ORIGEN }),
+    ).rejects.toThrow('No tenés permisos para administrar el equipo de la obra "Obra A"');
+  });
+
+  test("409 { error }: también propaga el formato viejo del backend", async () => {
+    respuesta = {
+      ok: false,
+      status: 409,
+      body: { error: "Ese teléfono ya está vinculado a otra cuenta" },
+    };
+
+    await expect(
+      vincularCuentaWeb(OBRA_ID, { personaDestinoId: DESTINO, personaOrigenId: ORIGEN }),
+    ).rejects.toThrow("Ese teléfono ya está vinculado a otra cuenta");
+  });
+
+  test("error sin texto: cae al status para no mostrar un mensaje vacío", async () => {
+    respuesta = { ok: false, status: 503, body: { code: "MIGRACION_PENDIENTE" } };
+
+    await expect(
+      vincularCuentaWeb(OBRA_ID, { personaDestinoId: DESTINO, personaOrigenId: ORIGEN }),
+    ).rejects.toThrow("Request failed: 503");
   });
 });

@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { pool } from "../db.js";
 import { resolverRol } from "./roles.service.js";
+import { buscarPersonaPorTelefono } from "./personas.service.js";
+import { normalizarTelefono } from "./telefono.service.js";
+
+export { normalizarTelefono };
 
 const TTL_DIAS = 7;
 const PREFIJO_TOKEN = "v1.";
@@ -42,17 +46,6 @@ export function descifrarInvitacion(token) {
   } catch {
     return null;
   }
-}
-
-// WhatsApp para Argentina manda los celulares como 54 9 <area> <numero>
-// (ej: 54911...), pero el admin puede tipear +54 11 ... sin el 9.
-// Se normaliza a dígitos sin el 9 para poder comparar.
-export function normalizarTelefono(telefono) {
-  let digitos = String(telefono || "").replace(/\D/g, "");
-  if (digitos.startsWith("54") && digitos[2] === "9") {
-    digitos = `54${digitos.slice(3)}`;
-  }
-  return digitos;
 }
 
 // Crea la invitación en DB y devuelve el token cifrado que viaja en el link.
@@ -120,12 +113,18 @@ export async function consumirInvitacion({ token, telefono }) {
       return { error: "otro_telefono" };
     }
 
-    const persona = await client.query(
-      `INSERT INTO personas (nombre, telefono) VALUES ($1, $2)
-       ON CONFLICT (telefono) DO UPDATE SET nombre = $1
-       RETURNING id, nombre, telefono`,
-      [invitacion.nombre, telefono]
-    );
+    const telefonoNormalizado = String(telefono ?? "").replace(/\D/g, "") || null;
+    const existente = telefonoNormalizado
+      ? await buscarPersonaPorTelefono(client, telefonoNormalizado)
+      : null;
+
+    const persona = existente
+      ? { rows: [existente] }
+      : await client.query(
+          `INSERT INTO personas (nombre, telefono) VALUES ($1, $2)
+           RETURNING id, nombre, telefono`,
+          [invitacion.nombre, telefonoNormalizado]
+        );
 
     // El rol se resuelve contra los roles de la obra: si el nombre guardado en la
     // invitación ya no existe (o es un rol viejo), cae en el sistema equivalente.
@@ -154,6 +153,9 @@ export async function consumirInvitacion({ token, telefono }) {
     return { persona: persona.rows[0], obra: obra.rows[0] };
   } catch (error) {
     await client.query("ROLLBACK");
+    if (error?.code === "TELEFONO_AMBIGUO") {
+      return { error: "telefono_ambiguo" };
+    }
     throw error;
   } finally {
     client.release();

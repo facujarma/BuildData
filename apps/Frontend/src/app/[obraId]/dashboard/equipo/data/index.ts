@@ -1,6 +1,10 @@
 export interface Person {
+  // `id` es la persona de `miembros_obra`: lo usa la vinculación de cuentas
+  // (POST /obreros/:id/obra/:obraId/vincular) para elegir el origen del merge.
+  id: string;
   who: string;
   name: string;
+  email?: string | null;
   role: string;
   tasks: number;
   reports: number;

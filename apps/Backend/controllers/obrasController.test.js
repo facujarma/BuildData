@@ -9,6 +9,9 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 const OBRA_ID = "0b7c1f5e-1a2b-4c3d-8e9f-0123456789ab";
 const PERSONA_ID = "1c8d2e6f-2b3c-4d4e-9f00-123456789abc";
+const AUTH_USER_ID = "7f6e5d4c-3b2a-4190-8f7e-6d5c4b3a2010";
+const PERSONA_TEL_ID = "8a7b6c5d-4e3f-4201-9a8b-7c6d5e4f3021";
+const PERSONA_NUEVA_ID = "9b8c7d6e-5f4a-4312-8b9c-6d7e8f9a1023";
 const RUBRO_ID = "2d9e3f70-3c4d-4e5f-8a11-23456789abcd";
 
 const CATEGORIAS_DEFAULT = [
@@ -31,6 +34,9 @@ const estado = {
   fallaCategoria: false,
   tareasTotal: 0,
   tareasCompletadas: 0,
+  // Identidad del creador: por defecto ya existe la persona con auth_user_id.
+  personaPorAuth: true,
+  personaPorTelefono: null,
 };
 
 // --- Datos falsos de la base -------------------------------------------------
@@ -67,6 +73,47 @@ function responder(sql) {
   }
   if (s.startsWith("INSERT INTO obras")) {
     return { rows: [{ id: OBRA_ID, ...obraRow() }] };
+  }
+  if (
+    s.startsWith(
+      "SELECT id, auth_user_id, nombre, telefono, created_at FROM personas WHERE auth_user_id = $1"
+    )
+  ) {
+    if (estado.personaPorAuth === false) return { rows: [] };
+    return {
+      rows: [
+        {
+          id: PERSONA_ID,
+          auth_user_id: AUTH_USER_ID,
+          nombre: "Creador de la obra",
+          telefono: null,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    };
+  }
+  if (
+    s.startsWith("SELECT id, auth_user_id, nombre, telefono, created_at FROM personas") &&
+    s.includes("regexp_replace")
+  ) {
+    return { rows: estado.personaPorTelefono ? [estado.personaPorTelefono] : [] };
+  }
+  if (s.startsWith("UPDATE personas SET auth_user_id = $1")) {
+    return { rows: [], rowCount: 1 };
+  }
+  if (s.startsWith("INSERT INTO personas (")) {
+    return {
+      rows: [
+        {
+          id: PERSONA_NUEVA_ID,
+          auth_user_id: AUTH_USER_ID,
+          nombre: "Creador de la obra",
+          telefono: null,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      rowCount: 1,
+    };
   }
   if (s.startsWith("SELECT id FROM personas WHERE auth_user_id")) {
     return { rows: [{ id: PERSONA_ID }] };
@@ -134,7 +181,7 @@ function makeRes() {
 }
 
 const reqCrear = () => ({
-  user: { id: "auth-user-1", user_metadata: {} },
+  user: { id: AUTH_USER_ID, user_metadata: {} },
   body: {
     name: "Obra nueva",
     type: "edificio",
@@ -155,6 +202,8 @@ beforeEach(() => {
   estado.fallaCategoria = false;
   estado.tareasTotal = 0;
   estado.tareasCompletadas = 0;
+  estado.personaPorAuth = true;
+  estado.personaPorTelefono = null;
   clientQuery.mockClear();
   poolQuery.mockClear();
 });
@@ -193,6 +242,51 @@ describe("crearObra — categorías de materiales por defecto", () => {
     expect(res.statusCode).toBe(201);
     expect(estado.queries).toContain("ROLLBACK TO SAVEPOINT categorias_default");
     expect(estado.queries).toContain("COMMIT");
+  });
+});
+
+describe("crearObra — identidad del creador", () => {
+  test("resuelve la persona existente con el servicio y no inserta en personas", async () => {
+    const res = makeRes();
+    await crearObra(reqCrear(), res);
+
+    expect(res.statusCode).toBe(201);
+    expect(estado.queries).toContain(
+      "SELECT id, auth_user_id, nombre, telefono, created_at FROM personas WHERE auth_user_id = $1 LIMIT 1"
+    );
+    expect(llamadas("INSERT INTO personas")).toEqual([]);
+
+    const miembro = clientQuery.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT INTO miembros_obra")
+    );
+    expect(miembro[1]).toEqual([PERSONA_ID, OBRA_ID, "Director"]);
+  });
+
+  test("con teléfono en la metadata NO reclama la persona de WhatsApp: crea una web aparte", async () => {
+    estado.personaPorAuth = false;
+    estado.personaPorTelefono = {
+      id: PERSONA_TEL_ID,
+      auth_user_id: null,
+      nombre: "Creador por WhatsApp",
+      telefono: "5491143614361",
+      created_at: "2026-01-01T00:00:00.000Z",
+    };
+    const req = reqCrear();
+    req.user.user_metadata = { telefono: "5491143614361" };
+
+    const res = makeRes();
+    await crearObra(req, res);
+
+    expect(res.statusCode).toBe(201);
+    // El teléfono de la metadata es editable por el usuario: no se usa para
+    // reclamar la identidad del bot.
+    expect(llamadas("INSERT INTO personas")).toHaveLength(1);
+    expect(llamadas("UPDATE personas SET auth_user_id = $1")).toEqual([]);
+
+    const miembro = clientQuery.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT INTO miembros_obra")
+    );
+    expect(miembro[1]).toEqual([PERSONA_NUEVA_ID, OBRA_ID, "Director"]);
   });
 });
 
