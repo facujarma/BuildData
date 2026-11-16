@@ -31,12 +31,25 @@ interface Props {
   rubros: RubroOption[];
   proveedores: Proveedor[];
   materiales: MaterialOption[];
+  /** true mientras el que abre el modal todavía está trayendo las listas. */
+  loading?: boolean;
 }
 
-export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores, materiales }: Props) {
-  const [rubroList, setRubroList] = useState<RubroOption[]>(rubros);
+// Une la lista del padre con lo creado dentro del modal, sin duplicar por id
+// (el padre puede volver a traer lo recién creado).
+function unirPorId<T extends { id: string }>(base: T[], extra: T[]): T[] {
+  const vistos = new Set(base.map((item) => item.id));
+  return [...base, ...extra.filter((item) => !vistos.has(item.id))];
+}
+
+export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, proveedores, materiales, loading = false }: Props) {
+  // Las listas se derivan de las props (no se copian a useState): el modal puede
+  // montarse antes de que el padre termine de cargarlas — el menú "Nuevo" del
+  // dashboard dispara el fetch al mismo tiempo — y una copia en el estado inicial
+  // se quedaba vacía para siempre.
+  const [rubrosCreados, setRubrosCreados] = useState<RubroOption[]>([]);
   const [matId, setMatId] = useState("");
-  const [provs, setProvs] = useState(proveedores);
+  const [proveedoresCreados, setProveedoresCreados] = useState<Proveedor[]>([]);
   const [provId, setProvId] = useState("");
   const [showNewProv, setShowNewProv] = useState(false);
   const [rubroId, setRubroId] = useState("");
@@ -50,6 +63,8 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const rubroList = useMemo(() => unirPorId(rubros, rubrosCreados), [rubros, rubrosCreados]);
+  const provs = useMemo(() => unirPorId(proveedores, proveedoresCreados), [proveedores, proveedoresCreados]);
   const sortedRubros = useMemo(() => [...rubroList].sort((a, b) => a.nombre.localeCompare(b.nombre)), [rubroList]);
   const sortedProvs = useMemo(() => [...provs].sort((a, b) => a.name.localeCompare(b.name)), [provs]);
   const sortedMateriales = useMemo(() => [...materiales].sort((a, b) => a.name.localeCompare(b.name)), [materiales]);
@@ -63,7 +78,7 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
   const handleCreateRubro = async (cat: CategoryFormData) => {
     try {
       const nuevo = await createRubro(obraId, cat.name, 0, cat.desc || undefined);
-      setRubroList((prev) => [...prev, nuevo]);
+      setRubrosCreados((prev) => [...prev, nuevo]);
       setRubroId(nuevo.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear el rubro");
@@ -117,12 +132,18 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
         <div className="p-6 space-y-4 overflow-y-auto">
           <label className="flex flex-col gap-[6px]">
             <span className="text-[11px] font-bold text-slate-700">Material*</span>
-            <select value={matId} onChange={(e) => setMatId(e.target.value)}
-              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-              <option value="">{sortedMateriales.length === 0 ? "Sin materiales cargados en stock" : "Elegí un material…"}</option>
+            <select value={matId} onChange={(e) => setMatId(e.target.value)} disabled={loading}
+              className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-500">
+              <option value="">
+                {loading
+                  ? "Cargando materiales…"
+                  : sortedMateriales.length === 0
+                    ? "Sin materiales cargados en stock"
+                    : "Elegí un material…"}
+              </option>
               {sortedMateriales.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-            {sortedMateriales.length === 0 && (
+            {!loading && sortedMateriales.length === 0 && (
               <span className="text-[10px] text-slate-500">Cargá el material desde Stock antes de pedirlo.</span>
             )}
           </label>
@@ -136,9 +157,15 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
                   <Plus width={10} height={10} /> Nuevo proveedor
                 </button>
               </div>
-              <select value={provId} onChange={(e) => setProvId(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                <option value="">{sortedProvs.length === 0 ? "Sin proveedores cargados" : "Elegí un proveedor…"}</option>
+              <select value={provId} onChange={(e) => setProvId(e.target.value)} disabled={loading}
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-500">
+                <option value="">
+                  {loading
+                    ? "Cargando proveedores…"
+                    : sortedProvs.length === 0
+                      ? "Sin proveedores cargados"
+                      : "Elegí un proveedor…"}
+                </option>
                 {sortedProvs.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}{p.scope === "obra" ? " (esta obra)" : ""}</option>
                 ))}
@@ -153,9 +180,11 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
                   <Plus width={10} height={10} /> Nuevo rubro
                 </button>
               </div>
-              <select value={rubroId} onChange={(e) => setRubroId(e.target.value)}
-                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none">
-                <option value="">{sortedRubros.length === 0 ? "Sin rubros" : "Sin rubro"}</option>
+              <select value={rubroId} onChange={(e) => setRubroId(e.target.value)} disabled={loading}
+                className="bg-white border border-slate-200 rounded-md px-3 py-[9px] text-[13px] focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-500">
+                <option value="">
+                  {loading ? "Cargando rubros…" : sortedRubros.length === 0 ? "Sin rubros" : "Sin rubro"}
+                </option>
                 {sortedRubros.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             </div>
@@ -241,7 +270,7 @@ export function NewOrderModal({ obraId, onClose, onSubmit, members, rubros, prov
           onClose={() => setShowNewProv(false)}
           onSave={async (d) => {
             const nuevo = await createProveedor(obraId, "obra", d);
-            setProvs((prev) => [...prev, nuevo]);
+            setProveedoresCreados((prev) => [...prev, nuevo]);
             setProvId(nuevo.id);
             setShowNewProv(false);
           }}
