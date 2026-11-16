@@ -8,7 +8,6 @@ import Funcionalidades from "./landing/sections/Funcionalidades";
 import DashboardSection from "./landing/sections/DashboardSection";
 import ChatbotSection from "./landing/sections/ChatbotSection";
 import Beneficios from "./landing/sections/Beneficios";
-import Testimonios from "./landing/sections/Testimonios";
 import FAQSection from "./landing/sections/FAQSection";
 import CTA from "./landing/sections/CTA";
 
@@ -29,7 +28,6 @@ export default function Home() {
       <DashboardSection />
       <ChatbotSection />
       <Beneficios />
-      <Testimonios />
       <FAQSection />
       <CTA />
       <LandingFooter />

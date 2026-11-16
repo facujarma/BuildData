@@ -57,6 +57,13 @@ describe("página de planes en modo demo", () => {
     expect(screen.getAllByText("Pedir demo").length).toBe(3);
   });
 
+  test("no queda la franja de prueba social de las 120 constructoras", () => {
+    render(<PaymentsPage />);
+    expect(texto()).not.toContain("120");
+    expect(texto()).not.toContain("ya usan BuildData");
+    expect(texto()).not.toContain("reportes / mes");
+  });
+
   test("no queda el toggle mensual/anual", () => {
     render(<PaymentsPage />);
     expect(screen.queryByText("Mensual")).toBeNull();

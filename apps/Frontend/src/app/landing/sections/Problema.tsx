@@ -5,25 +5,16 @@ const ITEMS = [
     icon: "clock",
     title: "La información vive en cinco chats",
     body: "Avances, pedidos y problemas repartidos entre grupos de WhatsApp, planillas y un cuaderno. Nadie tiene el panorama completo.",
-    quote: '"Me entero de los problemas cuando ya frenaron la obra."',
-    who: "JM",
-    role: "Director de obra",
   },
   {
     icon: "chart",
     title: "Armar un reporte te lleva 2 días",
     body: "Cada vez que el cliente pide el estado de la obra, alguien consolida datos a mano durante horas.",
-    quote: '"La información llega tarde — y cuando llega, ya no sirve."',
-    who: "AG",
-    role: "Arquitecta",
   },
   {
     icon: "dollar",
     title: "No sabés el costo real hasta que es tarde",
     body: "El presupuesto vive en un Excel desactualizado. El desvío aparece cuando ya no tiene corrección.",
-    quote: '"Las cifras no reflejan lo que realmente pasa en obra."',
-    who: "LB",
-    role: "Compras",
   },
 ];
 
@@ -53,15 +44,9 @@ export default function Problema() {
               <h3 className="text-[21px] font-extrabold display-tight text-slate950 leading-tight mb-3">
                 {item.title}
               </h3>
-              <p className="text-[14.5px] text-slate600 leading-relaxed mb-7 flex-1">
+              <p className="text-[14.5px] text-slate600 leading-relaxed">
                 {item.body}
               </p>
-              <div className="bg-primary-50 rounded-2xl p-4 flex items-start gap-3">
-                <p className="text-[13px] text-slate700 leading-snug flex-1">{item.quote}</p>
-                <span className="w-9 h-9 rounded-full bg-primary text-white text-[11px] font-extrabold flex items-center justify-center flex-none">
-                  {item.who}
-                </span>
-              </div>
             </div>
           ))}
         </div>
