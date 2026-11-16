@@ -94,16 +94,24 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   const [rubros, setRubros] = useState<{ id: string; nombre: string }[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [materiales, setMateriales] = useState<MaterialOption[]>([]);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    getObreros(obraId).then(setMembers).catch(() => {});
-    getRubrosDeObra(obraId)
-      .then((r) => setRubros(r.map((x) => ({ id: x.id, nombre: x.nombre }))))
-      .catch(() => {});
-    getProveedores(obraId).then(setProveedores).catch(() => {});
-    getStock(obraId)
-      .then((d) => setMateriales(d.items.map((m) => ({ id: m.id, name: m.name, unit: m.unit, cost: m.cost }))))
-      .catch(() => {});
+    let activo = true;
+    // El modal se abre ya mismo (es lo que pidió el usuario): las cuatro listas
+    // llegan después y el modal las muestra cuando están. Mientras tanto avisa
+    // "Cargando…" en vez de decir que no hay materiales/rubros.
+    Promise.allSettled([
+      getObreros(obraId).then((r) => { if (activo) setMembers(r); }),
+      getRubrosDeObra(obraId).then((r) => {
+        if (activo) setRubros(r.map((x) => ({ id: x.id, nombre: x.nombre })));
+      }),
+      getProveedores(obraId).then((r) => { if (activo) setProveedores(r); }),
+      getStock(obraId).then((d) => {
+        if (activo) setMateriales(d.items.map((m) => ({ id: m.id, name: m.name, unit: m.unit, cost: m.cost })));
+      }),
+    ]).finally(() => { if (activo) setCargando(false); });
+    return () => { activo = false; };
   }, [obraId]);
 
   return (
@@ -114,6 +122,7 @@ function QuickAddPedido({ obraId, onClose, onDone }: Omit<Props, "kind">) {
       rubros={rubros}
       proveedores={proveedores}
       materiales={materiales}
+      loading={cargando}
       onSubmit={async (payload) => {
         await createPedido(obraId, payload);
         onDone("Pedido creado");
