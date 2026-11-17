@@ -109,6 +109,17 @@ psql "$DATABASE_URL" -f apps/Backend/outputs/migracion_personas_unificadas.sql
 # o pegarlo en el SQL Editor de Supabase
 ```
 
+Además, la invitación por WhatsApp puede atarse a una persona existente. Eso
+necesita otra migración manual e idempotente:
+
+```bash
+psql "$DATABASE_URL" -f apps/Backend/outputs/migracion_invitaciones_persona.sql
+```
+
+Agrega `invitaciones.persona_id` (FK a `personas`, `ON DELETE SET NULL`). Sin
+esa columna, `POST /obreros/invitacion` responde 503 con el nombre del archivo
+faltante.
+
 `persona_origen`/`persona_destino` **no tienen FK** a propósito: el origen se
 borra en la misma transacción y una FK con `ON DELETE SET NULL`/`CASCADE`
 borraría la evidencia histórica. `ejecutado_por` sí tiene FK con
@@ -116,6 +127,39 @@ borraría la evidencia histórica. `ejecutado_por` sí tiene FK con
 
 Si la migración no está aplicada, `unificarPersonas` falla con
 `MIGRACION_PENDIENTE` (detecta `42P01`) y no escribe nada.
+
+## Invitar por WhatsApp a alguien que ya tiene cuenta web
+
+La pantalla Equipo → **Invitar obrero** abre con un selector de las personas que
+ya forman parte de la obra y tienen acceso al panel (`personas.auth_user_id`).
+El aviso pide revisar primero esa lista; la opción **“No está en la lista”**
+mantiene el alta manual de siempre (nombre + teléfono + rol).
+
+- **Persona elegida**: `POST /obreros/invitacion` recibe `persona_id` y
+  `telefono` (el número al que se manda el link). El nombre y el rol salen de su
+  membresía en la DB, no del body. La invitación **no cambia el rol**: al
+  consumirse, `INSERT … WHERE NOT EXISTS` conserva el rol actual.
+- **Persona ya vinculada**: si `personas.telefono` existe, el selector la
+  muestra deshabilitada (“ya usa WhatsApp”); no hace falta invitarla.
+- **Persona sin teléfono**: es el caso típico (cuenta web creada sin número o
+  con el número ya ocupado). Al consumir el link desde el WhatsApp:
+  1. si el número está libre, se guarda en esa misma persona;
+  2. si el número ya pertenece a otra persona (la fila de WhatsApp anterior),
+     se ejecuta `unificarPersonas(origen = web, destino = teléfono)` dentro de la
+     transacción de la invitación, con el mismo merge del botón “Vincular
+     cuenta” (membresías, máximo rol, historial y auditoría);
+  3. si esa otra persona tiene **otra** cuenta web, el merge no es seguro:
+     responde `409 TELEFONO_DE_OTRA_CUENTA`, no marca la invitación como usada y
+     el bot le pide al Director que unifique desde Equipo.
+- **Invitación atada a una persona borrada/unificada**: la FK
+  `invitaciones.persona_id` es `ON DELETE SET NULL` y el merge remapea las
+  invitaciones pendientes al destino. Si al consumir ya no hay persona, cae al
+  flujo manual por teléfono (no se pierde el link).
+
+El bot distingue ese 409 por `ApiError.code`; el resto de los 409 sigue siendo
+“link ya usado”. Tests: `apps/Backend/services/consumirInvitacionPersona.test.js`,
+`apps/Backend/controllers/obrerosController.test.js`,
+`apps/Frontend/src/app/[obraId]/dashboard/equipo/_components/InviteTeamModal.test.tsx`.
 
 ## Auditoría de duplicados
 
@@ -398,6 +442,15 @@ Nunca sobre datos reales. En una base de desarrollo:
 - `apps/Backend/services/personas.service.test.js`: normalización, auditoría,
   plan, merge completo con FKs/membresías/tareas/auditoría y `vincularPersonaAuth`
   (19 tests, DB fake).
+- `apps/Backend/services/consumirInvitacionPersona.test.js`: invitación atada a
+  una persona web (asigna teléfono, unifica con la fila de WhatsApp, falla
+  cerrado si ya tiene otro número o si el merge es conflictivo) (4 tests, DB
+  fake).
+- `apps/Backend/controllers/obrerosController.test.js`: gate del alta manual y
+  del selector (`persona_id`, 404/400/409, nombre/rol desde la DB).
+- `apps/Frontend/src/app/[obraId]/dashboard/equipo/_components/InviteTeamModal.test.tsx`:
+  aviso, selector, personas ya vinculadas deshabilitadas, modo manual y payload
+  del POST.
 - `apps/Backend/scripts/personas.scripts.test.js`: parseo de flags,
   clasificación y resolución de identificadores (con fakes), formateo del plan
   y enmascarado de teléfonos (37 tests, sin DB). Importar los scripts no ejecuta
@@ -420,5 +473,7 @@ Los scripts **no** corren `--aplicar` en tests.
 - `AGENTS.md` (protegido): agregar la sección de personas unificadas, la
   migración, el endpoint de vinculación y la regla de no vincular por teléfono
   sin verificar.
-- La web ya permite vincular desde Equipo (botón “Vincular cuenta”); falta
-  evaluar un flujo de auto-servicio cuando exista OTP.
+- La web ya permite vincular desde Equipo (botón “Vincular cuenta”) y la
+  invitación por WhatsApp puede atarse a una persona web existente: el dueño del
+  teléfono confirma la vinculación al consumir el link. Sigue haciendo falta un
+  Director para generar el link (o un OTP para el auto-servicio puro).

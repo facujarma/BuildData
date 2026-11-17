@@ -21,6 +21,8 @@ import { createProveedor, getProveedores } from "@/services/proveedoresService";
 import type { Proveedor } from "../proveedores/data";
 import { createAlert } from "@/services/alertasService";
 import { createActividad } from "@/services/actividadService";
+import { getEquipo } from "@/services/equipoService";
+import type { Person } from "../equipo/data";
 
 interface FieldDef {
   id: string;
@@ -205,10 +207,21 @@ function QuickAddProveedor({ obraId, onClose, onDone }: Omit<Props, "kind">) {
 }
 
 function QuickAddEquipo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
+  const [personas, setPersonas] = useState<Person[]>([]);
+
+  useEffect(() => {
+    // El modal ofrece elegir a quien ya tiene cuenta web; si falla, cae al
+    // alta manual sin bloquear la invitación.
+    getEquipo(obraId)
+      .then((equipo) => setPersonas(equipo.people))
+      .catch(() => {});
+  }, [obraId]);
+
   return (
     <InviteTeamModal
       open
       obraId={obraId}
+      personas={personas}
       onClose={onClose}
       onSave={(creada) => {
         onDone(`Obrero ${creada.nombre} invitado por WhatsApp`);

@@ -14,6 +14,7 @@ export const MSG = {
   ERROR_INVITACION_USADA:   "⚠️ Este link ya fue usado.",
   ERROR_INVITACION_VENCIDA: "⌛ Este link ya venció. Pedí uno nuevo.",
   ERROR_INVITACION_OTRO_TELEFONO: "⚠️ Este link fue generado para otro número de teléfono.",
+  ERROR_INVITACION_TELEFONO_OCUPADO: "⚠️ Ese número ya está vinculado a otra persona con cuenta web. Pedile a un Director que unifique las cuentas desde Equipo.",
   ERROR_INVITACION_FALLO:   "❌ No pude usar el link. Probá de nuevo o pedí uno nuevo.",
   ERROR_PROCESSING:          "❌ Algo salió mal, probá de nuevo.",
   ERROR_MISSING_FIELDS:      "❌ Me falta información para completar eso. ¿Podés darme más detalles?",

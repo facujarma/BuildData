@@ -166,11 +166,18 @@ export async function quitarObreroDeObra(req, res) {
   }
 }
 
-// POST /obreros/invitacion — crea el link cifrado y de uso único para el obrero
+// POST /obreros/invitacion — crea el link cifrado y de uso único para el obrero.
+// Dos modos:
+//   - persona_id: la persona ya está en la obra y tiene cuenta web. El link se
+//     ata a ella (sin nombre/rol del body) y al consumirse vincula su WhatsApp.
+//   - nombre + telefono + rol: alta manual, como siempre.
 export async function crearInvitacionWeb(req, res) {
-  const { obra_id, nombre, telefono, rol } = req.body;
-  if (!obra_id || !nombre) {
-    return res.status(400).json({ error: "obra_id y nombre son requeridos" });
+  const { obra_id, persona_id, nombre, telefono, rol } = req.body;
+  if (!obra_id || (!persona_id && !nombre)) {
+    return res.status(400).json({ error: "obra_id y nombre (o persona_id) son requeridos" });
+  }
+  if (persona_id && !esUuid(persona_id)) {
+    return res.status(400).json({ error: "persona_id inválido" });
   }
 
   try {
@@ -178,24 +185,79 @@ export async function crearInvitacionWeb(req, res) {
     if (perfil?.permisos.web["equipo.administrar"] !== true) {
       return res.status(403).json({ error: SIN_PERMISO_EQUIPO });
     }
-    const rolDestino = await resolverRol(obra_id, rol);
-    if (!rolDestino) {
-      return res.status(400).json({ error: "El rol indicado no existe en esta obra" });
-    }
-    if (!puedePorNivel(perfil.rol, rolDestino)) {
-      return res.status(403).json({ error: "No podés invitar con un rol superior al tuyo" });
+
+    let invitacion;
+
+    if (persona_id) {
+      // Persona existente: el rol sale de su membresía y no se toca. El teléfono
+      // es solo el canal para enviarle el link porque todavía no lo tiene
+      // cargado (si ya lo tuviera, no haría falta invitarla).
+      const { rows } = await pool.query(
+        `SELECT p.id, p.nombre, p.telefono, p.auth_user_id, mo.rol
+           FROM personas p
+           JOIN miembros_obra mo ON mo.persona_id = p.id
+          WHERE p.id = $1 AND mo.obra_id = $2`,
+        [persona_id, obra_id]
+      );
+      const persona = rows[0];
+
+      if (!persona) {
+        return res.status(404).json({ error: "La persona no pertenece a esta obra" });
+      }
+      if (!persona.auth_user_id) {
+        return res.status(400).json({
+          error: "La persona no tiene cuenta web; cargá su nombre y teléfono manualmente",
+        });
+      }
+      if (persona.telefono) {
+        return res.status(409).json({
+          error: "Esa persona ya tiene WhatsApp vinculado; no hace falta invitarla",
+        });
+      }
+
+      const telefonoDestino = String(telefono ?? "").trim();
+      if (!telefonoDestino) {
+        return res.status(400).json({ error: "El teléfono es requerido para enviar el link" });
+      }
+
+      const rolPersona = (await resolverRol(obra_id, persona.rol)) ?? {
+        nombre: persona.rol || "Obrero",
+      };
+
+      invitacion = await crearInvitacion({
+        obraId: obra_id,
+        nombre: persona.nombre,
+        telefono: telefonoDestino,
+        rol: rolPersona.nombre,
+        creadaPor: req.personaId || null,
+        personaId: persona.id,
+      });
+    } else {
+      const rolDestino = await resolverRol(obra_id, rol);
+      if (!rolDestino) {
+        return res.status(400).json({ error: "El rol indicado no existe en esta obra" });
+      }
+      if (!puedePorNivel(perfil.rol, rolDestino)) {
+        return res.status(403).json({ error: "No podés invitar con un rol superior al tuyo" });
+      }
+
+      invitacion = await crearInvitacion({
+        obraId: obra_id,
+        nombre,
+        telefono,
+        rol: rolDestino.nombre,
+        creadaPor: req.personaId || null,
+      });
     }
 
-    const invitacion = await crearInvitacion({
-      obraId: obra_id,
-      nombre,
-      telefono,
-      rol: rolDestino.nombre,
-      creadaPor: req.personaId || null,
-    });
     res.status(201).json(invitacion);
   } catch (error) {
     console.error(error);
+    if (error?.code === "42703") {
+      return res.status(503).json({
+        error: "Falta aplicar outputs/migracion_invitaciones_persona.sql",
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 }
@@ -360,12 +422,32 @@ export async function consumirInvitacionBot(req, res) {
     }
     if (resultado.error === "telefono_ambiguo") {
       return res.status(409).json({
+        code: "TELEFONO_AMBIGUO",
         error: "hay más de una persona con ese teléfono; resolvé la duplicación antes de usar la invitación",
+      });
+    }
+    if (resultado.error === "telefono_de_otra_cuenta") {
+      return res.status(409).json({
+        code: "TELEFONO_DE_OTRA_CUENTA",
+        error:
+          "ese teléfono ya pertenece a otra persona con cuenta web; unificá las cuentas antes de usar la invitación",
+      });
+    }
+    if (resultado.error === "migracion_pendiente") {
+      return res.status(503).json({
+        code: "MIGRACION_PENDIENTE",
+        error: "falta aplicar la migración de personas unificadas",
       });
     }
     res.json(resultado);
   } catch (error) {
     console.error(error);
+    if (error?.code === "42703") {
+      return res.status(503).json({
+        code: "MIGRACION_PENDIENTE",
+        error: "falta aplicar outputs/migracion_invitaciones_persona.sql",
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 }

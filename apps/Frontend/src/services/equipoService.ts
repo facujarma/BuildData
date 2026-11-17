@@ -49,11 +49,19 @@ export interface InvitacionCreada {
   id: string;
   token: string;
   expira_at: string;
+  // Lo que quedó guardado en la invitación. Para una persona existente, el
+  // nombre y el rol salen de la DB (no del body).
+  nombre: string;
+  telefono: string | null;
+  rol: string;
+  persona_id?: string | null;
 }
 
 export async function crearInvitacionObrero(
   obraId: string,
-  datos: { nombre: string; telefono: string; rol?: string },
+  datos:
+    | { nombre: string; telefono: string; rol?: string; persona_id?: never }
+    | { persona_id: string; telefono: string; nombre?: never; rol?: never },
 ): Promise<InvitacionCreada> {
   const res = await fetch(`${API_URL}/obreros/invitacion`, {
     method: "POST",
@@ -82,6 +90,7 @@ export async function getEquipo(obraId: string): Promise<EquipoData> {
         who: initials(r.nombre),
         name: r.nombre,
         email: r.email ?? null,
+        phone: r.telefono || null,
         role: r.rol || "Sin asignar",
         tasks: 0,
         reports: 0,

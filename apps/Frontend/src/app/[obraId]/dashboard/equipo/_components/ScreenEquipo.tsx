@@ -37,8 +37,17 @@ export function ScreenEquipo() {
   const aplicarEquipo = useCallback((equipo: EquipoData) => {
     setData(equipo);
     setError(null);
+    // Una invitación deja de estar pendiente cuando la persona ya tiene el
+    // teléfono en la DB. Puede aparecer en `obreros` (solo WhatsApp) o en
+    // `people` (cuenta web ya vinculada a ese número).
     setPendientes((prev) =>
-      prev.filter((p) => !equipo.obreros.some((o) => esMismoTelefono(o.phone, p.phone))),
+      prev.filter(
+        (p) =>
+          !equipo.obreros.some((o) => esMismoTelefono(o.phone, p.phone)) &&
+          !equipo.people.some(
+            (persona) => persona.phone && esMismoTelefono(persona.phone, p.phone),
+          ),
+      ),
     );
   }, []);
 
@@ -190,6 +199,7 @@ export function ScreenEquipo() {
         <InviteTeamModal
           open={inviteOpen}
         obraId={obraId}
+        personas={people}
         onClose={() => setInviteOpen(false)}
         onSave={(creada) => {
           // `link` solo existe si POST /obreros/invitacion respondió 201.

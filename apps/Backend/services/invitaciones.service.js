@@ -1,7 +1,11 @@
 import crypto from "node:crypto";
 import { pool } from "../db.js";
 import { resolverRol } from "./roles.service.js";
-import { buscarPersonaPorTelefono } from "./personas.service.js";
+import {
+  buscarPersonaPorTelefono,
+  esPersonaError,
+  unificarPersonas,
+} from "./personas.service.js";
 import { normalizarTelefono } from "./telefono.service.js";
 
 export { normalizarTelefono };
@@ -51,14 +55,34 @@ export function descifrarInvitacion(token) {
 // Crea la invitación en DB y devuelve el token cifrado que viaja en el link.
 // `rol` llega ya validado/canónico desde el controller (resolverRol); se guarda tal
 // cual para que un rol personalizado de la obra sobreviva al link.
-export async function crearInvitacion({ obraId, nombre, telefono, rol, creadaPor }) {
+//
+// `personaId` es opcional: cuando el Director elige a alguien que ya tiene
+// cuenta web en la obra, el link se ata a esa persona. El rol del link es el
+// rol actual de su membresía, no uno nuevo: consumir la invitación no cambia
+// roles.
+export async function crearInvitacion({
+  obraId,
+  nombre,
+  telefono,
+  rol,
+  creadaPor,
+  personaId = null,
+}) {
   const expira = new Date(Date.now() + TTL_DIAS * 24 * 60 * 60 * 1000);
   const rolInvitacion = String(rol ?? "").trim() || "Obrero";
   const { rows } = await pool.query(
-    `INSERT INTO invitaciones (obra_id, nombre, telefono, rol, creada_por, expira_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO invitaciones (obra_id, nombre, telefono, rol, creada_por, persona_id, expira_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id, expira_at`,
-    [obraId, nombre, telefono || null, rolInvitacion, creadaPor || null, expira]
+    [
+      obraId,
+      nombre,
+      telefono || null,
+      rolInvitacion,
+      creadaPor || null,
+      personaId || null,
+      expira,
+    ]
   );
 
   const invitacion = rows[0];
@@ -71,7 +95,65 @@ export async function crearInvitacion({ obraId, nombre, telefono, rol, creadaPor
     exp: Math.floor(new Date(invitacion.expira_at).getTime() / 1000),
   });
 
-  return { id: invitacion.id, token, expira_at: invitacion.expira_at };
+  // El modal usa el nombre/teléfono/rol que quedaron guardados (para una
+  // persona existente, el nombre y el rol salen de la DB, no del body).
+  return {
+    id: invitacion.id,
+    token,
+    expira_at: invitacion.expira_at,
+    nombre,
+    telefono: telefono || null,
+    rol: rolInvitacion,
+    persona_id: personaId || null,
+  };
+}
+
+// Persona que ya reporta por WhatsApp (o alta nueva si el número está libre).
+async function resolverPersonaPorTelefono(client, invitacion, telefonoNormalizado) {
+  const existente = telefonoNormalizado
+    ? await buscarPersonaPorTelefono(client, telefonoNormalizado)
+    : null;
+  if (existente) return existente;
+
+  const { rows } = await client.query(
+    `INSERT INTO personas (nombre, telefono) VALUES ($1, $2)
+     RETURNING id, nombre, telefono`,
+    [invitacion.nombre, telefonoNormalizado]
+  );
+  return rows[0];
+}
+
+// La invitación es para una persona web sin teléfono: el número desde el que
+// abre el link pasa a ser su WhatsApp. Si ese número ya pertenece a otra fila
+// (el humano se había dado de alta antes por WhatsApp), se unifican las dos:
+// la cuenta web se absorbe en la persona del teléfono, igual que "Vincular
+// cuenta", pero en la misma transacción de la invitación.
+async function vincularTelefonoAPersonaWeb(
+  client,
+  persona,
+  telefonoNormalizado,
+  ejecutadoPor
+) {
+  const existente = telefonoNormalizado
+    ? await buscarPersonaPorTelefono(client, telefonoNormalizado)
+    : null;
+
+  if (existente && existente.id !== persona.id) {
+    await unificarPersonas({
+      origenId: persona.id,
+      destinoId: existente.id,
+      ejecutadoPor,
+      client,
+    });
+    return existente;
+  }
+
+  const { rows } = await client.query(
+    `UPDATE personas SET telefono = $1 WHERE id = $2
+     RETURNING id, nombre, telefono`,
+    [telefonoNormalizado, persona.id]
+  );
+  return rows[0];
 }
 
 // Consume la invitación: valida el token, la marca usada de forma atómica
@@ -88,7 +170,7 @@ export async function consumirInvitacion({ token, telefono }) {
     const reclamo = await client.query(
       `UPDATE invitaciones SET usada_at = now()
        WHERE id = $1 AND usada_at IS NULL AND expira_at > now()
-       RETURNING id, obra_id, nombre, telefono, rol`,
+       RETURNING id, obra_id, nombre, telefono, rol, persona_id, creada_por`,
       [payload.id]
     );
 
@@ -114,20 +196,56 @@ export async function consumirInvitacion({ token, telefono }) {
     }
 
     const telefonoNormalizado = String(telefono ?? "").replace(/\D/g, "") || null;
-    const existente = telefonoNormalizado
-      ? await buscarPersonaPorTelefono(client, telefonoNormalizado)
-      : null;
 
-    const persona = existente
-      ? { rows: [existente] }
-      : await client.query(
-          `INSERT INTO personas (nombre, telefono) VALUES ($1, $2)
-           RETURNING id, nombre, telefono`,
-          [invitacion.nombre, telefonoNormalizado]
+    let persona;
+    if (invitacion.persona_id) {
+      // Invitación atada a una persona con cuenta web: el WhatsApp del que abre
+      // el link se vincula a ESA persona. Si la fila ya no existe (se unificó o
+      // borró después de crear el link), cae al flujo manual por teléfono.
+      const { rows } = await client.query(
+        `SELECT id, auth_user_id, nombre, telefono, created_at
+           FROM personas
+          WHERE id = $1
+          FOR UPDATE`,
+        [invitacion.persona_id]
+      );
+      const seleccionada = rows[0] ?? null;
+
+      if (!seleccionada) {
+        persona = await resolverPersonaPorTelefono(
+          client,
+          invitacion,
+          telefonoNormalizado
         );
+      } else if (seleccionada.telefono) {
+        if (
+          normalizarTelefono(seleccionada.telefono) !==
+          normalizarTelefono(telefono)
+        ) {
+          await client.query("ROLLBACK");
+          return { error: "otro_telefono" };
+        }
+        persona = seleccionada;
+      } else {
+        persona = await vincularTelefonoAPersonaWeb(
+          client,
+          seleccionada,
+          telefonoNormalizado,
+          invitacion.creada_por
+        );
+      }
+    } else {
+      persona = await resolverPersonaPorTelefono(
+        client,
+        invitacion,
+        telefonoNormalizado
+      );
+    }
 
     // El rol se resuelve contra los roles de la obra: si el nombre guardado en la
     // invitación ya no existe (o es un rol viejo), cae en el sistema equivalente.
+    // Si la persona ya era miembro, ON CONFLICT/WHERE NOT EXISTS conserva su rol:
+    // la invitación vincula identidad, no cambia permisos.
     const rolResuelto = await resolverRol(invitacion.obra_id, invitacion.rol);
 
     await client.query(
@@ -136,11 +254,11 @@ export async function consumirInvitacion({ token, telefono }) {
        WHERE NOT EXISTS (
          SELECT 1 FROM miembros_obra WHERE persona_id = $1 AND obra_id = $2
        )`,
-      [persona.rows[0].id, invitacion.obra_id, rolResuelto?.nombre ?? "Obrero"]
+      [persona.id, invitacion.obra_id, rolResuelto?.nombre ?? "Obrero"]
     );
 
     await client.query(`UPDATE invitaciones SET usada_por = $1 WHERE id = $2`, [
-      persona.rows[0].id,
+      persona.id,
       invitacion.id,
     ]);
 
@@ -150,11 +268,19 @@ export async function consumirInvitacion({ token, telefono }) {
     );
 
     await client.query("COMMIT");
-    return { persona: persona.rows[0], obra: obra.rows[0] };
+    return { persona, obra: obra.rows[0] };
   } catch (error) {
     await client.query("ROLLBACK");
     if (error?.code === "TELEFONO_AMBIGUO") {
       return { error: "telefono_ambiguo" };
+    }
+    // El número pertenece a una persona con OTRA cuenta web (o el merge no
+    // puede resolver la identidad): no se toca nada y se avisa.
+    if (esPersonaError(error) && error.code === "PERSONA_CONFLICTO") {
+      return { error: "telefono_de_otra_cuenta" };
+    }
+    if (esPersonaError(error) && error.code === "MIGRACION_PENDIENTE") {
+      return { error: "migracion_pendiente" };
     }
     throw error;
   } finally {

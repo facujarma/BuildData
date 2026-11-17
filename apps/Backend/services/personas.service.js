@@ -40,6 +40,7 @@ export const REFERENCIAS_PERSONA = [
   { tabla: "fotos_obra", columna: "usuario_id" },
   { tabla: "gastos", columna: "usuario_id" },
   { tabla: "invitaciones", columna: "creada_por" },
+  { tabla: "invitaciones", columna: "persona_id" },
   { tabla: "invitaciones", columna: "usada_por" },
   { tabla: "mensajes", columna: "usuario_id" },
   { tabla: "movimientos_stock", columna: "usuario_id" },

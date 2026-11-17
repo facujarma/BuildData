@@ -16,11 +16,30 @@ const AUTH_HEADERS = {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // El backend manda `{ code, error }` en los errores de negocio (por ejemplo
+  // TELEFONO_DE_OTRA_CUENTA al consumir una invitación). El código permite
+  // mostrar un mensaje específico sin depender del status.
+  code: string | null;
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
+}
+
+async function errorDeRespuesta(res: {
+  status: number;
+  json: () => Promise<unknown>;
+}): Promise<ApiError> {
+  const body = (await res.json().catch(() => null)) as
+    | { code?: unknown; error?: unknown }
+    | null;
+  return new ApiError(
+    res.status,
+    `API_ERROR: ${res.status}`,
+    typeof body?.code === "string" ? body.code : null
+  );
 }
 
 async function apiRequest<T>(
@@ -41,7 +60,7 @@ async function apiRequest<T>(
 
     if (res.status === 401) throw new ApiError(401, "AUTH_FAILED: credenciales inválidas");
     if (res.status === 403) throw new ApiError(403, "AUTH_FORBIDDEN: sin permisos");
-    if (!res.ok) throw new ApiError(res.status, `API_ERROR: ${res.status}`);
+    if (!res.ok) throw await errorDeRespuesta(res);
 
     return res.json() as Promise<T>;
   } finally {
@@ -70,7 +89,7 @@ async function apiRequestRaw<T>(
 
     if (res.status === 401) throw new ApiError(401, "AUTH_FAILED: credenciales inválidas");
     if (res.status === 403) throw new ApiError(403, "AUTH_FORBIDDEN: sin permisos");
-    if (!res.ok) throw new ApiError(res.status, `API_ERROR: ${res.status}`);
+    if (!res.ok) throw await errorDeRespuesta(res);
 
     return res.json() as Promise<T>;
   } finally {

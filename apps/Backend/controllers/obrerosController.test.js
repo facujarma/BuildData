@@ -99,6 +99,16 @@ const poolQuery = mock(async (sql, params) => {
     };
   }
 
+  // crearInvitacionWeb con persona_id: persona + su membresía en la obra.
+  if (consulta.startsWith("SELECT p.id, p.nombre, p.telefono, p.auth_user_id, mo.rol")) {
+    const [personaId, obraId] = params;
+    const persona = estado.personas.find((fila) => fila.id === personaId);
+    const miembro = estado.membresias.find(
+      (fila) => fila.persona_id === personaId && fila.obra_id === obraId
+    );
+    return { rows: persona && miembro ? [{ ...persona, rol: miembro.rol }] : [] };
+  }
+
   // vincularCuentaWeb: las dos personas y sus membresías.
   if (consulta.startsWith("SELECT id, auth_user_id, nombre, telefono FROM personas WHERE id = ANY")) {
     const ids = params[0] ?? [];
@@ -229,12 +239,21 @@ describe("crearInvitacionWeb — validación de entrada", () => {
   test("400 si falta obra_id o nombre, sin consultar rol ni crear invitación", async () => {
     const sinObra = await invitar({ obra_id: undefined });
     expect(sinObra.statusCode).toBe(400);
-    expect(sinObra.body).toEqual({ error: "obra_id y nombre son requeridos" });
+    expect(sinObra.body).toEqual({ error: "obra_id y nombre (o persona_id) son requeridos" });
 
     const sinNombre = await invitar({ nombre: undefined });
     expect(sinNombre.statusCode).toBe(400);
-    expect(sinNombre.body).toEqual({ error: "obra_id y nombre son requeridos" });
+    expect(sinNombre.body).toEqual({ error: "obra_id y nombre (o persona_id) son requeridos" });
 
+    expect(poolQuery).not.toHaveBeenCalled();
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("400 si persona_id no es un UUID, sin consultar la base", async () => {
+    const res = await invitar({ persona_id: "no-es-uuid", nombre: undefined });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "persona_id inválido" });
     expect(poolQuery).not.toHaveBeenCalled();
     expect(crearInvitacionMock).not.toHaveBeenCalled();
   });
@@ -384,6 +403,84 @@ describe("crearInvitacionWeb — Director asignando rol", () => {
     } finally {
       console.error = originalError;
     }
+  });
+});
+
+describe("crearInvitacionWeb — persona existente con cuenta web", () => {
+  const personaWeb = (extra = {}) => ({
+    id: DESTINO_ID,
+    auth_user_id: AUTH_ID,
+    nombre: "Ana Web",
+    telefono: null,
+    ...extra,
+  });
+
+  function conPersonaEnLaObra(persona, rol = "Capataz") {
+    estado.personas = [persona];
+    estado.membresias = [{ id: "m-1", persona_id: persona.id, obra_id: OBRA_ID, rol }];
+  }
+
+  test("usa el nombre y el rol de la DB e ignora los del body", async () => {
+    conPersonaEnLaObra(personaWeb(), "Capataz");
+
+    const res = await invitar({
+      persona_id: DESTINO_ID,
+      nombre: "Nombre falso",
+      rol: "Director",
+      telefono: "5491112345678",
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(crearInvitacionMock).toHaveBeenCalledTimes(1);
+    expect(estado.invitaciones[0]).toEqual({
+      obraId: OBRA_ID,
+      nombre: "Ana Web",
+      telefono: "5491112345678",
+      rol: "Capataz",
+      creadaPor: PERSONA_ID,
+      personaId: DESTINO_ID,
+    });
+  });
+
+  test("404 si la persona no pertenece a la obra", async () => {
+    estado.personas = [personaWeb()];
+    estado.membresias = [];
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({ error: "La persona no pertenece a esta obra" });
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("400 si la persona no tiene cuenta web", async () => {
+    conPersonaEnLaObra(personaWeb({ auth_user_id: null }));
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toContain("no tiene cuenta web");
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("409 si la persona ya tiene WhatsApp vinculado", async () => {
+    conPersonaEnLaObra(personaWeb({ telefono: "5491100000000" }));
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toContain("ya tiene WhatsApp vinculado");
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("400 si la persona no tiene teléfono y el body no manda uno para enviar el link", async () => {
+    conPersonaEnLaObra(personaWeb());
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined, telefono: undefined });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "El teléfono es requerido para enviar el link" });
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
   });
 });
 

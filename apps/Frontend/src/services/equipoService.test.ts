@@ -103,6 +103,19 @@ describe("crearInvitacionObrero — payload de la invitación", () => {
     });
   });
 
+  test("con persona_id: manda persona_id y teléfono, sin nombre ni rol", async () => {
+    await crearInvitacionObrero(OBRA_ID, {
+      persona_id: "3b4c5d6e-7f8a-4b9c-8d0e-23456789abcd",
+      telefono: "5491100003333",
+    });
+
+    expect(bodyEnviado()).toEqual({
+      obra_id: OBRA_ID,
+      persona_id: "3b4c5d6e-7f8a-4b9c-8d0e-23456789abcd",
+      telefono: "5491100003333",
+    });
+  });
+
   test("rol 'Director': viaja tal cual lo eligió el usuario", async () => {
     await crearInvitacionObrero(OBRA_ID, {
       nombre: "Carla Ruiz",
@@ -145,7 +158,7 @@ describe("getEquipo — mapeo del rol del backend a la UI", () => {
         // Con cuenta web: va a people y el rol llega como `role`.
         fila({ id: "p-1", nombre: "Zoe Directora", auth_user_id: "auth-1", rol: "Director", email: "zoe@ejemplo.com" }),
         // Cuenta web sin email en la respuesta: la UI lo recibe como null.
-        fila({ id: "p-5", nombre: "Sin Email", auth_user_id: "auth-2" }),
+        fila({ id: "p-5", nombre: "Sin Email", auth_user_id: "auth-2", telefono: null }),
         // Obrero con rol explícito.
         fila({ id: "p-2", nombre: "Beto Capataz", rol: "Capataz" }),
         // Rol null (fila vieja / migración): fallback Obrero.
@@ -170,9 +183,12 @@ describe("getEquipo — mapeo del rol del backend a la UI", () => {
       id: "p-1",
       name: "Zoe Directora",
       email: "zoe@ejemplo.com",
+      phone: "5491100000000",
       role: "Director",
     });
-    expect(people[1]).toMatchObject({ id: "p-5", email: null });
+    // Una persona web sin teléfono queda con phone null: el modal la ofrece
+    // para vincular su WhatsApp a esa cuenta.
+    expect(people[1]).toMatchObject({ id: "p-5", email: null, phone: null });
 
     expect(obreros).toHaveLength(3);
     expect(obreros.find((o) => o.id === "p-2")?.rol).toBe("Capataz");
