@@ -24,7 +24,6 @@ interface Props {
   onCancel: (id: string) => void;
   onChangeState: (id: string, estado: "en_camino" | "demorado") => void;
   onDeliver: (id: string) => void;
-  onComprobante: () => void;
   /** Permisos de la pantalla: las acciones sin permiso no se muestran. */
   puedeAprobar: boolean;
   puedeEntregar: boolean;
@@ -38,7 +37,7 @@ const STEPS = [
   { key: "delivered", label: "Entregado", n: 4 },
 ];
 
-export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState, onDeliver, onComprobante, puedeAprobar, puedeEntregar }: Props) {
+export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState, onDeliver, puedeAprobar, puedeEntregar }: Props) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -190,11 +189,7 @@ export function OrderDrawer({ order, onClose, onApprove, onCancel, onChangeState
             ) : (
               <ActionBlocked permiso="pedidos.aprobar" />
             )
-          ) : isCancelled || isDelivered ? (
-            <DButton variant="secondary" size="sm" className="flex-1 justify-center" onClick={onComprobante}>
-              Comprobante
-            </DButton>
-          ) : puedeEntregar ? (
+          ) : isCancelled || isDelivered ? null : puedeEntregar ? (
             <>
               {puedeAprobar && (
                 <DButton variant="secondary" size="sm" className="text-[#B91C1C]" onClick={() => onCancel(order.id)}>

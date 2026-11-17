@@ -168,25 +168,6 @@ export default function SignUpForm({
             }
           />
 
-          <label className="flex items-start gap-2 text-[12px] text-slate-700 cursor-pointer">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="w-4 h-4 mt-[2px] rounded border-slate-300 accent-primary"
-            />
-            <span>
-              Acepto los{" "}
-              <a href="#" className="text-primary font-bold hover:underline">
-                términos de servicio
-              </a>{" "}
-              y la{" "}
-              <a href="#" className="text-primary font-bold hover:underline">
-                política de privacidad
-              </a>
-              .
-            </span>
-          </label>
-
           <Button type="submit" className="w-full mt-2" disabled={isLoading}>
             {isLoading
               ? "Creando cuenta..."
@@ -209,12 +190,8 @@ export default function SignUpForm({
 
       <div className="text-center text-[11px] text-slate-400 mt-4">
         © 2026 BuildData ·{" "}
-        <a href="#" className="hover:text-slate-600">
+        <a href="mailto:hola@buildata.app" className="hover:text-slate-600">
           Soporte
-        </a>{" "}
-        ·{" "}
-        <a href="#" className="hover:text-slate-600">
-          Estado del sistema
         </a>
       </div>
     </div>

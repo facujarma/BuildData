@@ -15,7 +15,6 @@ import {
   Picture,
   ChartLine,
   CircleExclamation,
-  CircleInfo,
   Persons,
   Gear,
   ChevronUp,
@@ -281,13 +280,6 @@ export function DashSidebar({
             <span className="flex-1">Configuración</span>
           </Link>
         )}
-        <button
-          type="button"
-          className="flex items-center gap-[10px] px-3 py-[8px] rounded-md text-[12px] font-semibold text-left text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
-        >
-          <span className="text-white/55"><CircleInfo width={16} height={16} /></span>
-          <span className="flex-1">Ayuda y soporte</span>
-        </button>
       </div>
     </aside>
   );

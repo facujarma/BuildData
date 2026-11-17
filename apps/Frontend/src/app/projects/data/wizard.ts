@@ -1,34 +1,11 @@
 export const TYPES = [
-  { id: "edificio", name: "Edificio en altura", icon: "chart", sub: "8 rubros · ~120 tareas · 14 meses" },
-  { id: "vivienda", name: "Vivienda unifamiliar", icon: "grid", sub: "6 rubros · ~60 tareas · 6 meses" },
-  { id: "refaccion", name: "Refacción / remodelación", icon: "package", sub: "4 rubros · ~30 tareas · 3 meses" },
-  { id: "comercial", name: "Comercial / industrial", icon: "truck", sub: "Custom · variable según proyecto" },
+  { id: "edificio", name: "Edificio en altura", icon: "chart", sub: "Estructura y rubros de edificio" },
+  { id: "vivienda", name: "Vivienda unifamiliar", icon: "grid", sub: "Obra unifamiliar y sus rubros" },
+  { id: "refaccion", name: "Refacción / remodelación", icon: "package", sub: "Remodelación y refacción" },
+  { id: "comercial", name: "Comercial / industrial", icon: "truck", sub: "Local, planta o proyecto industrial" },
 ];
 
-export const TEMPLATES = [
-  { id: "desde-cero", name: "Empezar desde cero", sub: "Yo cargo el cronograma manualmente." },
-  { id: "plantilla", name: "Usar plantilla del tipo elegido", sub: "Cronograma sugerido que después editás.", recommended: true },
-  { id: "importar", name: "Importar Excel / MS Project", sub: "Subí tu Gantt y lo parseamos." },
-];
-
-export const PEOPLE = [
-
-];
-
-export const MORE_PEOPLE = [
-
-];
 export const DEFAULT_RUBROS: string[] = [
-];
-
-export const TEAM_ROLES_LIST = [
-  "Director de obra",
-  "Capataz",
-  "Compras",
-  "Arquitecto/a",
-  "Ingeniero/a",
-  "Seguridad e higiene",
-  "Cliente / propietario",
 ];
 
 export const STEPS = [
@@ -36,8 +13,5 @@ export const STEPS = [
   { id: 2, label: "Ubicación", sub: "Dónde está" },
   { id: 3, label: "Equipo", sub: "Quién participa" },
   { id: 4, label: "Cronograma", sub: "Fechas estimadas" },
-  { id: 5, label: "Cliente", sub: "Datos del cliente" },
-  { id: 6, label: "Presupuesto", sub: "Total y rubros" },
+  { id: 5, label: "Presupuesto", sub: "Total y rubros" },
 ];
-
-export const PERSON_MAP: Record<string, { name: string; role: string }> = {};

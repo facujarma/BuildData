@@ -133,14 +133,6 @@ export default function SignInForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            rightLabel={
-              <a
-                href="#"
-                className="text-[11px] font-bold text-primary hover:underline"
-              >
-                ¿Olvidaste tu contraseña?
-              </a>
-            }
             rightElement={
               <button
                 type="button"
@@ -174,12 +166,8 @@ export default function SignInForm({
 
       <div className="text-center text-[11px] text-slate-400 mt-4">
         © 2026 BuildData ·{" "}
-        <a href="#" className="hover:text-slate-600">
+        <a href="mailto:hola@buildata.app" className="hover:text-slate-600">
           Soporte
-        </a>{" "}
-        ·{" "}
-        <a href="#" className="hover:text-slate-600">
-          Estado del sistema
         </a>
       </div>
     </div>

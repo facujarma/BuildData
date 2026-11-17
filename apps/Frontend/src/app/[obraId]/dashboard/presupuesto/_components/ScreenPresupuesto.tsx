@@ -6,7 +6,6 @@ import {
   Check,
   CircleDollar,
   Clock,
-  FileArrowDown,
   Pencil,
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
@@ -20,10 +19,8 @@ import { useDashboardData } from "../../_components/DashboardDataContext";
 import { useRole } from "../../_components/RoleContext";
 import { getPresupuesto, ajustarPresupuesto, type PresupuestoData } from "@/services/presupuestoService";
 import {
-  CURRENCIES,
   formatMoney,
   type BudgetLine,
-  type CurrencyKey,
   type ForecastItem,
 } from "../data";
 
@@ -36,9 +33,7 @@ const KPI_TONES: Record<string, { tint: string; fg: string }> = {
 };
 
 interface ProjectedLine extends BudgetLine {
-  projected: number;
   over: boolean;
-  deviation: number;
 }
 
 function KpiCard({
@@ -74,13 +69,11 @@ export function ScreenPresupuesto() {
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [forecast, setForecast] = useState<ForecastItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cur, setCur] = useState<CurrencyKey>("ARS");
   const [editOpen, setEditOpen] = useState(false);
   const [toast, flash] = useToast();
   const [auditLog, setAuditLog] = useState<BudgetAuditEntry[]>([]);
   const { puede } = useRole();
   const puedeEditar = puede("presupuesto.editar");
-  const puedeExportar = puede("reportes.exportar");
 
   const apply = useCallback((d: PresupuestoData) => {
     setLines(d.lines);
@@ -102,7 +95,7 @@ export function ScreenPresupuesto() {
     };
   }, [obraId, apply, flash]);
 
-  const fmt = (m: number) => formatMoney(m, cur);
+  const fmt = (m: number) => formatMoney(m, "ARS");
 
   const total = lines.reduce((a, l) => a + l.cap, 0);
   const spent = lines.reduce((a, l) => a + l.spent, 0);
@@ -112,20 +105,7 @@ export function ScreenPresupuesto() {
   const pctComp = total > 0 ? Math.round((comp / total) * 100) : 0;
 
   const proj = useMemo<ProjectedLine[]>(
-    () =>
-      lines.map((l) => {
-        const used = l.spent + l.comp;
-        const remainingCap = Math.max(0, l.cap - used);
-        const over = l.spent > l.cap;
-        const factor = over ? 1.18 : l.spent / Math.max(1, l.cap) > 0.85 ? 1.06 : 1.0;
-        const projected = used + remainingCap * factor + (over ? (l.spent - l.cap) * 0.4 : 0);
-        return {
-          ...l,
-          projected: Math.round(projected * 10) / 10,
-          over,
-          deviation: Math.round((projected - l.cap) * 10) / 10,
-        };
-      }),
+    () => lines.map((l) => ({ ...l, over: l.spent > l.cap })),
     [lines],
   );
 
@@ -144,43 +124,18 @@ export function ScreenPresupuesto() {
     <>
       <DPageHeader
         title="Presupuesto"
-        subtitle="Una sola vista del dinero de la obra: ejecutado, comprometido, disponible y estimación de cierre."
+        subtitle="Una sola vista del dinero de la obra: ejecutado, comprometido y disponible."
         right={
-          <>
-            <div className="flex bg-slate-100 rounded-md p-[2px] gap-[2px]">
-              {(Object.keys(CURRENCIES) as CurrencyKey[]).map((k) => (
-                <button
-                  key={k}
-                  onClick={() => setCur(k)}
-                  className={`text-[11px] font-bold px-[10px] py-[5px] rounded inline-flex items-center gap-1 transition-colors ${
-                    cur === k ? "bg-white text-slate-950 shadow-card" : "text-slate-600 hover:text-slate-950"
-                  }`}
-                >
-                  {CURRENCIES[k].sym}
-                </button>
-              ))}
-            </div>
-            {puedeEditar && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Pencil width={13} height={13} />}
-                onClick={() => setEditOpen(true)}
-              >
-                Editar montos
-              </Button>
-            )}
-            {puedeExportar && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<FileArrowDown width={13} height={13} />}
-                onClick={() => flash("Exportando presupuesto a XLSX…")}
-              >
-                Exportar
-              </Button>
-            )}
-          </>
+          puedeEditar ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Pencil width={13} height={13} />}
+              onClick={() => setEditOpen(true)}
+            >
+              Editar montos
+            </Button>
+          ) : null
         }
       />
 
@@ -271,10 +226,6 @@ export function ScreenPresupuesto() {
                         Comprometido
                       </span>
                     </span>
-                    <span title="Estimación al cierre según ritmo y precios actuales">
-                      Cierre estimado:{" "}
-                      <b className={r.deviation > 0.5 ? "text-[#B91C1C]" : "text-slate-700"}>{fmt(r.projected)}</b>
-                    </span>
                   </div>
                 </div>
               );
@@ -286,7 +237,7 @@ export function ScreenPresupuesto() {
           <DCard padding="p-0">
             <div className="px-5 py-3 border-b border-slate-200">
               <div className="text-[14px] font-bold text-slate-950">Cuándo va a subir el gasto</div>
-              <div className="text-[11px] text-slate-500 mt-[1px]">Picos de desembolso previstos por IA</div>
+              <div className="text-[11px] text-slate-500 mt-[1px]">Previstos por los pedidos y las tareas pendientes</div>
             </div>
             <div className="p-4">
               <div className="relative pl-5 border-l-2 border-slate-200 space-y-4">
@@ -375,7 +326,7 @@ export function ScreenPresupuesto() {
       {editOpen && (
         <BudgetEditModal
           lines={lines}
-          cur={cur}
+          cur="ARS"
           onClose={() => setEditOpen(false)}
           onCommit={async (cambios, reason) => {
             await ajustarPresupuesto(obraId, cambios, reason);

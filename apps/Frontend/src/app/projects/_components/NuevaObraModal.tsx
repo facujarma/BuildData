@@ -6,7 +6,6 @@ import { Step1 } from "./Step1";
 import { Step2 } from "./Step2";
 import { Step3 } from "./Step3";
 import { Step4 } from "./Step4";
-import { Step5 } from "./Step5";
 import { Step6 } from "./Step6";
 import { SuccessState } from "./SuccessState";
 import { DEFAULT_RUBROS, STEPS } from "@/app/projects/data/wizard";
@@ -37,15 +36,6 @@ const validateStep = (step: number, data: WizardData): Record<string, string> =>
     }
   }
   if (step === 5) {
-    if (!data.client.name.trim()) e.clientName = "El nombre del cliente es obligatorio";
-    if (data.client.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email)) {
-      e.clientEmail = "El email no es válido";
-    }
-    if (data.client.phone && data.client.phone.replace(/[\s\-\(\)]/g, "").length < 8) {
-      e.clientPhone = "El teléfono parece incompleto";
-    }
-  }
-  if (step === 6) {
     const total = Number(data.budgetTotal) || 0;
     if (total <= 0) e.budgetTotal = "El presupuesto total debe ser mayor a cero";
     const hasNamedRubro = (data.rubros || []).some((r) => r.name.trim());
@@ -70,7 +60,6 @@ const INITIAL_DATA: WizardData = {
   teamRoles: {} as Record<string, string>,
   startDate: "",
   endDate: "",
-  client: { name: "", contact: "", cuit: "", email: "", phone: "", notes: "" },
   budgetTotal: "",
   rubros: makeRubros(),
 };
@@ -123,12 +112,6 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
         rubros: (data.rubros || [])
           .filter((r) => r.name.trim())
           .map((r) => ({ nombre: r.name.trim(), presupuesto: Number(r.amount) || 0 })),
-        clientName: data.client.name,
-        clientContact: data.client.contact,
-        clientCuit: data.client.cuit,
-        clientEmail: data.client.email,
-        clientPhone: data.client.phone,
-        clientNotes: data.client.notes,
       };
       const created = await createObra(mapped);
       setCreatedId(created?.id ? String(created.id) : null);
@@ -165,8 +148,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
     if (step === 2) return !!data.address.trim();
     if (step === 3) return true;
     if (step === 4) return true;
-    if (step === 5) return !!(data.client.name.trim());
-    if (step === 6) {
+    if (step === 5) {
       const hasNamedRubro = (data.rubros || []).some((r) => r.name.trim());
       return budgetTotal > 0 && hasNamedRubro && budgetSum <= budgetTotal;
     }
@@ -233,7 +215,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
                     <div className="flex items-center gap-1 font-bold text-slate-950 mb-1">
                       <CircleInfo width={12} height={12} className="text-primary" /> Podés editar todo después.
                     </div>
-                    Ningún paso es definitivo. Cambiás equipo, fechas o cronograma cuando quieras.
+                    Ningún paso es definitivo. Cambiás fechas, presupuesto y datos de la obra cuando quieras.
                   </div>
                 </div>
               </div>
@@ -244,8 +226,7 @@ export function NuevaObraModal({ open, onClose }: { open: boolean; onClose: () =
                 {step === 2 && <Step2 data={data} setData={setDataAndClear} errors={errors} />}
                 {step === 3 && <Step3 />}
                 {step === 4 && <Step4 data={data} setData={setDataAndClear} errors={errors} />}
-                {step === 5 && <Step5 data={data} setData={setDataAndClear} errors={errors} />}
-                {step === 6 && <Step6 data={data} setData={setDataAndClear} errors={errors} />}
+                {step === 5 && <Step6 data={data} setData={setDataAndClear} errors={errors} />}
               </div>
             </div>
 

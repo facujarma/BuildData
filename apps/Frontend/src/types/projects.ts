@@ -38,15 +38,6 @@ export interface WizardRubro {
   amount: string;
 }
 
-export interface WizardClient {
-  name: string;
-  contact: string;
-  cuit: string;
-  email: string;
-  phone: string;
-  notes: string;
-}
-
 export interface WizardData {
   name: string;
   code: string;
@@ -61,7 +52,6 @@ export interface WizardData {
   teamRoles: Record<string, string>;
   startDate: string;
   endDate: string;
-  client: WizardClient;
   budgetTotal: string;
   rubros: WizardRubro[];
 }

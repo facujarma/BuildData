@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 
@@ -20,10 +22,10 @@ export default function LandingNav() {
       }`}
     >
       <div className="max-w-[1240px] mx-auto px-6 h-[68px] flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Icon name="logo-mark" size={28} />
           <span className="text-[18px] font-extrabold display-tight">BuildData</span>
-        </a>
+        </Link>
         <div className="hidden md:flex items-center gap-7 text-[13px] font-semibold text-slate700">
           <a href="#problema" className="hover:text-primary">Problema</a>
           <a href="#how" className="hover:text-primary">Cómo funciona</a>

@@ -9,10 +9,9 @@ interface Props {
   budget: BudgetOverview;
   budgetBreakdown: BudgetItem[];
   onViewBreakdown?: () => void;
-  onExport?: () => void;
 }
 
-export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport }: Props) {
+export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown }: Props) {
   const ejecutadoPct = budget.total > 0 ? Math.round((budget.ejecutado / budget.total) * 100) : 0;
   const comprometidoPct = Math.round(budget.comprometidoPct) || 0;
   const librePct = budget.total > 0 ? Math.round((budget.disponible / budget.total) * 100) : 0;
@@ -116,14 +115,6 @@ export function BudgetCard({ budget, budgetBreakdown, onViewBreakdown, onExport 
       <div className="flex gap-2 mt-auto">
         <Button variant="accent" size="sm" onClick={onViewBreakdown}>
           Ver presupuesto
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-white hover:bg-white/10"
-          onClick={onExport}
-        >
-          Exportar
         </Button>
       </div>
     </div>

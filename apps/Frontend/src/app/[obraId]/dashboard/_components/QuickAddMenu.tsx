@@ -10,7 +10,6 @@ import {
   Box,
   Receipt,
   Persons,
-  Layers,
   Plus,
   ChevronDown,
 } from "@gravity-ui/icons";
@@ -51,10 +50,9 @@ const QUICK_ADD_GROUPS: { g: string; items: QuickAddItem[] }[] = [
     ],
   },
   {
-    g: "Equipo y config.",
+    g: "Equipo",
     items: [
-      { kind: "equipo", label: "Invitar al equipo", sub: "Sumá un miembro u obrero",       icon: Persons, tint: "bg-success-50 text-[#15803D]", permiso: "equipo.administrar" },
-      { kind: "rubro",  label: "Rubro",             sub: "Agrupa tareas, costos y pedidos", icon: Layers,  tint: "bg-primary-50 text-primary", permiso: "configuracion.editar" },
+      { kind: "equipo", label: "Invitar al equipo", sub: "Sumá un miembro u obrero", icon: Persons, tint: "bg-success-50 text-[#15803D]", permiso: "equipo.administrar" },
     ],
   },
 ];

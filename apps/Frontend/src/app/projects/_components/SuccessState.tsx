@@ -27,7 +27,6 @@ export function SuccessState({ data, obraId, onClose }: { data: WizardData; obra
           <div className="text-slate-500">Tipo</div><div className="font-bold text-slate-950 text-right">{TYPES.find((t) => t.id === data.type)?.name || "—"}</div>
           <div className="text-slate-500">Ubicación</div><div className="font-bold text-slate-950 text-right truncate">{data.address ? `${data.address}${data.city ? ", " + data.city : ""}` : "—"}</div>
           <div className="text-slate-500">Equipo</div><div className="font-bold text-slate-950 text-right">{data.team.length > 0 ? `${data.team.length} persona${data.team.length === 1 ? "" : "s"}` : "Vos (Director de obra)"}</div>
-          <div className="text-slate-500">Cliente</div><div className="font-bold text-slate-950 text-right truncate">{data.client?.name || "—"}</div>
           <div className="text-slate-500">Presupuesto</div><div className="font-bold text-slate-950 text-right tnum">AR$ {formatNumber(data.budgetTotal)}</div>
         </div>
       </div>
