@@ -41,9 +41,11 @@ export const invitacionCommand: Command = {
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         await message.reply(
-          error.code === "TELEFONO_DE_OTRA_CUENTA"
-            ? MSG.ERROR_INVITACION_TELEFONO_OCUPADO
-            : MSG.ERROR_INVITACION_USADA,
+          error.code === "TELEFONO_AMBIGUO"
+            ? MSG.ERROR_INVITACION_TELEFONO_AMBIGUO
+            : error.code === "TELEFONO_DE_OTRA_CUENTA"
+              ? MSG.ERROR_INVITACION_TELEFONO_OCUPADO
+              : MSG.ERROR_INVITACION_USADA,
         );
       } else if (error instanceof ApiError && error.status === 410) {
         await message.reply(MSG.ERROR_INVITACION_VENCIDA);
