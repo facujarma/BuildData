@@ -46,6 +46,7 @@ const estado = {
   equipo: [],
   sinSchemaAuth: false,
   miembroDeObra: true,
+  errorBuscarTelefono: null,
 };
 
 function rolSistema(nombre) {
@@ -169,7 +170,15 @@ const unificarPersonasMock = mock(async (datos) => {
 
 mock.module("../services/personas.service.js", () => ({
   unificarPersonas: unificarPersonasMock,
-  buscarPersonaPorTelefono: async () => null,
+  buscarPersonaPorTelefono: async (_db, telefono) => {
+    if (estado.errorBuscarTelefono) throw estado.errorBuscarTelefono;
+    const digitos = String(telefono ?? "").replace(/\D/g, "");
+    return (
+      estado.personas.find(
+        (persona) => String(persona.telefono ?? "").replace(/\D/g, "") === digitos
+      ) ?? null
+    );
+  },
   esPersonaError: (error) => error?.name === "PersonaError",
 }));
 
@@ -229,6 +238,7 @@ beforeEach(() => {
   estado.equipo = [];
   estado.sinSchemaAuth = false;
   estado.miembroDeObra = true;
+  estado.errorBuscarTelefono = null;
   poolQuery.mockClear();
   crearInvitacionMock.mockClear();
   consumirInvitacionMock.mockClear();
@@ -480,6 +490,52 @@ describe("crearInvitacionWeb — persona existente con cuenta web", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({ error: "El teléfono es requerido para enviar el link" });
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("409 si el teléfono ya pertenece a otra persona con una cuenta web distinta", async () => {
+    conPersonaEnLaObra(personaWeb());
+    estado.personas.push({
+      id: "otra-persona",
+      auth_user_id: OTRO_AUTH_ID,
+      nombre: "Otra web",
+      telefono: "5491112345678",
+    });
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toContain("vinculado a otra cuenta web");
+    expect(crearInvitacionMock).not.toHaveBeenCalled();
+  });
+
+  test("201 si el teléfono pertenece a una persona sin cuenta web (se unifica al consumir)", async () => {
+    conPersonaEnLaObra(personaWeb());
+    estado.personas.push({
+      id: "persona-wa",
+      auth_user_id: null,
+      nombre: "Ana WhatsApp",
+      telefono: "5491112345678",
+    });
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(201);
+    expect(crearInvitacionMock).toHaveBeenCalledTimes(1);
+    expect(estado.invitaciones[0].personaId).toBe(DESTINO_ID);
+  });
+
+  test("409 si hay más de una persona con el teléfono ingresado", async () => {
+    conPersonaEnLaObra(personaWeb());
+    estado.errorBuscarTelefono = Object.assign(new Error("ambiguo"), {
+      name: "PersonaError",
+      code: "TELEFONO_AMBIGUO",
+    });
+
+    const res = await invitar({ persona_id: DESTINO_ID, nombre: undefined });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toContain("más de una persona");
     expect(crearInvitacionMock).not.toHaveBeenCalled();
   });
 });

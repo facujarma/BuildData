@@ -220,6 +220,32 @@ export async function crearInvitacionWeb(req, res) {
         return res.status(400).json({ error: "El teléfono es requerido para enviar el link" });
       }
 
+      // Si el número ya es de una persona con OTRA cuenta web, el merge no es
+      // seguro: se rechaza acá, antes de generar un link que no podría usarse.
+      // Si es una persona sin cuenta web, es el caso normal (el humano se había
+      // dado de alta por WhatsApp); al consumir el link se unifican.
+      let duenioTelefono = null;
+      try {
+        duenioTelefono = await buscarPersonaPorTelefono(pool, telefonoDestino);
+      } catch (error) {
+        if (esPersonaError(error) && error.code === "TELEFONO_AMBIGUO") {
+          return res.status(409).json({
+            error: "Hay más de una persona con ese teléfono; resolvé la duplicación antes de invitar",
+          });
+        }
+        throw error;
+      }
+      if (
+        duenioTelefono &&
+        duenioTelefono.id !== persona.id &&
+        duenioTelefono.auth_user_id &&
+        duenioTelefono.auth_user_id !== persona.auth_user_id
+      ) {
+        return res.status(409).json({
+          error: "Ese teléfono ya está vinculado a otra cuenta web; unificá las cuentas desde Equipo",
+        });
+      }
+
       const rolPersona = (await resolverRol(obra_id, persona.rol)) ?? {
         nombre: persona.rol || "Obrero",
       };

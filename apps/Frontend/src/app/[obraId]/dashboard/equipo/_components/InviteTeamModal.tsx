@@ -119,7 +119,8 @@ export function InviteTeamModal({ open, obraId, personas, onClose, onSave }: Inv
             <div className="text-[12px] text-slate-700 leading-snug">
               <span className="font-bold">Primero fijate si ya está en la obra.</span>{" "}
               Si la persona tiene acceso a la app, elegila de la lista: vinculamos su WhatsApp a
-              esa misma cuenta y no se duplica. Si no aparece, cargá su nombre y teléfono abajo.
+              esa misma cuenta y no se duplica. Si no aparece, elegí “No está en la lista” y cargá
+              su nombre y teléfono.
             </div>
           </div>
 
