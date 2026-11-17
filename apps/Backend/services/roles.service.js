@@ -462,7 +462,7 @@ export async function obtenerRol(obraId, rolIdOrNombre) {
 // 2. normalizarRol legacy → rol de sistema equivalente;
 // 3. Obrero (mínimo privilegio).
 // Si la tabla no existe, devuelve el rol de sistema sintético (id null).
-export async function resolverRol(obraId, rolRaw) {
+export async function resolverRol(obraId, rolRaw, db = pool) {
   const legado = normalizarRol(rolRaw);
   if (!obraId) return rolSistemaSintetico(legado);
 
@@ -478,7 +478,7 @@ export async function resolverRol(obraId, rolRaw) {
 
   try {
     for (const nombre of candidatos) {
-      const { rows } = await pool.query(
+      const { rows } = await db.query(
         `SELECT * FROM roles_obra WHERE obra_id = $1 AND lower(nombre) = lower($2) LIMIT 1`,
         [obraId, nombre]
       );

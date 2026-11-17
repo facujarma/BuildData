@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Smartphone } from "@gravity-ui/icons";
+import { Plus, Persons, Smartphone } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
 import { DAvatar } from "@/components/ui/DAvatar";
@@ -14,6 +14,7 @@ import type { Obrero } from "../data";
 import { esMismoTelefono } from "../data/telefono";
 import { useToast, DashToast } from "../../_components/useToast";
 import { InviteTeamModal } from "./InviteTeamModal";
+import { VincularCuentaModal } from "./VincularCuentaModal";
 
 export function ScreenEquipo() {
   const { obraId } = useParams<{ obraId: string }>();
@@ -27,6 +28,8 @@ export function ScreenEquipo() {
   // entre obras si Next reutiliza la instancia al navegar.
   const [pendientes, setPendientes] = useState<(Obrero & { obraId: string })[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Fila de WhatsApp elegida para unificar con una cuenta web existente.
+  const [vinculando, setVinculando] = useState<Obrero | null>(null);
   const { puede } = useRole();
   const puedeAdministrar = puede("equipo.administrar");
   const [toast, flash] = useToast();
@@ -34,8 +37,17 @@ export function ScreenEquipo() {
   const aplicarEquipo = useCallback((equipo: EquipoData) => {
     setData(equipo);
     setError(null);
+    // Una invitación deja de estar pendiente cuando la persona ya tiene el
+    // teléfono en la DB. Puede aparecer en `obreros` (solo WhatsApp) o en
+    // `people` (cuenta web ya vinculada a ese número).
     setPendientes((prev) =>
-      prev.filter((p) => !equipo.obreros.some((o) => esMismoTelefono(o.phone, p.phone))),
+      prev.filter(
+        (p) =>
+          !equipo.obreros.some((o) => esMismoTelefono(o.phone, p.phone)) &&
+          !equipo.people.some(
+            (persona) => persona.phone && esMismoTelefono(persona.phone, p.phone),
+          ),
+      ),
     );
   }, []);
 
@@ -105,7 +117,7 @@ export function ScreenEquipo() {
         </h3>
         <div className="grid grid-cols-3 gap-3">
           {people.map((p) => (
-            <DCard key={p.who} padding="p-4">
+            <DCard key={p.id} padding="p-4">
               <div className="flex items-center gap-3">
                 <DAvatar initials={p.who} size={44} />
                 <div className="min-w-0">
@@ -164,6 +176,19 @@ export function ScreenEquipo() {
                 <DPill tone={o.sent ? "success" : "attention"}>
                   {o.sent ? "Vinculado" : "Pendiente"}
                 </DPill>
+                {/* `sent` distingue las filas que ya son personas en la DB de las
+                    invitaciones de la sesión: una invitación pendiente todavía no
+                    tiene persona, así que no se puede unificar. */}
+                {puedeAdministrar && people.length > 0 && o.sent && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Persons width={13} height={13} />}
+                    onClick={() => setVinculando(o)}
+                  >
+                    Vincular cuenta
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -174,6 +199,7 @@ export function ScreenEquipo() {
         <InviteTeamModal
           open={inviteOpen}
         obraId={obraId}
+        personas={people}
         onClose={() => setInviteOpen(false)}
         onSave={(creada) => {
           // `link` solo existe si POST /obreros/invitacion respondió 201.
@@ -192,6 +218,23 @@ export function ScreenEquipo() {
           flash(`Invitación creada para ${creada.nombre}`);
           void recargar();
         }}
+        />
+      )}
+
+      {puedeAdministrar && (
+        <VincularCuentaModal
+          // Remonta al cambiar de fila: la selección y el error no se mezclan
+          // entre obreros distintos.
+          key={vinculando?.id ?? "sin-obrero"}
+          open={vinculando !== null}
+          obraId={obraId}
+          obrero={vinculando}
+          personas={people}
+          onClose={() => setVinculando(null)}
+          onLinked={() => {
+            flash(vinculando ? `Cuenta de ${vinculando.name} vinculada` : "Cuenta vinculada");
+            void recargar();
+          }}
         />
       )}
 

@@ -12,6 +12,7 @@ import { ROLES_SISTEMA, normalizarPermisos } from "../services/roles.service.js"
 
 const OBRA_ID = "0b7c1f5e-1a2b-4c3d-8e9f-0123456789ab";
 const PERSONA_ID = "1c8d2e6f-2b3c-4d4e-9f00-123456789abc";
+const AUTH_USER_ID = "7f6e5d4c-3b2a-4190-8f7e-6d5c4b3a2010";
 const RUBRO_ID = "2d9e3f70-3c4d-4e5f-8a11-23456789abcd";
 
 const estado = {
@@ -108,6 +109,23 @@ function responder(sqlOriginal, params = []) {
     });
     return { rows: [], rowCount: 1 };
   }
+  if (
+    sql.startsWith(
+      "SELECT id, auth_user_id, nombre, telefono, created_at FROM personas WHERE auth_user_id = $1"
+    )
+  ) {
+    return {
+      rows: [
+        {
+          id: PERSONA_ID,
+          auth_user_id: params[0],
+          nombre: "Creador",
+          telefono: null,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    };
+  }
   if (sql.startsWith("SELECT id FROM personas WHERE auth_user_id")) {
     return { rows: [{ id: PERSONA_ID }] };
   }
@@ -156,7 +174,7 @@ function makeRes() {
 const reqParams = (extra = {}) => ({ params: { obraId: OBRA_ID }, ...extra });
 
 const reqCrear = () => ({
-  user: { id: "auth-user-1", user_metadata: {} },
+  user: { id: AUTH_USER_ID, user_metadata: {} },
   body: {
     name: "Obra nueva",
     type: "edificio",

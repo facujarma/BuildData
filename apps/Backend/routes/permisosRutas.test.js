@@ -91,6 +91,7 @@ const ESPERADO = {
   "GET /obreros/:obra_id": "equipo.ver",
   "POST /obreros/asignar-obra": "equipo.administrar",
   "POST /obreros/invitacion": "equipo.administrar",
+  "POST /obreros/:obrero_id/obra/:obra_id/vincular": "equipo.administrar",
   "DELETE /obreros/:obrero_id/obra/:obra_id": "equipo.administrar",
 
   "GET /materiales/:obra_id": "stock.ver",
