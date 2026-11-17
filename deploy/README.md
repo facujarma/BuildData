@@ -111,6 +111,15 @@ Configuración, una sola vez:
    chmod 600 ~/.ssh/authorized_keys
    ```
 
+   > Si la VM tiene **OS Login** habilitado, `authorized_keys` se ignora. En ese
+   > caso agregá la pública al perfil de OS Login:
+   >
+   > ```bash
+   > gcloud compute os-login ssh-keys add \
+   >   --key-file=~/.ssh/builddata_deploy.pub \
+   >   --project=spheric-gearing-360622
+   > ```
+
 3. Cargar los secrets del repo (`gh secret set` o Settings → Secrets and
    variables → Actions):
 
