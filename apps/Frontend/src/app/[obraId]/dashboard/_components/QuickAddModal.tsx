@@ -208,14 +208,22 @@ function QuickAddProveedor({ obraId, onClose, onDone }: Omit<Props, "kind">) {
 
 function QuickAddEquipo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
   const [personas, setPersonas] = useState<Person[]>([]);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     // El modal ofrece elegir a quien ya tiene cuenta web; si falla, cae al
     // alta manual sin bloquear la invitación.
     getEquipo(obraId)
       .then((equipo) => setPersonas(equipo.people))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCargando(false));
   }, [obraId]);
+
+  // Evita mostrar el alta manual y cambiarla por el selector cuando la lista
+  // llega tarde: el usuario perdería lo que ya escribió.
+  if (cargando) {
+    return <div className="p-8 text-center text-[13px] text-slate-500">Cargando equipo…</div>;
+  }
 
   return (
     <InviteTeamModal
