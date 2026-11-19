@@ -38,7 +38,7 @@ export const CATALOGO_PERMISOS = {
   web: [
     { key: "dashboard.ver", label: "ver el dashboard", grupo: "General" },
     { key: "bandeja.ver", label: "ver la bandeja de operaciones", grupo: "Bandeja" },
-    { key: "bandeja.aprobar", label: "aprobar operaciones", grupo: "Bandeja" },
+    { key: "bandeja.aprobar", label: "aprobar o rechazar operaciones", grupo: "Bandeja" },
     { key: "equipo.ver", label: "ver el equipo", grupo: "Equipo" },
     { key: "equipo.administrar", label: "administrar el equipo", grupo: "Equipo" },
     { key: "configuracion.ver", label: "ver configuración", grupo: "Configuración" },

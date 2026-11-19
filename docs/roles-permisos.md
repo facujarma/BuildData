@@ -259,6 +259,21 @@ La membresía sigue siendo obligatoria: sin membresía, 403.
 | `POST/PATCH/DELETE /obras/:obraId/rubros*` | `configuracion.editar` |
 | `POST /chat/consultar` | `dashboard.ver` |
 
+### Bandeja: aprobar/reintentar vs. rechazar
+
+El middleware de las tres rutas exige `bandeja.aprobar`, pero el service agrega una
+segunda barrera distinta según lo que hace la operación:
+
+- **Aprobar y reintentar ejecutan** la operación por loopback: exigen
+  `bandeja.aprobar` **y** el permiso bot del endpoint (`ENDPOINT_PERMISOS[op.endpoint]`
+  sobre `permisos.bot`). Nadie aprueba algo que su rol no podría hacer desde WhatsApp.
+- **Rechazar no ejecuta nada**: exige **solo** `bandeja.aprobar`. No se pide el
+  permiso bot del endpoint ni se valida que el rechazador sea distinto del creador
+  (autoaprobación permitida, ver Decisiones).
+
+Ambos chequeos son fail closed (`roles_obra`, vía `perfilEnObra`): sin membresía o
+sin el permiso en `true` → `403` antes de tocar la fila.
+
 ### Payloads filtrados por permiso
 
 Dos endpoints los comparten roles con permisos distintos, así que recortan el body
@@ -316,6 +331,7 @@ la barrera dura sigue en el Backend (`registrarOperaciones` y endpoints directos
   `equipo.administrar` (no se puede dejar la obra sin administrador).
 - Un rol con `equipo.administrar` solo puede asignar roles de nivel ≤ al suyo.
 - Aprobar/rechazar no valida que el aprobador sea distinto del creador
-  (autoaprobación permitida por decisión).
+  (autoaprobación permitida por decisión). Rechazar solo exige `bandeja.aprobar`;
+  aprobar/reintentar exigen además el permiso bot del endpoint (porque ejecutan).
 - El texto libre de nombre de rol se valida: 2–40 caracteres, único por obra
   (case-insensitive).

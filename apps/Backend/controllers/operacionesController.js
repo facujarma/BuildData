@@ -116,6 +116,13 @@ export async function rechazarOperacionWeb(req, res) {
         .status(409)
         .json({ error: `la operación ya está ${resultado.estado}` });
     }
+    if (resultado.forbidden) {
+      return res.status(403).json({
+        error: resultado.rol
+          ? `tu rol ${resultado.rol} no puede rechazar operaciones de la bandeja`
+          : "no tenés permiso para rechazar operaciones de la bandeja",
+      });
+    }
     res.json(resultado.operacion);
   } catch (error) {
     console.error(error);
