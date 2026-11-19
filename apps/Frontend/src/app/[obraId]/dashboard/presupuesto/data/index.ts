@@ -9,9 +9,7 @@ export interface BudgetLine {
 }
 
 export const CURRENCIES = {
-  ARS: { sym: 'AR$', rate: 1,        dec: 0 },
-  USD: { sym: 'US$', rate: 1 / 1050,   dec: 2 },
-  EUR: { sym: '€',   rate: 1 / 1140,   dec: 2 },
+  ARS: { sym: 'AR$', dec: 0 },
 };
 
 export type CurrencyKey = keyof typeof CURRENCIES;
@@ -19,8 +17,8 @@ export type CurrencyKey = keyof typeof CURRENCIES;
 export function formatMoney(millonesArs: number, cur: CurrencyKey): string {
   const c = CURRENCIES[cur];
   // Con montos reales hay rubros de menos de 10 M: un decimal para no mostrar "0 M"
-  if (cur === 'ARS') return `${c.sym} ${formatNumber(millonesArs, Math.abs(millonesArs) < 10 ? 1 : 0)} M`;
-  return `${c.sym} ${formatNumber(millonesArs * c.rate, 2)} M`;
+  if (Math.abs(millonesArs) < 10) return `${c.sym} ${formatNumber(millonesArs, 1)} M`;
+  return `${c.sym} ${formatNumber(millonesArs, c.dec)} M`;
 }
 
 const RUBRO_COLORS: Record<string, string> = {

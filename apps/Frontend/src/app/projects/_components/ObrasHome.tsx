@@ -64,18 +64,15 @@ function ListIcon() {
 
 export function ObrasHome({
   cover = "blueprint",
-  mood = "focused",
   density = "regular",
 }: {
   cover?: string;
-  mood?: "focused" | "bright";
   density?: string;
 }) {
   const [obras, setObras] = useState<Obra[]>([]);
   const [view, setView] = useState("grid");
   const [filter, setFilter] = useState("todas");
   const [sort, setSort] = useState("reciente");
-  const [tab, setTab] = useState("obras");
   const [query, setQuery] = useState("");
   const [newObraOpen, setNewObraOpen] = useState(false);
   const [editing, setEditing] = useState<Obra | null>(null);
@@ -95,7 +92,13 @@ export function ObrasHome({
         !query ||
         o.name.toLowerCase().includes(query.toLowerCase()) ||
         o.address.toLowerCase().includes(query.toLowerCase()),
-    );
+    )
+    .sort((a, b) => {
+      if (sort === "nombre") return a.name.localeCompare(b.name);
+      if (sort === "avance") return b.progress - a.progress;
+      // "reciente": el Backend ya devuelve por last_activity DESC
+      return 0;
+    });
 
   const recientes = obras.filter((o) => o.status !== "finalizada").slice(0, 4);
   const totals = {
@@ -112,7 +115,7 @@ export function ObrasHome({
   if (obrasLoading) {
     return (
       <div className="obras-root flex bg-paper overflow-hidden" style={{ height: "100vh" }}>
-        <WorkspaceSidebar current={tab} onNav={setTab} onNewObra={() => {}} mood={mood} />
+        <WorkspaceSidebar onNewObra={() => {}} />
         <div className="flex-1 min-w-0 flex flex-col">
           <WorkspaceTopbar query="" onQuery={() => {}} />
           <main className="flex-1 overflow-y-auto">
@@ -130,10 +133,7 @@ export function ObrasHome({
       className="obras-root flex bg-paper overflow-hidden"
     >
       <WorkspaceSidebar
-        current={tab}
-        onNav={setTab}
         onNewObra={() => setNewObraOpen(true)}
-        mood={mood}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         <WorkspaceTopbar query={query} onQuery={setQuery} />

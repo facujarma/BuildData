@@ -13,7 +13,6 @@ import {
   ArrowUpRightFromSquare,
   Check,
   Xmark,
-  ArrowRight,
 } from "@gravity-ui/icons";
 import { DPageHeader } from "../../_components/DPageHeader";
 import { DCard } from "@/components/ui/DCard";
@@ -302,24 +301,6 @@ export function ScreenReportes() {
                 Generar reporte
               </Button>
             )}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="justify-center"
-                icon={<Envelope width={13} height={13} />}
-              >
-                Enviar por email
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="justify-center"
-                icon={<ArrowRight width={13} height={13} />}
-              >
-                Compartir
-              </Button>
-            </div>
           </div>
         </div>
       </div>

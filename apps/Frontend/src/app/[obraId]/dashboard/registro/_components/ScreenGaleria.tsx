@@ -57,7 +57,6 @@ export function ScreenGaleria() {
   const { obraId } = useDashboardData();
   const { puede } = useRole();
   const puedeGestionar = puede("galeria.gestionar");
-  const puedeExportar = puede("reportes.exportar");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
@@ -135,14 +134,9 @@ export function ScreenGaleria() {
         title="Galería de obra"
         subtitle={`${photos.length} fotos · asociadas a su tarea, rubro, fecha y autor`}
         right={
-          <>
-            {puedeExportar && (
-              <DButton variant="secondary" size="sm" icon={<FileArrowDown width={13} height={13} />} onClick={() => flash("Exportando galería…")}>Exportar</DButton>
-            )}
-            {puedeGestionar && (
-              <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => setShowUpload(true)}>Subir fotos</DButton>
-            )}
-          </>
+          puedeGestionar && (
+            <DButton variant="primary" size="sm" icon={<CloudArrowUpIn width={13} height={13} />} onClick={() => setShowUpload(true)}>Subir fotos</DButton>
+          )
         }
       />
 

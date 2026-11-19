@@ -10,8 +10,6 @@ export interface Person {
   // pero todavía no reporta por el bot: se la puede invitar desde el selector.
   phone?: string | null;
   role: string;
-  tasks: number;
-  reports: number;
 }
 
 export interface Obrero {

@@ -123,10 +123,6 @@ export function ScreenEquipo() {
                 <div className="min-w-0">
                   <div className="text-[14px] font-bold text-slate-950 truncate">{p.name}</div>
                   <div className="text-[11px] text-slate-500">{p.role}</div>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[10px] text-slate-400 tnum">{p.tasks} tareas</span>
-                    <span className="text-[10px] text-slate-400 tnum">{p.reports} reportes</span>
-                  </div>
                 </div>
               </div>
             </DCard>

@@ -2,7 +2,6 @@
 
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Magnifier } from "@gravity-ui/icons";
 import { QuickAddMenu } from "./QuickAddMenu";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { AvatarMenu } from "@/components/ui/AvatarMenu";
@@ -79,11 +78,6 @@ export function DashTopBar({
         ) : null}
       </div>
       <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 w-[260px] bg-white border border-slate-200 rounded-md px-3 py-[6px] text-[12px] text-slate-500 focus-within:border-primary transition-colors">
-          <Magnifier width={14} height={14} className="text-slate-400" />
-          <input type="text" placeholder="Buscar tareas, pedidos, personas…" className="w-full bg-transparent focus:outline-none" />
-          <kbd className="text-[10px] font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded px-[5px] py-[1px] flex-none">⌘K</kbd>
-        </div>
         {onQuickAdd && <QuickAddMenu onPick={onQuickAdd} />}
         <NotificationsPanel />
         <AvatarMenu />

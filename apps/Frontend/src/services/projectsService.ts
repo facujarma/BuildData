@@ -18,12 +18,6 @@ interface CreateObraInput {
   waConnect: boolean;
   presupuestoTotal?: number;
   rubros?: { nombre: string; presupuesto?: number }[];
-  clientName?: string;
-  clientContact?: string;
-  clientCuit?: string;
-  clientEmail?: string;
-  clientPhone?: string;
-  clientNotes?: string;
 }
 
 interface CreateObraPayload {
@@ -42,12 +36,6 @@ interface CreateObraPayload {
   team?: string[];
   presupuestoTotal: number;
   rubros: { nombre: string; presupuesto?: number }[];
-  clientName?: string;
-  clientContact?: string;
-  clientCuit?: string;
-  clientEmail?: string;
-  clientPhone?: string;
-  clientNotes?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -153,12 +141,6 @@ export async function createObra(input: CreateObraInput): Promise<Obra> {
     presupuestoTotal: input.presupuestoTotal ?? 1_000_000,
     rubros: input.rubros || [],
     team: (input.team || []).map((t) => t.name),
-    clientName: input.clientName,
-    clientContact: input.clientContact,
-    clientCuit: input.clientCuit,
-    clientEmail: input.clientEmail,
-    clientPhone: input.clientPhone,
-    clientNotes: input.clientNotes,
   };
 
   const res = await fetch(`${API_URL}/obras`, {

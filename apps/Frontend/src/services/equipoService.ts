@@ -92,8 +92,6 @@ export async function getEquipo(obraId: string): Promise<EquipoData> {
         email: r.email ?? null,
         phone: r.telefono || null,
         role: r.rol || "Sin asignar",
-        tasks: 0,
-        reports: 0,
       });
     } else {
       obreros.push({

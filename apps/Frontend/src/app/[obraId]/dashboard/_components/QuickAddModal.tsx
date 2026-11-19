@@ -12,7 +12,6 @@ import { createRecibo } from "@/services/recibosService";
 import { CATEGORIES as RECEIPT_CATEGORIES } from "../recibos/data";
 import { NuevaTareaModal } from "../cronograma/_components/NuevaTareaModal";
 import { NewOrderModal, type MaterialOption } from "../pedidos/_components/NewOrderModal";
-import { CategoryModal } from "./CategoryModal";
 import { useDashboardData } from "./DashboardDataContext";
 import { getObreros, createPedido, type ObreroLite } from "@/services/pedidosService";
 import { getStock, createMaterial } from "@/services/stockService";
@@ -174,19 +173,6 @@ function QuickAddRecibo({ obraId, onClose, onDone }: Omit<Props, "kind">) {
         onDone("Comprobante cargado");
         onClose();
       }}
-    />
-  );
-}
-
-function QuickAddRubro({ onClose, onDone }: Omit<Props, "kind" | "obraId">) {
-  const { data } = useDashboardData();
-  return (
-    <CategoryModal
-      open
-      initial={null}
-      availableTasks={data.tasks}
-      onClose={onClose}
-      onSave={(cat) => onDone(`Rubro “${cat.name}” creado`)}
     />
   );
 }
@@ -390,8 +376,6 @@ export function QuickAddModal({ kind, obraId, onClose, onDone }: Props) {
       return <QuickAddMaterial obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "recibo":
       return <QuickAddRecibo obraId={obraId} onClose={onClose} onDone={onDone} />;
-    case "rubro":
-      return <QuickAddRubro onClose={onClose} onDone={onDone} />;
     case "proveedor":
       return <QuickAddProveedor obraId={obraId} onClose={onClose} onDone={onDone} />;
     case "equipo":

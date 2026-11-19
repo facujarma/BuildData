@@ -280,7 +280,6 @@ export function ScreenPedidos() {
           onCancel={handleCancel}
           onChangeState={handleChangeState}
           onDeliver={(id) => { setDeliverFor(orders.find((o) => o.id === id) || selected); setSelected(null); }}
-          onComprobante={() => flash("Comprobante no disponible")}
           puedeAprobar={puedeAprobar}
           puedeEntregar={puedeEntregar}
         />

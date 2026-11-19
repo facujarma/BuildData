@@ -86,6 +86,35 @@ export function RoleErrorCard({ error, onRetry }: { error: Error; onRetry?: () =
 }
 
 /**
+ * Cartel para una pantalla o pestaña que todavía no existe en el producto.
+ * No muestra datos de ejemplo: deja explícito que la sección está en
+ * preparación y qué va a hacer cuando esté disponible.
+ */
+export function SectionComingSoon({
+  title = "Sección en preparación",
+  detalle,
+}: {
+  title?: string;
+  detalle?: string;
+}) {
+  return (
+    <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center">
+      <span className="w-11 h-11 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
+        <Lock width={20} height={20} />
+      </span>
+      <h2 className="text-[15px] font-bold text-slate-950">{title}</h2>
+      <p className="text-[13px] text-slate-600 mt-1 max-w-[420px] mx-auto">
+        Todavía no está disponible en la app. Cuando la sección esté lista va a
+        aparecer acá, con los datos reales de la obra.
+      </p>
+      {detalle && (
+        <p className="text-[11px] text-slate-500 mt-2 max-w-[440px] mx-auto">{detalle}</p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Aviso chico y reutilizable para una acción que no se puede ocultar de forma
  * limpia (se deja el control `disabled` con este texto o con `tituloBloqueado`).
  */
