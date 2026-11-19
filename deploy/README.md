@@ -74,12 +74,72 @@ El Backend ya tiene `cors()` abierto (`apps/Backend/server.js`), no hace falta t
 
 ## 6. Actualizar
 
+### Manual
+
 ```bash
 ./deploy/update.sh
 ```
 
 Avisá antes: al reiniciar el bot se pierden las encuestas pendientes en memoria
 (`pendingQuery`, `clarifications`, `pollMessage.store`).
+
+### Automático con GitHub Actions
+
+`.github/workflows/deploy.yml` corre `./deploy/update.sh` por SSH cuando el
+workflow **CI** termina bien en `master` (o a mano desde Actions → CD - VPS →
+Run workflow). Después del deploy hace un healthcheck contra la API.
+
+Solo actualiza si el commit tocó `apps/Backend`, `apps/WhatsApp-Bot`, `deploy/`,
+`docker-compose.yml`, `package.json`, `bun.lock` o el propio workflow: un cambio
+de frontend o de docs no reinicia el bot.
+
+Configuración, una sola vez:
+
+1. Generar una clave dedicada para el deploy (no uses tu clave personal):
+
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions@builddata" -f ~/.ssh/builddata_deploy -N ""
+   ```
+
+2. Autorizar la pública en la VM, con el usuario que corre Docker:
+
+   ```bash
+   # En la VM (por gcloud compute ssh o por SSH normal)
+   mkdir -p ~/.ssh && chmod 700 ~/.ssh
+   cat >> ~/.ssh/authorized_keys
+   # pegás el contenido de ~/.ssh/builddata_deploy.pub y terminás con Ctrl+D
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+
+   > Si la VM tiene **OS Login** habilitado, `authorized_keys` se ignora. En ese
+   > caso agregá la pública al perfil de OS Login:
+   >
+   > ```bash
+   > gcloud compute os-login ssh-keys add \
+   >   --key-file=~/.ssh/builddata_deploy.pub \
+   >   --project=spheric-gearing-360622
+   > ```
+
+3. Cargar los secrets del repo (`gh secret set` o Settings → Secrets and
+   variables → Actions):
+
+   ```bash
+   gh secret set VPS_HOST --body "34.138.144.130"
+   gh secret set VPS_USER --body "<usuario-de-ssh>"   # el dueño de ~/BuildData y del grupo docker
+   gh secret set VPS_SSH_KEY < ~/.ssh/builddata_deploy
+   ssh-keyscan -H 34.138.144.130 2>/dev/null | gh secret set VPS_KNOWN_HOSTS
+   ```
+
+   Opcionales: `VPS_PORT` (default 22) y `API_HEALTH_URL` (default
+   `https://api.builddata.com.ar/`).
+
+4. Opcional: en Settings → Environments → `production`, agregar **required
+   reviewers** si querés aprobar cada deploy a mano.
+
+El workflow no hace checkout: la VM es la que hace `git pull --ff-only`. Si el
+checkout de la VM quedó en otra rama, el workflow lo pasa a `master` antes de
+correr el script. Si hay cambios locales sin commitear en la VM, falla a
+propósito en vez de pisarlos.
 
 ## Backups
 
